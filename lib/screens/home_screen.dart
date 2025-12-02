@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:hive_flutter/hive_flutter.dart';
 import '../models/user_model.dart';
+import 'workout_screen.dart'; // <--- IMPORTANTE: Importamos la nueva pantalla
 
 class HomeScreen extends StatelessWidget {
   const HomeScreen({super.key});
@@ -17,22 +18,43 @@ class HomeScreen extends StatelessWidget {
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            Text('¡Hola, ${currentUser?.name}!'),
-            const SizedBox(height: 10),
             Text(
+              '¡Hola, ${currentUser?.name}!',
+              style: const TextStyle(fontSize: 20),
+            ),
+            const SizedBox(height: 10),
+            const Text(
               'Tu Somatotipo detectado es:',
               style: TextStyle(fontSize: 18),
             ),
             Text(
               currentUser?.somatotype.toString().split('.').last.toUpperCase() ?? 'N/A',
-              style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold, color: Colors.blue),
+              style: const TextStyle(fontSize: 24, fontWeight: FontWeight.bold, color: Colors.blue),
             ),
             const SizedBox(height: 20),
-            Text('TDEE (Calorías): ${currentUser?.tdee.toStringAsFixed(0)} kcal'),
+            Text(
+              'TDEE (Calorías): ${currentUser?.tdee.toStringAsFixed(0)} kcal',
+              style: const TextStyle(fontSize: 16),
+            ),
             const SizedBox(height: 40),
+            
+            // --- BOTÓN DE ACCIÓN PRINCIPAL ---
             ElevatedButton(
-              onPressed: () {}, 
-              child: const Text('Ver mi Rutina (Próximamente)')
+              style: ElevatedButton.styleFrom(
+                backgroundColor: Colors.blueAccent, // Color llamativo
+                padding: const EdgeInsets.symmetric(horizontal: 30, vertical: 15),
+              ),
+              onPressed: () {
+                // Navegamos a la pantalla de entrenamiento
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(builder: (context) => const WorkoutScreen()),
+                );
+              }, 
+              child: const Text(
+                'INICIAR RUTINA DE HOY', 
+                style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
+              ),
             )
           ],
         ),
