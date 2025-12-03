@@ -92,6 +92,9 @@ class FatigueService {
       case Somatotype.endomorph:
         modifier *= 0.9; // 10% más lento
         break;
+      case Somatotype.undefined:
+        modifier *= 1.0;
+        break;
     }
     
     return modifier;

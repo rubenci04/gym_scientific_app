@@ -210,29 +210,17 @@ class RoutineGeneratorService {
   
   
     static List<Map<String, dynamic>> _getSplitStructure(
-  
         int days, TrainingGoal goal) {
-  
       // Lógica principal para determinar la estructura basada en días y objetivo
-  
       switch (goal) {
-  
         case TrainingGoal.strength:
-  
           return _getStrengthStructure(days);
-  
         case TrainingGoal.hypertrophy:
-  
           return _getHypertrophyStructure(days);
-  
         case TrainingGoal.endurance:
-  
         default:
-  
           return _getGeneralStructure(days);
-  
       }
-  
     }
   
   

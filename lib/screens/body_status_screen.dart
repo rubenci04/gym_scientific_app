@@ -180,11 +180,11 @@ class BodyHeatmap extends StatelessWidget {
 
     Color glowColor;
     if (f < 0.3) {
-      glowColor = AppColors.muscleFresh.withOpacity(0.1);
+      glowColor = AppColors.muscleFresh.withAlpha(26);
     } else if (f < 0.7) {
-      glowColor = AppColors.muscleRecovering.withOpacity(0.6);
+      glowColor = AppColors.muscleRecovering.withAlpha(153);
     } else {
-      glowColor = AppColors.muscleFatigued.withOpacity(0.8);
+      glowColor = AppColors.muscleFatigued.withAlpha(204);
     }
 
     return Image.asset(

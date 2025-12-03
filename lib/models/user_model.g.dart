@@ -17,6 +17,7 @@ class UserProfileAdapter extends TypeAdapter<UserProfile> {
       for (int i = 0; i < numOfFields; i++) reader.readByte(): reader.read(),
     };
     return UserProfile(
+      id: fields[15] as String,
       name: fields[0] as String,
       age: fields[1] as int,
       weight: fields[2] as double,
@@ -30,13 +31,15 @@ class UserProfileAdapter extends TypeAdapter<UserProfile> {
       goal: fields[10] as TrainingGoal,
       location: fields[11] as TrainingLocation,
       focusArea: fields[12] as String,
+      birthDate: fields[13] as DateTime?,
+      experience: fields[14] as Experience,
     );
   }
 
   @override
   void write(BinaryWriter writer, UserProfile obj) {
     writer
-      ..writeByte(13)
+      ..writeByte(16)
       ..writeByte(0)
       ..write(obj.name)
       ..writeByte(1)
@@ -62,7 +65,13 @@ class UserProfileAdapter extends TypeAdapter<UserProfile> {
       ..writeByte(11)
       ..write(obj.location)
       ..writeByte(12)
-      ..write(obj.focusArea);
+      ..write(obj.focusArea)
+      ..writeByte(13)
+      ..write(obj.birthDate)
+      ..writeByte(14)
+      ..write(obj.experience)
+      ..writeByte(15)
+      ..write(obj.id);
   }
 
   @override
@@ -91,6 +100,8 @@ class TrainingGoalAdapter extends TypeAdapter<TrainingGoal> {
         return TrainingGoal.weightLoss;
       case 3:
         return TrainingGoal.generalHealth;
+      case 4:
+        return TrainingGoal.endurance;
       default:
         return TrainingGoal.hypertrophy;
     }
@@ -110,6 +121,9 @@ class TrainingGoalAdapter extends TypeAdapter<TrainingGoal> {
         break;
       case TrainingGoal.generalHealth:
         writer.writeByte(3);
+        break;
+      case TrainingGoal.endurance:
+        writer.writeByte(4);
         break;
     }
   }
@@ -160,6 +174,50 @@ class TrainingLocationAdapter extends TypeAdapter<TrainingLocation> {
   bool operator ==(Object other) =>
       identical(this, other) ||
       other is TrainingLocationAdapter &&
+          runtimeType == other.runtimeType &&
+          typeId == other.typeId;
+}
+
+class ExperienceAdapter extends TypeAdapter<Experience> {
+  @override
+  final int typeId = 8;
+
+  @override
+  Experience read(BinaryReader reader) {
+    switch (reader.readByte()) {
+      case 0:
+        return Experience.beginner;
+      case 1:
+        return Experience.intermediate;
+      case 2:
+        return Experience.advanced;
+      default:
+        return Experience.beginner;
+    }
+  }
+
+  @override
+  void write(BinaryWriter writer, Experience obj) {
+    switch (obj) {
+      case Experience.beginner:
+        writer.writeByte(0);
+        break;
+      case Experience.intermediate:
+        writer.writeByte(1);
+        break;
+      case Experience.advanced:
+        writer.writeByte(2);
+        break;
+    }
+  }
+
+  @override
+  int get hashCode => typeId.hashCode;
+
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      other is ExperienceAdapter &&
           runtimeType == other.runtimeType &&
           typeId == other.typeId;
 }

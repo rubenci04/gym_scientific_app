@@ -74,7 +74,7 @@ class _GoalSelectionScreenState extends State<GoalSelectionScreen> {
               
               const Text('¿Cuál es tu objetivo?', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
               DropdownButtonFormField<TrainingGoal>(
-                value: _selectedGoal,
+                initialValue: _selectedGoal,
                 items: const [
                   DropdownMenuItem(value: TrainingGoal.hypertrophy, child: Text('Ganar Músculo')),
                   DropdownMenuItem(value: TrainingGoal.weightLoss, child: Text('Perder Grasa')),

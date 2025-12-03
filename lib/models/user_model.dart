@@ -12,7 +12,9 @@ enum TrainingGoal {
   @HiveField(2)
   weightLoss,  // Perder Peso/Definir
   @HiveField(3)
-  generalHealth // Salud General
+  generalHealth, // Salud General
+  @HiveField(4)
+  endurance // Resistencia
 }
 
 @HiveType(typeId: 7)
@@ -21,6 +23,16 @@ enum TrainingLocation {
   gym,  // Gimnasio Completo
   @HiveField(1)
   home, // Casa (Mancuernas/Corporal)
+}
+
+@HiveType(typeId: 8)
+enum Experience {
+  @HiveField(0)
+  beginner,
+  @HiveField(1)
+  intermediate,
+  @HiveField(2)
+  advanced,
 }
 
 // --- CLASIFICACIÓN SOMATOTIPO ---
@@ -78,7 +90,25 @@ class UserProfile extends HiveObject {
   @HiveField(12)
   String focusArea; 
 
+  @HiveField(13)
+  DateTime? birthDate;
+
+  @HiveField(14)
+  Experience experience;
+
+  // Optional: ID field if needed by services, though HiveObject has 'key'
+  // But ProgressiveOverloadService uses user.id, so let's add it if it's not the key.
+  // Actually HiveObject has .key, but the service code uses .id. 
+  // Let's check if I should add String id. The service code: UserProfile(id: user.id, ...)
+  // The previous file didn't have 'id'. 
+  // I will add 'id' as well to be safe, or check if it was there. 
+  // Looking at previous view_file of user_model.dart (Step 79), there was NO 'id' field.
+  // But ProgressiveOverloadService uses it. I should add it.
+  @HiveField(15)
+  String id;
+
   UserProfile({
+    this.id = '', // Default empty or generate uuid
     required this.name,
     required this.age,
     required this.weight,
@@ -92,5 +122,7 @@ class UserProfile extends HiveObject {
     this.goal = TrainingGoal.generalHealth,
     this.location = TrainingLocation.gym,
     this.focusArea = 'Equilibrado',
+    this.birthDate,
+    this.experience = Experience.beginner,
   });
 }

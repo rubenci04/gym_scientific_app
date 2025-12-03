@@ -1,4 +1,5 @@
 import 'package:hive/hive.dart';
+import 'package:flutter/foundation.dart';
 import '../models/exercise_model.dart';
 
 class SeedDataService {
@@ -48,7 +49,7 @@ class SeedDataService {
       ];
 
       await exerciseBox.addAll(allExercises);
-      print("✅ Seed completado.");
+      debugPrint("✅ Seed completado.");
     }
   }
 }

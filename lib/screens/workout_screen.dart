@@ -432,7 +432,25 @@ class _WorkoutScreenState extends State<WorkoutScreen> {
 
   
 
-      // ... (código de _addSet y build sin cambios)
+    void _addSet(String exId) {
+      setState(() {
+        if (!_sessionData.containsKey(exId)) {
+          _sessionData[exId] = [];
+        }
+        double lastWeight = 0;
+        int lastReps = 0;
+        if (_sessionData[exId]!.isNotEmpty) {
+           lastWeight = _sessionData[exId]!.last.weight;
+           lastReps = _sessionData[exId]!.last.reps;
+        }
+        
+        _sessionData[exId]!.add(WorkoutSet(
+          weight: lastWeight, 
+          reps: lastReps, 
+          rpe: 8.0
+        ));
+      });
+    }
 
   
 
@@ -750,7 +768,7 @@ class _WorkoutScreenState extends State<WorkoutScreen> {
 
                                       ),
 
-                                      onChanged: (val) => s.rpe = int.tryParse(val) ?? 7, // Default a 7 si falla
+                                      onChanged: (val) => s.rpe = double.tryParse(val) ?? 7.0, // Default a 7 si falla
 
                                     ),
 
@@ -842,7 +860,7 @@ class _WorkoutScreenState extends State<WorkoutScreen> {
 
                       const SizedBox(width: 10),
 
-                      Text("Descanso: ${_formatTime(_secondsRest)}", style: const TextStyle(color: Colors.white, fontSize: 18, fontWeight: bold)),
+                      Text("Descanso: ${_formatTime(_secondsRest)}", style: const TextStyle(color: Colors.white, fontSize: 18, fontWeight: FontWeight.bold)),
 
                       const SizedBox(width: 20),
 

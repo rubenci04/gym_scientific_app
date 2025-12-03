@@ -7,24 +7,30 @@
 
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
-
+import 'package:hive_flutter/hive_flutter.dart';
 import 'package:gym_scientific_app/main.dart';
+import 'package:gym_scientific_app/models/user_model.dart';
 
 void main() {
-  testWidgets('Counter increments smoke test', (WidgetTester tester) async {
+  setUpAll(() async {
+    Hive.init('./test/hive_db');
+    Hive.registerAdapter(UserProfileAdapter());
+    Hive.registerAdapter(TrainingGoalAdapter());
+    Hive.registerAdapter(TrainingLocationAdapter());
+    Hive.registerAdapter(SomatotypeAdapter());
+    Hive.registerAdapter(ExperienceAdapter());
+    await Hive.openBox<UserProfile>('userBox');
+  });
+
+  tearDownAll(() async {
+    await Hive.deleteFromDisk();
+  });
+
+  testWidgets('App launches successfully', (WidgetTester tester) async {
     // Build our app and trigger a frame.
-    await tester.pumpWidget(const MyApp());
+    await tester.pumpWidget(const GymApp());
 
-    // Verify that our counter starts at 0.
-    expect(find.text('0'), findsOneWidget);
-    expect(find.text('1'), findsNothing);
-
-    // Tap the '+' icon and trigger a frame.
-    await tester.tap(find.byIcon(Icons.add));
-    await tester.pump();
-
-    // Verify that our counter has incremented.
-    expect(find.text('0'), findsNothing);
-    expect(find.text('1'), findsOneWidget);
+    // Verify that we are either at Onboarding or Home
+    expect(find.byType(MaterialApp), findsOneWidget);
   });
 }

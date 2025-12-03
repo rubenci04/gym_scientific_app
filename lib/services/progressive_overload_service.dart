@@ -43,6 +43,7 @@ class ProgressiveOverloadService {
           weight: user.weight,
           height: user.height,
           birthDate: user.birthDate,
+          age: user.age,
           gender: user.gender,
       );
 
