@@ -179,17 +179,14 @@ class BodyHeatmapPainter extends CustomPainter {
 
   @override
   void paint(Canvas canvas, Size size) {
-    // final paint = Paint()..style = PaintingStyle.fill; // Removed unused variable
-
     final outlinePaint = Paint()
       ..color = Colors.white24
       ..style = PaintingStyle.stroke
       ..strokeWidth = 2.0;
 
-    // Coordenadas relativas simplificadas (0.0 a 1.0)
     if (isFront) {
-      // Cabeza
-      _drawPart(
+      // Head
+      _drawHead(
         canvas,
         size,
         const Offset(0.5, 0.1),
@@ -198,74 +195,66 @@ class BodyHeatmapPainter extends CustomPainter {
         outlinePaint,
       );
 
-      // Pectorales
-      _drawMuscle(
-        canvas,
-        size,
-        const Offset(0.35, 0.25),
+      // Chest (Pectorales) - More organic shape
+      _drawPath(canvas, size, [
+        const Offset(0.30, 0.20),
+        const Offset(0.70, 0.20),
         const Offset(0.65, 0.35),
-        'Pectorales',
-      );
+        const Offset(0.35, 0.35),
+      ], 'Pectorales');
 
-      // Abdominales
-      _drawMuscle(
-        canvas,
-        size,
-        const Offset(0.40, 0.36),
-        const Offset(0.60, 0.50),
-        'Abdominales',
-      );
+      // Abs (Abdominales)
+      _drawPath(canvas, size, [
+        const Offset(0.38, 0.35),
+        const Offset(0.62, 0.35),
+        const Offset(0.58, 0.50),
+        const Offset(0.42, 0.50),
+      ], 'Abdominales');
 
-      // Hombros
-      _drawMuscle(
-        canvas,
-        size,
-        const Offset(0.20, 0.20),
-        const Offset(0.35, 0.28),
-        'Hombros',
-      ); // Izq
-      _drawMuscle(
-        canvas,
-        size,
-        const Offset(0.65, 0.20),
-        const Offset(0.80, 0.28),
-        'Hombros',
-      ); // Der
+      // Shoulders (Hombros)
+      _drawPath(canvas, size, [
+        const Offset(0.20, 0.18),
+        const Offset(0.30, 0.20),
+        const Offset(0.30, 0.28),
+        const Offset(0.18, 0.25),
+      ], 'Hombros'); // Left
+      _drawPath(canvas, size, [
+        const Offset(0.70, 0.20),
+        const Offset(0.80, 0.18),
+        const Offset(0.82, 0.25),
+        const Offset(0.70, 0.28),
+      ], 'Hombros'); // Right
 
       // Biceps
-      _drawMuscle(
-        canvas,
-        size,
-        const Offset(0.15, 0.30),
-        const Offset(0.25, 0.40),
-        'Biceps',
-      ); // Izq
-      _drawMuscle(
-        canvas,
-        size,
-        const Offset(0.75, 0.30),
-        const Offset(0.85, 0.40),
-        'Biceps',
-      ); // Der
+      _drawPath(canvas, size, [
+        const Offset(0.18, 0.28),
+        const Offset(0.30, 0.30),
+        const Offset(0.28, 0.40),
+        const Offset(0.15, 0.38),
+      ], 'Biceps'); // Left
+      _drawPath(canvas, size, [
+        const Offset(0.70, 0.30),
+        const Offset(0.82, 0.28),
+        const Offset(0.85, 0.38),
+        const Offset(0.72, 0.40),
+      ], 'Biceps'); // Right
 
-      // Cuadriceps
-      _drawMuscle(
-        canvas,
-        size,
-        const Offset(0.35, 0.52),
-        const Offset(0.48, 0.75),
-        'Cuadriceps',
-      ); // Izq
-      _drawMuscle(
-        canvas,
-        size,
-        const Offset(0.52, 0.52),
-        const Offset(0.65, 0.75),
-        'Cuadriceps',
-      ); // Der
+      // Quads (Cuadriceps)
+      _drawPath(canvas, size, [
+        const Offset(0.35, 0.50),
+        const Offset(0.48, 0.50),
+        const Offset(0.46, 0.75),
+        const Offset(0.38, 0.75),
+      ], 'Cuadriceps'); // Left
+      _drawPath(canvas, size, [
+        const Offset(0.52, 0.50),
+        const Offset(0.65, 0.50),
+        const Offset(0.62, 0.75),
+        const Offset(0.54, 0.75),
+      ], 'Cuadriceps'); // Right
     } else {
-      // Cabeza
-      _drawPart(
+      // Head
+      _drawHead(
         canvas,
         size,
         const Offset(0.5, 0.1),
@@ -274,75 +263,67 @@ class BodyHeatmapPainter extends CustomPainter {
         outlinePaint,
       );
 
-      // Dorsales (Espalda)
-      _drawMuscle(
-        canvas,
-        size,
-        const Offset(0.30, 0.25),
-        const Offset(0.70, 0.45),
-        'Dorsales',
-      );
+      // Back (Dorsales)
+      _drawPath(canvas, size, [
+        const Offset(0.25, 0.20),
+        const Offset(0.75, 0.20),
+        const Offset(0.60, 0.45),
+        const Offset(0.40, 0.45),
+      ], 'Dorsales');
+
+      // Glutes (Gluteos)
+      _drawPath(canvas, size, [
+        const Offset(0.35, 0.45),
+        const Offset(0.65, 0.45),
+        const Offset(0.65, 0.60),
+        const Offset(0.35, 0.60),
+      ], 'Gluteos');
 
       // Triceps
-      _drawMuscle(
-        canvas,
-        size,
-        const Offset(0.15, 0.30),
-        const Offset(0.25, 0.40),
-        'Triceps',
-      ); // Izq
-      _drawMuscle(
-        canvas,
-        size,
-        const Offset(0.75, 0.30),
-        const Offset(0.85, 0.40),
-        'Triceps',
-      ); // Der
+      _drawPath(canvas, size, [
+        const Offset(0.18, 0.28),
+        const Offset(0.30, 0.30),
+        const Offset(0.28, 0.40),
+        const Offset(0.15, 0.38),
+      ], 'Triceps'); // Left
+      _drawPath(canvas, size, [
+        const Offset(0.70, 0.30),
+        const Offset(0.82, 0.28),
+        const Offset(0.85, 0.38),
+        const Offset(0.72, 0.40),
+      ], 'Triceps'); // Right
 
-      // Gluteos
-      _drawMuscle(
-        canvas,
-        size,
-        const Offset(0.35, 0.50),
-        const Offset(0.65, 0.60),
-        'Gluteos',
-      );
+      // Hamstrings (Isquiotibiales)
+      _drawPath(canvas, size, [
+        const Offset(0.38, 0.60),
+        const Offset(0.46, 0.60),
+        const Offset(0.46, 0.75),
+        const Offset(0.38, 0.75),
+      ], 'Isquiotibiales'); // Left
+      _drawPath(canvas, size, [
+        const Offset(0.54, 0.60),
+        const Offset(0.62, 0.60),
+        const Offset(0.62, 0.75),
+        const Offset(0.54, 0.75),
+      ], 'Isquiotibiales'); // Right
 
-      // Isquios
-      _drawMuscle(
-        canvas,
-        size,
-        const Offset(0.35, 0.62),
-        const Offset(0.48, 0.75),
-        'Isquiotibiales',
-      ); // Izq
-      _drawMuscle(
-        canvas,
-        size,
-        const Offset(0.52, 0.62),
-        const Offset(0.65, 0.75),
-        'Isquiotibiales',
-      ); // Der
-
-      // Gemelos
-      _drawMuscle(
-        canvas,
-        size,
-        const Offset(0.35, 0.78),
-        const Offset(0.48, 0.90),
-        'Gemelos',
-      ); // Izq
-      _drawMuscle(
-        canvas,
-        size,
-        const Offset(0.52, 0.78),
-        const Offset(0.65, 0.90),
-        'Gemelos',
-      ); // Der
+      // Calves (Gemelos)
+      _drawPath(canvas, size, [
+        const Offset(0.38, 0.78),
+        const Offset(0.46, 0.78),
+        const Offset(0.44, 0.90),
+        const Offset(0.40, 0.90),
+      ], 'Gemelos'); // Left
+      _drawPath(canvas, size, [
+        const Offset(0.54, 0.78),
+        const Offset(0.62, 0.78),
+        const Offset(0.60, 0.90),
+        const Offset(0.56, 0.90),
+      ], 'Gemelos'); // Right
     }
   }
 
-  void _drawPart(
+  void _drawHead(
     Canvas canvas,
     Size size,
     Offset center,
@@ -362,11 +343,10 @@ class BodyHeatmapPainter extends CustomPainter {
     );
   }
 
-  void _drawMuscle(
+  void _drawPath(
     Canvas canvas,
     Size size,
-    Offset topLeft,
-    Offset bottomRight,
+    List<Offset> points,
     String muscleKey,
   ) {
     final fatigue = fatigueMap[muscleKey] ?? 0.0;
@@ -379,20 +359,28 @@ class BodyHeatmapPainter extends CustomPainter {
       color = AppColors.muscleFatigued;
     }
 
-    final rect = Rect.fromPoints(
-      Offset(topLeft.dx * size.width, topLeft.dy * size.height),
-      Offset(bottomRight.dx * size.width, bottomRight.dy * size.height),
-    );
+    final path = Path();
+    path.moveTo(points[0].dx * size.width, points[0].dy * size.height);
+    for (int i = 1; i < points.length; i++) {
+      path.lineTo(points[i].dx * size.width, points[i].dy * size.height);
+    }
+    path.close();
 
-    canvas.drawRRect(
-      RRect.fromRectAndRadius(rect, const Radius.circular(10)),
+    // Draw filled shape
+    canvas.drawPath(
+      path,
       Paint()..color = Color.fromARGB(200, color.red, color.green, color.blue),
     );
-    canvas.drawRRect(
-      RRect.fromRectAndRadius(rect, const Radius.circular(10)),
+
+    // Draw outline with rounded joins for a smoother look
+    canvas.drawPath(
+      path,
       Paint()
         ..color = Colors.white30
-        ..style = PaintingStyle.stroke,
+        ..style = PaintingStyle.stroke
+        ..strokeWidth = 1.5
+        ..strokeJoin = StrokeJoin.round
+        ..strokeCap = StrokeCap.round,
     );
   }
 
