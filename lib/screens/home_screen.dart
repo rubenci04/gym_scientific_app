@@ -9,6 +9,7 @@ import 'workout_screen.dart';
 import 'body_status_screen.dart';
 import 'routine_list_screen.dart';
 import 'progress_screen.dart';
+import 'nutrition_screen.dart';
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
@@ -79,6 +80,16 @@ class _HomeScreenState extends State<HomeScreen> {
               );
             },
             tooltip: "Mi Progreso",
+          ),
+          IconButton(
+            icon: const Icon(Icons.restaurant_menu, color: AppColors.primary),
+            onPressed: () {
+              Navigator.push(
+                context,
+                MaterialPageRoute(builder: (c) => const NutritionScreen()),
+              );
+            },
+            tooltip: "Nutrición",
           ),
           IconButton(
             icon: const Icon(Icons.accessibility_new, color: AppColors.primary),

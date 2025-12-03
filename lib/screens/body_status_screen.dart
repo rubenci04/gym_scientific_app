@@ -16,10 +16,9 @@ class _BodyStatusScreenState extends State<BodyStatusScreen> {
 
   @override
   Widget build(BuildContext context) {
-    // Obtenemos el usuario actual para personalizar el cálculo
     final userBox = Hive.box<UserProfile>('userBox');
     final currentUser = userBox.get('currentUser');
-    
+
     final fatigueMap = FatigueService.calculateMuscleFatigue(currentUser);
 
     return Scaffold(
@@ -36,7 +35,7 @@ class _BodyStatusScreenState extends State<BodyStatusScreen> {
                 _isFrontView = !_isFrontView;
               });
             },
-          )
+          ),
         ],
       ),
       body: Column(
@@ -52,16 +51,18 @@ class _BodyStatusScreenState extends State<BodyStatusScreen> {
               _buildLegendItem(AppColors.muscleFatigued, 'Fatigado'),
             ],
           ),
-          
+
           Expanded(
             flex: 3,
             child: InteractiveViewer(
               minScale: 0.5,
               maxScale: 3.0,
-              child: BodyHeatmap(
-                fatigueMap: fatigueMap, 
-                isFront: _isFrontView,
-                isMale: true, // Forzado a hombre por ahora
+              child: CustomPaint(
+                size: const Size(300, 500),
+                painter: BodyHeatmapPainter(
+                  fatigueMap: fatigueMap,
+                  isFront: _isFrontView,
+                ),
               ),
             ),
           ),
@@ -76,12 +77,39 @@ class _BodyStatusScreenState extends State<BodyStatusScreen> {
               ),
               child: ListView(
                 children: [
-                  const Text("Estado por Grupo Muscular", style: TextStyle(color: Colors.white, fontSize: 18, fontWeight: FontWeight.bold)),
+                  const Text(
+                    "Estado por Grupo Muscular",
+                    style: TextStyle(
+                      color: Colors.white,
+                      fontSize: 18,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
                   const SizedBox(height: 10),
-                  ...(_isFrontView 
-                      ? ['Pectorales', 'Hombros', 'Biceps', 'Abdominales', 'Cuadriceps'] 
-                      : ['Dorsales', 'Triceps', 'Gluteos', 'Isquiotibiales', 'Gemelos']
-                    ).map((muscleKey) => _buildMuscleBar(muscleKey, FatigueService.getFatigueLevel(muscleKey, currentUser)))
+                  ...(_isFrontView
+                          ? [
+                              'Pectorales',
+                              'Hombros',
+                              'Biceps',
+                              'Abdominales',
+                              'Cuadriceps',
+                            ]
+                          : [
+                              'Dorsales',
+                              'Triceps',
+                              'Gluteos',
+                              'Isquiotibiales',
+                              'Gemelos',
+                            ])
+                      .map(
+                        (muscleKey) => _buildMuscleBar(
+                          muscleKey,
+                          FatigueService.getFatigueLevel(
+                            muscleKey,
+                            currentUser,
+                          ),
+                        ),
+                      ),
                 ],
               ),
             ),
@@ -94,15 +122,26 @@ class _BodyStatusScreenState extends State<BodyStatusScreen> {
   Widget _buildLegendItem(Color color, String label) {
     return Row(
       children: [
-        Container(width: 12, height: 12, decoration: BoxDecoration(color: color, shape: BoxShape.circle)),
+        Container(
+          width: 12,
+          height: 12,
+          decoration: BoxDecoration(color: color, shape: BoxShape.circle),
+        ),
         const SizedBox(width: 5),
-        Text(label, style: const TextStyle(color: Colors.white70, fontSize: 12)),
+        Text(
+          label,
+          style: const TextStyle(color: Colors.white70, fontSize: 12),
+        ),
       ],
     );
   }
 
   Widget _buildMuscleBar(String label, double fatigue) {
-    Color color = fatigue < 0.3 ? AppColors.muscleFresh : (fatigue < 0.7 ? AppColors.muscleRecovering : AppColors.muscleFatigued);
+    Color color = fatigue < 0.3
+        ? AppColors.muscleFresh
+        : (fatigue < 0.7
+              ? AppColors.muscleRecovering
+              : AppColors.muscleFatigued);
     return Padding(
       padding: const EdgeInsets.only(bottom: 12.0),
       child: Column(
@@ -112,7 +151,10 @@ class _BodyStatusScreenState extends State<BodyStatusScreen> {
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
               Text(label, style: const TextStyle(color: Colors.white)),
-              Text("${(fatigue * 100).toInt()}%", style: TextStyle(color: color, fontWeight: FontWeight.bold)),
+              Text(
+                "${(fatigue * 100).toInt()}%",
+                style: TextStyle(color: color, fontWeight: FontWeight.bold),
+              ),
             ],
           ),
           const SizedBox(height: 5),
@@ -128,73 +170,232 @@ class _BodyStatusScreenState extends State<BodyStatusScreen> {
     );
   }
 }
-// ... (BodyHeatmap widget remains the same)
-class BodyHeatmap extends StatelessWidget {
+
+class BodyHeatmapPainter extends CustomPainter {
   final Map<String, double> fatigueMap;
   final bool isFront;
-  final bool isMale;
 
-  const BodyHeatmap({
-    super.key, 
-    required this.fatigueMap, 
-    required this.isFront, 
-    required this.isMale
-  });
+  BodyHeatmapPainter({required this.fatigueMap, required this.isFront});
 
   @override
-  Widget build(BuildContext context) {
-    final String gender = isMale ? 'male' : 'female';
-    final String view = isFront ? 'front' : 'back'; 
-    final String basePath = 'assets/images/body/$gender/$view';
-    final String baseImage = isFront ? 'CuerpoEnteroFrente.png' : 'CuerpoEnteroDetras.png';
+  void paint(Canvas canvas, Size size) {
+    // final paint = Paint()..style = PaintingStyle.fill; // Removed unused variable
 
-    return Stack(
-      alignment: Alignment.center,
-      children: [
-        Image.asset(
-          '$basePath/$baseImage',
-          fit: BoxFit.contain,
-          color: const Color(0xFF2C3E50), 
-          colorBlendMode: BlendMode.modulate, 
-        ),
+    final outlinePaint = Paint()
+      ..color = Colors.white24
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = 2.0;
 
-        if (isFront) ...[
-          _buildOverlay('$basePath/Pectorales.png', fatigueMap['Pectorales']),
-          _buildOverlay('$basePath/Abdominales.png', fatigueMap['Abdominales']),
-          _buildOverlay('$basePath/Cuadriceps.png', fatigueMap['Cuadriceps']),
-          _buildOverlay('$basePath/Hombros.png', fatigueMap['Hombros']),
-          _buildOverlay('$basePath/Biceps.png', fatigueMap['Biceps']),
-        ] else ...[
-          _buildOverlay('$basePath/Dorsales.png', fatigueMap['Dorsales']),
-          _buildOverlay('$basePath/Gluteos.png', fatigueMap['Gluteos']),
-          _buildOverlay('$basePath/Triceps.png', fatigueMap['Triceps']),
-          _buildOverlay('$basePath/Gemelos.png', fatigueMap['Gemelos']),
-          _buildOverlay('$basePath/Isquiotibiales.png', fatigueMap['Isquiotibiales']),
-        ]
-      ],
+    // Coordenadas relativas simplificadas (0.0 a 1.0)
+    if (isFront) {
+      // Cabeza
+      _drawPart(
+        canvas,
+        size,
+        const Offset(0.5, 0.1),
+        0.08,
+        Colors.grey,
+        outlinePaint,
+      );
+
+      // Pectorales
+      _drawMuscle(
+        canvas,
+        size,
+        const Offset(0.35, 0.25),
+        const Offset(0.65, 0.35),
+        'Pectorales',
+      );
+
+      // Abdominales
+      _drawMuscle(
+        canvas,
+        size,
+        const Offset(0.40, 0.36),
+        const Offset(0.60, 0.50),
+        'Abdominales',
+      );
+
+      // Hombros
+      _drawMuscle(
+        canvas,
+        size,
+        const Offset(0.20, 0.20),
+        const Offset(0.35, 0.28),
+        'Hombros',
+      ); // Izq
+      _drawMuscle(
+        canvas,
+        size,
+        const Offset(0.65, 0.20),
+        const Offset(0.80, 0.28),
+        'Hombros',
+      ); // Der
+
+      // Biceps
+      _drawMuscle(
+        canvas,
+        size,
+        const Offset(0.15, 0.30),
+        const Offset(0.25, 0.40),
+        'Biceps',
+      ); // Izq
+      _drawMuscle(
+        canvas,
+        size,
+        const Offset(0.75, 0.30),
+        const Offset(0.85, 0.40),
+        'Biceps',
+      ); // Der
+
+      // Cuadriceps
+      _drawMuscle(
+        canvas,
+        size,
+        const Offset(0.35, 0.52),
+        const Offset(0.48, 0.75),
+        'Cuadriceps',
+      ); // Izq
+      _drawMuscle(
+        canvas,
+        size,
+        const Offset(0.52, 0.52),
+        const Offset(0.65, 0.75),
+        'Cuadriceps',
+      ); // Der
+    } else {
+      // Cabeza
+      _drawPart(
+        canvas,
+        size,
+        const Offset(0.5, 0.1),
+        0.08,
+        Colors.grey,
+        outlinePaint,
+      );
+
+      // Dorsales (Espalda)
+      _drawMuscle(
+        canvas,
+        size,
+        const Offset(0.30, 0.25),
+        const Offset(0.70, 0.45),
+        'Dorsales',
+      );
+
+      // Triceps
+      _drawMuscle(
+        canvas,
+        size,
+        const Offset(0.15, 0.30),
+        const Offset(0.25, 0.40),
+        'Triceps',
+      ); // Izq
+      _drawMuscle(
+        canvas,
+        size,
+        const Offset(0.75, 0.30),
+        const Offset(0.85, 0.40),
+        'Triceps',
+      ); // Der
+
+      // Gluteos
+      _drawMuscle(
+        canvas,
+        size,
+        const Offset(0.35, 0.50),
+        const Offset(0.65, 0.60),
+        'Gluteos',
+      );
+
+      // Isquios
+      _drawMuscle(
+        canvas,
+        size,
+        const Offset(0.35, 0.62),
+        const Offset(0.48, 0.75),
+        'Isquiotibiales',
+      ); // Izq
+      _drawMuscle(
+        canvas,
+        size,
+        const Offset(0.52, 0.62),
+        const Offset(0.65, 0.75),
+        'Isquiotibiales',
+      ); // Der
+
+      // Gemelos
+      _drawMuscle(
+        canvas,
+        size,
+        const Offset(0.35, 0.78),
+        const Offset(0.48, 0.90),
+        'Gemelos',
+      ); // Izq
+      _drawMuscle(
+        canvas,
+        size,
+        const Offset(0.52, 0.78),
+        const Offset(0.65, 0.90),
+        'Gemelos',
+      ); // Der
+    }
+  }
+
+  void _drawPart(
+    Canvas canvas,
+    Size size,
+    Offset center,
+    double radiusPct,
+    Color color,
+    Paint outlinePaint,
+  ) {
+    canvas.drawCircle(
+      Offset(center.dx * size.width, center.dy * size.height),
+      radiusPct * size.width,
+      Paint()..color = color,
+    );
+    canvas.drawCircle(
+      Offset(center.dx * size.width, center.dy * size.height),
+      radiusPct * size.width,
+      outlinePaint,
     );
   }
 
-  Widget _buildOverlay(String assetPath, double? fatigue) {
-    final f = fatigue ?? 0.0;
-
-    Color glowColor;
-    if (f < 0.3) {
-      glowColor = AppColors.muscleFresh.withAlpha(26);
-    } else if (f < 0.7) {
-      glowColor = AppColors.muscleRecovering.withAlpha(153);
+  void _drawMuscle(
+    Canvas canvas,
+    Size size,
+    Offset topLeft,
+    Offset bottomRight,
+    String muscleKey,
+  ) {
+    final fatigue = fatigueMap[muscleKey] ?? 0.0;
+    Color color;
+    if (fatigue < 0.3) {
+      color = AppColors.muscleFresh;
+    } else if (fatigue < 0.7) {
+      color = AppColors.muscleRecovering;
     } else {
-      glowColor = AppColors.muscleFatigued.withAlpha(204);
+      color = AppColors.muscleFatigued;
     }
 
-    return Image.asset(
-      assetPath,
-      fit: BoxFit.contain,
-      color: glowColor,
-      colorBlendMode: BlendMode.srcATop,
-      errorBuilder: (context, error, stackTrace) {
-        return const SizedBox(); 
-      },
+    final rect = Rect.fromPoints(
+      Offset(topLeft.dx * size.width, topLeft.dy * size.height),
+      Offset(bottomRight.dx * size.width, bottomRight.dy * size.height),
+    );
+
+    canvas.drawRRect(
+      RRect.fromRectAndRadius(rect, const Radius.circular(10)),
+      Paint()..color = Color.fromARGB(200, color.red, color.green, color.blue),
+    );
+    canvas.drawRRect(
+      RRect.fromRectAndRadius(rect, const Radius.circular(10)),
+      Paint()
+        ..color = Colors.white30
+        ..style = PaintingStyle.stroke,
     );
   }
+
+  @override
+  bool shouldRepaint(covariant CustomPainter oldDelegate) => true;
 }

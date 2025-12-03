@@ -149,7 +149,12 @@ class _ProgressScreenState extends State<ProgressScreen> {
                             dotData: const FlDotData(show: true),
                             belowBarData: BarAreaData(
                               show: true,
-                              color: AppColors.primary.withAlpha(51),
+                              color: Color.fromARGB(
+                                51,
+                                AppColors.primary.red,
+                                AppColors.primary.green,
+                                AppColors.primary.blue,
+                              ),
                             ),
                           ),
                         ],
