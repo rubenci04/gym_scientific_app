@@ -21,13 +21,15 @@ class RoutineDayAdapter extends TypeAdapter<RoutineDay> {
       name: fields[1] as String,
       targetMuscles: (fields[2] as List).cast<String>(),
       exerciseIds: (fields[3] as List).cast<String>(),
+      sets: fields[4] as int,
+      reps: fields[5] as String,
     );
   }
 
   @override
   void write(BinaryWriter writer, RoutineDay obj) {
     writer
-      ..writeByte(4)
+      ..writeByte(6)
       ..writeByte(0)
       ..write(obj.id)
       ..writeByte(1)
@@ -35,7 +37,11 @@ class RoutineDayAdapter extends TypeAdapter<RoutineDay> {
       ..writeByte(2)
       ..write(obj.targetMuscles)
       ..writeByte(3)
-      ..write(obj.exerciseIds);
+      ..write(obj.exerciseIds)
+      ..writeByte(4)
+      ..write(obj.sets)
+      ..writeByte(5)
+      ..write(obj.reps);
   }
 
   @override

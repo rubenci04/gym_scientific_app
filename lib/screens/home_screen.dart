@@ -2,21 +2,49 @@ import 'package:flutter/material.dart';
 import 'package:hive_flutter/hive_flutter.dart';
 import '../models/user_model.dart';
 import '../models/routine_model.dart';
+import '../services/progressive_overload_service.dart';
 import '../theme/app_colors.dart';
 import 'workout_screen.dart';
 import 'body_status_screen.dart';
 
-class HomeScreen extends StatelessWidget {
+class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
 
   @override
-  Widget build(BuildContext context) {
-    final userBox = Hive.box<UserProfile>('userBox');
-    final currentUser = userBox.get('currentUser');
-    
-    final routineBox = Hive.box<WeeklyRoutine>('routineBox');
-    final currentRoutine = routineBox.get('currentRoutine');
+  State<HomeScreen> createState() => _HomeScreenState();
+}
 
+class _HomeScreenState extends State<HomeScreen> {
+  UserProfile? _currentUser;
+  WeeklyRoutine? _currentRoutine;
+  bool _isLoading = true;
+
+  @override
+  void initState() {
+    super.initState();
+    _loadDataAndApplyProgression();
+  }
+
+  Future<void> _loadDataAndApplyProgression() async {
+    final userBox = Hive.box<UserProfile>('userBox');
+    _currentUser = userBox.get('currentUser');
+
+    final routineBox = Hive.box<WeeklyRoutine>('routineBox');
+    _currentRoutine = routineBox.get('currentRoutine');
+
+    if (_currentUser != null && _currentRoutine != null) {
+      await ProgressiveOverloadService.applyProgressiveOverload(_currentUser!, _currentRoutine!);
+      // Recargamos la rutina por si se ha generado una nueva
+      _currentRoutine = routineBox.get('currentRoutine');
+    }
+
+    setState(() {
+      _isLoading = false;
+    });
+  }
+
+  @override
+  Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: AppColors.background,
       appBar: AppBar(
@@ -33,34 +61,31 @@ class HomeScreen extends StatelessWidget {
           )
         ],
       ),
-      body: SingleChildScrollView(
-        padding: const EdgeInsets.all(20),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            // --- HEADER ---
-            _buildHeader(currentUser),
-            const SizedBox(height: 30),
-
-            // --- ACCESO DIRECTO MAPA ---
-            _buildStatusCard(context),
-            const SizedBox(height: 30),
-
-            // --- RUTINA ---
-            const Text("TU PLAN ASIGNADO", style: TextStyle(color: Colors.grey, letterSpacing: 1.5, fontSize: 12)),
-            const SizedBox(height: 10),
-            
-            if (currentRoutine != null)
-              _buildRoutineCard(context, currentRoutine)
-            else
-              const Center(child: Text("Sin plan asignado.", style: TextStyle(color: Colors.white))),
-          ],
-        ),
-      ),
+      body: _isLoading
+          ? const Center(child: CircularProgressIndicator())
+          : SingleChildScrollView(
+              padding: const EdgeInsets.all(20),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  _buildHeader(_currentUser),
+                  const SizedBox(height: 30),
+                  _buildStatusCard(context),
+                  const SizedBox(height: 30),
+                  const Text("TU PLAN ASIGNADO", style: TextStyle(color: Colors.grey, letterSpacing: 1.5, fontSize: 12)),
+                  const SizedBox(height: 10),
+                  if (_currentRoutine != null)
+                    _buildRoutineCard(context, _currentRoutine!)
+                  else
+                    const Center(child: Text("Sin plan asignado.", style: TextStyle(color: Colors.white))),
+                ],
+              ),
+            ),
     );
   }
 
   Widget _buildHeader(UserProfile? user) {
+    // ... (el resto de los widgets no cambia)
     return Row(
       children: [
         CircleAvatar(
@@ -124,17 +149,17 @@ class HomeScreen extends StatelessWidget {
             contentPadding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
             title: Text(day.name, style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
             subtitle: Text(
-              "Enfoque: ${day.targetMuscles.join(", ")}", 
+              "Enfoque: ${day.targetMuscles.join(", ")} • ${day.sets} series de ${day.reps} reps",
               style: const TextStyle(color: AppColors.textSecondary)
             ),
             trailing: const Icon(Icons.play_circle_fill, color: AppColors.secondary, size: 40),
             onTap: () {
-              // AQUÍ PASAMOS LA LISTA EXACTA DE EJERCICIOS PARA QUE EL USUARIO NO ELIJA
               Navigator.push(
                 context,
                 MaterialPageRoute(builder: (context) => WorkoutScreen(
                   dayName: day.name,
                   exerciseIds: day.exerciseIds,
+                  routineDayId: day.id, // Pasar el ID del día
                 )),
               );
             },

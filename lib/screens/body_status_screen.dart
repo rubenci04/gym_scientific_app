@@ -1,4 +1,6 @@
 import 'package:flutter/material.dart';
+import 'package:hive/hive.dart';
+import '../models/user_model.dart';
 import '../theme/app_colors.dart';
 import '../services/fatigue_service.dart';
 
@@ -10,13 +12,15 @@ class BodyStatusScreen extends StatefulWidget {
 }
 
 class _BodyStatusScreenState extends State<BodyStatusScreen> {
-  // Estado para alternar vista (Frente / Espalda)
   bool _isFrontView = true;
 
   @override
   Widget build(BuildContext context) {
-    // Calculamos fatiga en tiempo real
-    final fatigueMap = FatigueService.calculateMuscleFatigue();
+    // Obtenemos el usuario actual para personalizar el cálculo
+    final userBox = Hive.box<UserProfile>('userBox');
+    final currentUser = userBox.get('currentUser');
+    
+    final fatigueMap = FatigueService.calculateMuscleFatigue(currentUser);
 
     return Scaffold(
       backgroundColor: AppColors.background,
@@ -38,7 +42,6 @@ class _BodyStatusScreenState extends State<BodyStatusScreen> {
       body: Column(
         children: [
           const SizedBox(height: 10),
-          // --- LEYENDA ---
           Row(
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
@@ -50,7 +53,6 @@ class _BodyStatusScreenState extends State<BodyStatusScreen> {
             ],
           ),
           
-          // --- VISUALIZADOR ANATÓMICO ---
           Expanded(
             flex: 3,
             child: InteractiveViewer(
@@ -64,7 +66,6 @@ class _BodyStatusScreenState extends State<BodyStatusScreen> {
             ),
           ),
 
-          // --- LISTA DE ESTADO ---
           Expanded(
             flex: 2,
             child: Container(
@@ -77,11 +78,10 @@ class _BodyStatusScreenState extends State<BodyStatusScreen> {
                 children: [
                   const Text("Estado por Grupo Muscular", style: TextStyle(color: Colors.white, fontSize: 18, fontWeight: FontWeight.bold)),
                   const SizedBox(height: 10),
-                  // Lista dinámica según la vista (Frente o Espalda)
                   ...(_isFrontView 
                       ? ['Pectorales', 'Hombros', 'Biceps', 'Abdominales', 'Cuadriceps'] 
                       : ['Dorsales', 'Triceps', 'Gluteos', 'Isquiotibiales', 'Gemelos']
-                    ).map((muscleKey) => _buildMuscleBar(muscleKey, FatigueService.getFatigueLevel(muscleKey)))
+                    ).map((muscleKey) => _buildMuscleBar(muscleKey, FatigueService.getFatigueLevel(muscleKey, currentUser)))
                 ],
               ),
             ),
@@ -128,8 +128,7 @@ class _BodyStatusScreenState extends State<BodyStatusScreen> {
     );
   }
 }
-
-// --- WIDGET DEL MAPA DE CALOR (La Magia Visual) ---
+// ... (BodyHeatmap widget remains the same)
 class BodyHeatmap extends StatelessWidget {
   final Map<String, double> fatigueMap;
   final bool isFront;
@@ -144,42 +143,32 @@ class BodyHeatmap extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    // Rutas normalizadas (minúsculas)
     final String gender = isMale ? 'male' : 'female';
     final String view = isFront ? 'front' : 'back'; 
     final String basePath = 'assets/images/body/$gender/$view';
-
-    // Nombres de tus archivos base
     final String baseImage = isFront ? 'CuerpoEnteroFrente.png' : 'CuerpoEnteroDetras.png';
 
     return Stack(
       alignment: Alignment.center,
       children: [
-        // 1. SILUETA BASE
         Image.asset(
           '$basePath/$baseImage',
           fit: BoxFit.contain,
-          // Color base para unificar tono (opcional)
           color: const Color(0xFF2C3E50), 
           colorBlendMode: BlendMode.modulate, 
         ),
 
-        // 2. CAPAS DE MÚSCULOS (Overlays)
-        // Se cargan dinámicamente. Asegúrate de que los archivos existan.
         if (isFront) ...[
           _buildOverlay('$basePath/Pectorales.png', fatigueMap['Pectorales']),
           _buildOverlay('$basePath/Abdominales.png', fatigueMap['Abdominales']),
-          _buildOverlay('$basePath/Cuadriceps.png', fatigueMap['Cuadriceps']), // Sin tilde
+          _buildOverlay('$basePath/Cuadriceps.png', fatigueMap['Cuadriceps']),
           _buildOverlay('$basePath/Hombros.png', fatigueMap['Hombros']),
-          _buildOverlay('$basePath/Biceps.png', fatigueMap['Biceps']), // Sin tilde
+          _buildOverlay('$basePath/Biceps.png', fatigueMap['Biceps']),
         ] else ...[
           _buildOverlay('$basePath/Dorsales.png', fatigueMap['Dorsales']),
-          // Si tienes EspaldaAlta, puedes descomentar:
-          // _buildOverlay('$basePath/EspaldaAlta.png', fatigueMap['Dorsales']), 
-          _buildOverlay('$basePath/Gluteos.png', fatigueMap['Gluteos']), // Sin tilde
-          _buildOverlay('$basePath/Triceps.png', fatigueMap['Triceps']), // Sin tilde
+          _buildOverlay('$basePath/Gluteos.png', fatigueMap['Gluteos']),
+          _buildOverlay('$basePath/Triceps.png', fatigueMap['Triceps']),
           _buildOverlay('$basePath/Gemelos.png', fatigueMap['Gemelos']),
-          // Nombre corregido
           _buildOverlay('$basePath/Isquiotibiales.png', fatigueMap['Isquiotibiales']),
         ]
       ],
@@ -189,10 +178,9 @@ class BodyHeatmap extends StatelessWidget {
   Widget _buildOverlay(String assetPath, double? fatigue) {
     final f = fatigue ?? 0.0;
 
-    // Lógica de color: Verde -> Amarillo -> Rojo
     Color glowColor;
     if (f < 0.3) {
-      glowColor = AppColors.muscleFresh.withOpacity(0.1); // Casi invisible
+      glowColor = AppColors.muscleFresh.withOpacity(0.1);
     } else if (f < 0.7) {
       glowColor = AppColors.muscleRecovering.withOpacity(0.6);
     } else {
@@ -203,9 +191,8 @@ class BodyHeatmap extends StatelessWidget {
       assetPath,
       fit: BoxFit.contain,
       color: glowColor,
-      colorBlendMode: BlendMode.srcATop, // Pinta solo sobre el músculo
+      colorBlendMode: BlendMode.srcATop,
       errorBuilder: (context, error, stackTrace) {
-        // Esto evita que la app explote si falta una imagen
         return const SizedBox(); 
       },
     );

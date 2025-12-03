@@ -14,13 +14,21 @@ class RoutineDay extends HiveObject {
   List<String> targetMuscles; 
 
   @HiveField(3)
-  List<String> exerciseIds; 
+  List<String> exerciseIds;
+
+  @HiveField(4)
+  int sets;
+
+  @HiveField(5)
+  String reps;
 
   RoutineDay({
     required this.id,
     required this.name,
     required this.targetMuscles,
     required this.exerciseIds,
+    required this.sets,
+    required this.reps,
   });
 }
 
