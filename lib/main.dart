@@ -4,37 +4,38 @@ import 'package:hive_flutter/hive_flutter.dart';
 // Modelos
 import 'models/user_model.dart';
 import 'models/exercise_model.dart';
-import 'models/history_model.dart'; // <--- NUEVO: Importamos el modelo de historial
+import 'models/history_model.dart'; 
+import 'models/routine_model.dart'; 
 
 // Servicios
-import 'services/seed_data_service.dart'; // <--- NUEVO: Importamos el servicio de carga de datos
+import 'services/seed_data_service.dart'; 
 
-// Pantallas
+// UI & Theme
 import 'screens/onboarding_screen.dart'; 
 import 'screens/home_screen.dart';       
+import 'theme/app_colors.dart'; // <--- IMPORTANTE
 
 void main() async {
-  // 1. Inicializar Hive para Flutter 
   await Hive.initFlutter();
 
-  // 2. Registrar TODOS los adaptadores (Esquemas de datos)
-  // --- Usuario ---
-  Hive.registerAdapter(SomatotypeAdapter());
-  Hive.registerAdapter(UserProfileAdapter());
-  // --- Ejercicios ---
-  Hive.registerAdapter(ExerciseAdapter());
-  // --- Historial (NUEVOS) ---
-  Hive.registerAdapter(WorkoutSetAdapter());      // ID: 3
-  Hive.registerAdapter(WorkoutExerciseAdapter()); // ID: 4
-  Hive.registerAdapter(WorkoutSessionAdapter());  // ID: 5
+  // REGISTROS (Adapters)
+  Hive.registerAdapter(SomatotypeAdapter());      // 0
+  Hive.registerAdapter(UserProfileAdapter());     // 1
+  Hive.registerAdapter(ExerciseAdapter());        // 2
+  Hive.registerAdapter(WorkoutSetAdapter());      // 3
+  Hive.registerAdapter(WorkoutExerciseAdapter()); // 4
+  Hive.registerAdapter(WorkoutSessionAdapter());  // 5
+  Hive.registerAdapter(TrainingGoalAdapter());    // 6
+  Hive.registerAdapter(TrainingLocationAdapter());// 7
+  Hive.registerAdapter(RoutineDayAdapter());      // 8
+  Hive.registerAdapter(WeeklyRoutineAdapter());   // 9
 
-  // 3. Abrir las cajas (Boxes) de forma asíncrona
+  // ABRIR CAJAS
   await Hive.openBox<UserProfile>('userBox');
   await Hive.openBox<Exercise>('exerciseBox');
-  await Hive.openBox<WorkoutSession>('historyBox'); // <--- NUEVA CAJA: Aquí se guardarán tus entrenamientos
+  await Hive.openBox<WorkoutSession>('historyBox'); 
+  await Hive.openBox<WeeklyRoutine>('routineBox');
 
-  // 4. Inicializar Datos Semilla (Seed)
-  // Esto llenará la base de datos de ejercicios automáticamente si está vacía
   await SeedDataService.initializeExercises();
   
   runApp(const GymApp());
@@ -45,30 +46,29 @@ class GymApp extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    // 5. LÓGICA DE NAVEGACIÓN:
-    // Accedemos a la caja de usuarios ya abierta
     final userBox = Hive.box<UserProfile>('userBox');
-    
-    // Verificamos si existe la clave 'currentUser'
     final bool userExists = userBox.containsKey('currentUser');
 
     return MaterialApp(
-      debugShowCheckedModeBanner: false, // Quitamos la etiqueta "Debug"
+      debugShowCheckedModeBanner: false,
       title: 'Gym AI Trainer',
+      // --- TEMA PROFESIONAL ---
       theme: ThemeData(
         brightness: Brightness.dark, 
-        primarySwatch: Colors.blue,
-        useMaterial3: true,
-        // Personalizamos un poco el estilo de los inputs
-        inputDecorationTheme: const InputDecorationTheme(
-          border: OutlineInputBorder(),
-          filled: true,
-          fillColor: Colors.black12,
+        scaffoldBackgroundColor: AppColors.background,
+        primaryColor: AppColors.primary,
+        colorScheme: const ColorScheme.dark(
+          primary: AppColors.primary,
+          secondary: AppColors.secondary,
+          surface: AppColors.surface,
         ),
+        appBarTheme: const AppBarTheme(
+          backgroundColor: AppColors.surface,
+          elevation: 0,
+          titleTextStyle: TextStyle(color: Colors.white, fontSize: 20, fontWeight: FontWeight.bold)
+        ),
+        useMaterial3: true,
       ),
-      // 6. DECISIÓN:
-      // Si el usuario existe -> Pantalla Principal (HomeScreen)
-      // Si NO existe -> Pantalla de Configuración (OnboardingScreen)
       home: userExists ? const HomeScreen() : const OnboardingScreen(),
     );
   }

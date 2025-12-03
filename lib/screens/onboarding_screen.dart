@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:hive_flutter/hive_flutter.dart';
 import '../models/user_model.dart';
-import 'home_screen.dart'; // Crearemos esto en el siguiente paso
+import 'goal_selection_screen.dart'; // <--- IMPORTANTE: Importamos la pantalla de objetivos
 
 class OnboardingScreen extends StatefulWidget {
   const OnboardingScreen({super.key});
@@ -13,7 +13,6 @@ class OnboardingScreen extends StatefulWidget {
 class _OnboardingScreenState extends State<OnboardingScreen> {
   final _formKey = GlobalKey<FormState>();
   
-  // Controladores para capturar el texto
   final TextEditingController _nameController = TextEditingController();
   final TextEditingController _ageController = TextEditingController();
   final TextEditingController _weightController = TextEditingController();
@@ -23,28 +22,19 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
   
   String _gender = 'Masculino';
 
-  // --- ALGORITMO DE CLASIFICACIÓN (Simplificación Heath-Carter Digital) ---
   Somatotype _calculateSomatotype(double bmi, double wrist, double height) {
-    // Ratio Altura/Muñeca (R-index)
-    // Hombres: >10.4 (Pequeña), 9.6-10.4 (Mediana), <9.6 (Grande)
     double rIndex = height / wrist;
-
     if (bmi < 19 && rIndex > 10.4) {
-      return Somatotype.ectomorph; // Delgado y huesos finos
+      return Somatotype.ectomorph; 
     } else if (bmi > 25 && rIndex < 9.6) {
-      // Nota: Aquí se debería diferenciar grasa vs músculo con más preguntas, 
-      // pero para el MVP asumimos tendencia a Endomorfo si hay sobrepeso y estructura ancha.
       return Somatotype.endomorph; 
     } else {
-      // Punto medio o atlético
       return Somatotype.mesomorph;
     }
   }
 
-  // --- LÓGICA DE GUARDADO ---
   void _saveAndContinue() async {
     if (_formKey.currentState!.validate()) {
-      // 1. Convertir datos
       final name = _nameController.text;
       final age = int.parse(_ageController.text);
       final weight = double.parse(_weightController.text);
@@ -52,22 +42,18 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
       final wrist = double.parse(_wristController.text);
       final ankle = double.parse(_ankleController.text);
 
-      // 2. Calcular métricas fisiológicas
       final bmi = weight / ((height / 100) * (height / 100));
       
-      // Cálculo de TDEE (Mifflin-St Jeor)
       double bmr;
       if (_gender == 'Masculino') {
         bmr = (10 * weight) + (6.25 * height) - (5 * age) + 5;
       } else {
         bmr = (10 * weight) + (6.25 * height) - (5 * age) - 161;
       }
-      final tdee = bmr * 1.2; // Factor sedentario inicial (se ajustará con pasos)
+      final tdee = bmr * 1.2; 
 
-      // 3. Determinar Somatotipo
       final somatotype = _calculateSomatotype(bmi, wrist, height);
 
-      // 4. Crear objeto Usuario
       final newUser = UserProfile(
         name: name,
         age: age,
@@ -80,15 +66,14 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
         tdee: tdee,
       );
 
-      // 5. Guardar en HIVE (Base de datos local)
       final userBox = Hive.box<UserProfile>('userBox');
-      await userBox.put('currentUser', newUser); // Guardamos con clave única
+      await userBox.put('currentUser', newUser); 
 
-      // 6. Navegar a la Home
+      // --- CAMBIO CLAVE: Vamos a Selección de Objetivos ---
       if (mounted) {
         Navigator.pushReplacement(
           context, 
-          MaterialPageRoute(builder: (context) => const HomeScreen())
+          MaterialPageRoute(builder: (context) => const GoalSelectionScreen())
         );
       }
     }
@@ -104,15 +89,9 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
           key: _formKey,
           child: ListView(
             children: [
-              const Text(
-                'Datos Biométricos',
-                style: TextStyle(fontSize: 22, fontWeight: FontWeight.bold),
-              ),
-              const SizedBox(height: 10),
-              const Text('Necesarios para el cálculo de tu morfología y fatiga.'),
+              const Text('Datos Biométricos', style: TextStyle(fontSize: 22, fontWeight: FontWeight.bold)),
               const SizedBox(height: 20),
               
-              // Inputs Básicos
               TextFormField(
                 controller: _nameController,
                 decoration: const InputDecoration(labelText: 'Nombre', border: OutlineInputBorder()),
@@ -143,8 +122,6 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
                 ],
               ),
               const SizedBox(height: 10),
-              
-              // Inputs Físicos
               Row(
                 children: [
                   Expanded(
@@ -166,35 +143,22 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
                   ),
                 ],
               ),
-              
               const SizedBox(height: 20),
-              const Text(
-                'Estructura Ósea (Estimación de Somatotipo)',
-                style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
-              ),
+              const Text('Estructura Ósea (Estimación)', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
               const SizedBox(height: 10),
               TextFormField(
                 controller: _wristController,
                 keyboardType: TextInputType.number,
-                decoration: const InputDecoration(
-                  labelText: 'Circunferencia Muñeca (cm)', 
-                  border: OutlineInputBorder(),
-                  helperText: 'Mide justo sobre el hueso de la muñeca'
-                ),
+                decoration: const InputDecoration(labelText: 'Circunferencia Muñeca (cm)', border: OutlineInputBorder()),
                 validator: (v) => v!.isEmpty ? 'Requerido' : null,
               ),
               const SizedBox(height: 10),
               TextFormField(
                 controller: _ankleController,
                 keyboardType: TextInputType.number,
-                decoration: const InputDecoration(
-                  labelText: 'Circunferencia Tobillo (cm)', 
-                  border: OutlineInputBorder(),
-                   helperText: 'Mide en la parte más estrecha'
-                ),
+                decoration: const InputDecoration(labelText: 'Circunferencia Tobillo (cm)', border: OutlineInputBorder()),
                 validator: (v) => v!.isEmpty ? 'Requerido' : null,
               ),
-
               const SizedBox(height: 30),
               ElevatedButton(
                 onPressed: _saveAndContinue,
