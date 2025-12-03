@@ -180,7 +180,7 @@ class TrainingLocationAdapter extends TypeAdapter<TrainingLocation> {
 
 class ExperienceAdapter extends TypeAdapter<Experience> {
   @override
-  final int typeId = 8;
+  final int typeId = 10;
 
   @override
   Experience read(BinaryReader reader) {
