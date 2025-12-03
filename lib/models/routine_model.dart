@@ -5,13 +5,13 @@ part 'routine_model.g.dart';
 @HiveType(typeId: 8)
 class RoutineDay extends HiveObject {
   @HiveField(0)
-  String id; 
+  String id;
 
   @HiveField(1)
   String name; // ej: "Día 1: Torso"
 
   @HiveField(2)
-  List<String> targetMuscles; 
+  List<String> targetMuscles;
 
   @HiveField(3)
   List<String> exerciseIds;
@@ -41,15 +41,19 @@ class WeeklyRoutine extends HiveObject {
   String name; // ej: "Rutina Híbrida 4 Días"
 
   @HiveField(2)
-  List<RoutineDay> days; 
+  List<RoutineDay> days;
 
   @HiveField(3)
   DateTime createdAt;
+
+  @HiveField(4)
+  bool isActive;
 
   WeeklyRoutine({
     required this.id,
     required this.name,
     required this.days,
     required this.createdAt,
+    this.isActive = false,
   });
 }
