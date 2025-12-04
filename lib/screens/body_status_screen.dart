@@ -3,6 +3,7 @@ import 'package:hive/hive.dart';
 import '../models/user_model.dart';
 import '../theme/app_colors.dart';
 import '../services/fatigue_service.dart';
+import '../widgets/interactive_body_map.dart'; // Asegúrate de haber creado este archivo en el paso anterior
 
 class BodyStatusScreen extends StatefulWidget {
   const BodyStatusScreen({super.key});
@@ -17,9 +18,19 @@ class _BodyStatusScreenState extends State<BodyStatusScreen> {
   @override
   Widget build(BuildContext context) {
     final userBox = Hive.box<UserProfile>('userBox');
+    // Manejo seguro por si el usuario es null (aunque no debería)
     final currentUser = userBox.get('currentUser');
 
-    final fatigueMap = FatigueService.calculateMuscleFatigue(currentUser);
+    if (currentUser == null) {
+      return const Scaffold(body: Center(child: Text("No hay usuario activo")));
+    }
+
+    // 1. Obtenemos la fatiga general de tu servicio existente
+    // Ejemplo: {"Pectorales": 0.5, "Biceps": 0.2}
+    final Map<String, double> generalFatigue = FatigueService.calculateMuscleFatigue(currentUser);
+
+    // 2. Convertimos esa fatiga general a los IDs específicos del SVG
+    final Map<String, double> svgFatigueMap = _mapGenericFatigueToSvg(generalFatigue);
 
     return Scaffold(
       backgroundColor: AppColors.background,
@@ -41,31 +52,28 @@ class _BodyStatusScreenState extends State<BodyStatusScreen> {
       body: Column(
         children: [
           const SizedBox(height: 10),
+          // Leyenda de colores
           Row(
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
-              _buildLegendItem(AppColors.muscleFresh, 'Fresco'),
+              _buildLegendItem(Colors.grey[800]!, 'Descanso'),
               const SizedBox(width: 15),
-              _buildLegendItem(AppColors.muscleRecovering, 'Recuperando'),
+              _buildLegendItem(Colors.green, 'Activo'),
               const SizedBox(width: 15),
-              _buildLegendItem(AppColors.muscleFatigued, 'Fatigado'),
+              _buildLegendItem(Colors.red, 'Fatigado'),
             ],
           ),
 
+          // --- AQUÍ ESTÁ EL CAMBIO PRINCIPAL ---
+          // Reemplazamos el InteractiveViewer y CustomPaint antiguos
           Expanded(
             flex: 3,
-            child: InteractiveViewer(
-              minScale: 0.5,
-              maxScale: 3.0,
-              child: CustomPaint(
-                size: const Size(300, 500),
-                painter: BodyHeatmapPainter(
-                  fatigueMap: fatigueMap,
-                  isFront: _isFrontView,
-                ),
-              ),
+            child: InteractiveBodyMap(
+              fatigueMap: svgFatigueMap,
+              isFront: _isFrontView,
             ),
           ),
+          // -------------------------------------
 
           Expanded(
             flex: 2,
@@ -86,6 +94,7 @@ class _BodyStatusScreenState extends State<BodyStatusScreen> {
                     ),
                   ),
                   const SizedBox(height: 10),
+                  // Mostramos la lista basada en la vista actual
                   ...(_isFrontView
                           ? [
                               'Pectorales',
@@ -96,6 +105,7 @@ class _BodyStatusScreenState extends State<BodyStatusScreen> {
                             ]
                           : [
                               'Dorsales',
+                              'Trapecios', // Agregado trapecios que faltaba
                               'Triceps',
                               'Gluteos',
                               'Isquiotibiales',
@@ -104,10 +114,8 @@ class _BodyStatusScreenState extends State<BodyStatusScreen> {
                       .map(
                         (muscleKey) => _buildMuscleBar(
                           muscleKey,
-                          FatigueService.getFatigueLevel(
-                            muscleKey,
-                            currentUser,
-                          ),
+                          // Usamos la fatiga original para la barra de progreso
+                          generalFatigue[muscleKey] ?? 0.0,
                         ),
                       ),
                 ],
@@ -117,6 +125,39 @@ class _BodyStatusScreenState extends State<BodyStatusScreen> {
         ],
       ),
     );
+  }
+
+  // Esta función es el "puente" entre tu FatigueService y el nuevo Mapa SVG
+  Map<String, double> _mapGenericFatigueToSvg(Map<String, double> generalFatigue) {
+    final Map<String, double> svgMap = {};
+
+    // Helper para asignar valor a ambos lados (izquierdo y derecho)
+    void assignToBothSides(String generalKey, String leftId, String rightId) {
+      final value = generalFatigue[generalKey] ?? 0.0;
+      svgMap[leftId] = value;
+      svgMap[rightId] = value;
+    }
+
+    // Mapeo: Nombre en FatigueService -> IDs en muscle_data.dart
+    
+    // Frente
+    assignToBothSides('Pectorales', 'pec_izq', 'pec_der');
+    assignToBothSides('Hombros', 'hombro_izq', 'hombro_der');
+    assignToBothSides('Biceps', 'biceps_izq', 'biceps_der');
+    assignToBothSides('Cuadriceps', 'quad_izq', 'quad_der');
+    assignToBothSides('Abdominales', 'abd', 'abd_izq'); 
+    assignToBothSides('Antebrazos', 'avb_izq', 'avb_der');
+
+    // Espalda
+    assignToBothSides('Dorsales', 'dorsal_izq', 'dorsal_der');
+    assignToBothSides('Trapecios', 'trap_izq', 'trap_der');
+    assignToBothSides('Triceps', 'triceps_izq', 'triceps_der');
+    assignToBothSides('Gluteos', 'gluteo_izq', 'gluteo_der');
+    assignToBothSides('Isquiotibiales', 'isquio_izq', 'isquio_der');
+    assignToBothSides('Gemelos', 'gemelo_izq', 'gemelo_der');
+    assignToBothSides('Lumbares', 'lumb_izq', 'lumb_der');
+
+    return svgMap;
   }
 
   Widget _buildLegendItem(Color color, String label) {
@@ -137,11 +178,14 @@ class _BodyStatusScreenState extends State<BodyStatusScreen> {
   }
 
   Widget _buildMuscleBar(String label, double fatigue) {
-    Color color = fatigue < 0.3
-        ? AppColors.muscleFresh
-        : (fatigue < 0.7
-              ? AppColors.muscleRecovering
-              : AppColors.muscleFatigued);
+    // Lógica de color idéntica al mapa SVG
+    Color color;
+    if (fatigue > 0) {
+      color = Color.lerp(Colors.green, Colors.red, fatigue)!;
+    } else {
+      color = AppColors.muscleFresh;
+    }
+
     return Padding(
       padding: const EdgeInsets.only(bottom: 12.0),
       child: Column(
@@ -169,221 +213,4 @@ class _BodyStatusScreenState extends State<BodyStatusScreen> {
       ),
     );
   }
-}
-
-class BodyHeatmapPainter extends CustomPainter {
-  final Map<String, double> fatigueMap;
-  final bool isFront;
-
-  BodyHeatmapPainter({required this.fatigueMap, required this.isFront});
-
-  @override
-  void paint(Canvas canvas, Size size) {
-    final outlinePaint = Paint()
-      ..color = Colors.white24
-      ..style = PaintingStyle.stroke
-      ..strokeWidth = 2.0;
-
-    if (isFront) {
-      // Head
-      _drawHead(
-        canvas,
-        size,
-        const Offset(0.5, 0.1),
-        0.08,
-        Colors.grey,
-        outlinePaint,
-      );
-
-      // Chest (Pectorales) - More organic shape
-      _drawPath(canvas, size, [
-        const Offset(0.30, 0.20),
-        const Offset(0.70, 0.20),
-        const Offset(0.65, 0.35),
-        const Offset(0.35, 0.35),
-      ], 'Pectorales');
-
-      // Abs (Abdominales)
-      _drawPath(canvas, size, [
-        const Offset(0.38, 0.35),
-        const Offset(0.62, 0.35),
-        const Offset(0.58, 0.50),
-        const Offset(0.42, 0.50),
-      ], 'Abdominales');
-
-      // Shoulders (Hombros)
-      _drawPath(canvas, size, [
-        const Offset(0.20, 0.18),
-        const Offset(0.30, 0.20),
-        const Offset(0.30, 0.28),
-        const Offset(0.18, 0.25),
-      ], 'Hombros'); // Left
-      _drawPath(canvas, size, [
-        const Offset(0.70, 0.20),
-        const Offset(0.80, 0.18),
-        const Offset(0.82, 0.25),
-        const Offset(0.70, 0.28),
-      ], 'Hombros'); // Right
-
-      // Biceps
-      _drawPath(canvas, size, [
-        const Offset(0.18, 0.28),
-        const Offset(0.30, 0.30),
-        const Offset(0.28, 0.40),
-        const Offset(0.15, 0.38),
-      ], 'Biceps'); // Left
-      _drawPath(canvas, size, [
-        const Offset(0.70, 0.30),
-        const Offset(0.82, 0.28),
-        const Offset(0.85, 0.38),
-        const Offset(0.72, 0.40),
-      ], 'Biceps'); // Right
-
-      // Quads (Cuadriceps)
-      _drawPath(canvas, size, [
-        const Offset(0.35, 0.50),
-        const Offset(0.48, 0.50),
-        const Offset(0.46, 0.75),
-        const Offset(0.38, 0.75),
-      ], 'Cuadriceps'); // Left
-      _drawPath(canvas, size, [
-        const Offset(0.52, 0.50),
-        const Offset(0.65, 0.50),
-        const Offset(0.62, 0.75),
-        const Offset(0.54, 0.75),
-      ], 'Cuadriceps'); // Right
-    } else {
-      // Head
-      _drawHead(
-        canvas,
-        size,
-        const Offset(0.5, 0.1),
-        0.08,
-        Colors.grey,
-        outlinePaint,
-      );
-
-      // Back (Dorsales)
-      _drawPath(canvas, size, [
-        const Offset(0.25, 0.20),
-        const Offset(0.75, 0.20),
-        const Offset(0.60, 0.45),
-        const Offset(0.40, 0.45),
-      ], 'Dorsales');
-
-      // Glutes (Gluteos)
-      _drawPath(canvas, size, [
-        const Offset(0.35, 0.45),
-        const Offset(0.65, 0.45),
-        const Offset(0.65, 0.60),
-        const Offset(0.35, 0.60),
-      ], 'Gluteos');
-
-      // Triceps
-      _drawPath(canvas, size, [
-        const Offset(0.18, 0.28),
-        const Offset(0.30, 0.30),
-        const Offset(0.28, 0.40),
-        const Offset(0.15, 0.38),
-      ], 'Triceps'); // Left
-      _drawPath(canvas, size, [
-        const Offset(0.70, 0.30),
-        const Offset(0.82, 0.28),
-        const Offset(0.85, 0.38),
-        const Offset(0.72, 0.40),
-      ], 'Triceps'); // Right
-
-      // Hamstrings (Isquiotibiales)
-      _drawPath(canvas, size, [
-        const Offset(0.38, 0.60),
-        const Offset(0.46, 0.60),
-        const Offset(0.46, 0.75),
-        const Offset(0.38, 0.75),
-      ], 'Isquiotibiales'); // Left
-      _drawPath(canvas, size, [
-        const Offset(0.54, 0.60),
-        const Offset(0.62, 0.60),
-        const Offset(0.62, 0.75),
-        const Offset(0.54, 0.75),
-      ], 'Isquiotibiales'); // Right
-
-      // Calves (Gemelos)
-      _drawPath(canvas, size, [
-        const Offset(0.38, 0.78),
-        const Offset(0.46, 0.78),
-        const Offset(0.44, 0.90),
-        const Offset(0.40, 0.90),
-      ], 'Gemelos'); // Left
-      _drawPath(canvas, size, [
-        const Offset(0.54, 0.78),
-        const Offset(0.62, 0.78),
-        const Offset(0.60, 0.90),
-        const Offset(0.56, 0.90),
-      ], 'Gemelos'); // Right
-    }
-  }
-
-  void _drawHead(
-    Canvas canvas,
-    Size size,
-    Offset center,
-    double radiusPct,
-    Color color,
-    Paint outlinePaint,
-  ) {
-    canvas.drawCircle(
-      Offset(center.dx * size.width, center.dy * size.height),
-      radiusPct * size.width,
-      Paint()..color = color,
-    );
-    canvas.drawCircle(
-      Offset(center.dx * size.width, center.dy * size.height),
-      radiusPct * size.width,
-      outlinePaint,
-    );
-  }
-
-  void _drawPath(
-    Canvas canvas,
-    Size size,
-    List<Offset> points,
-    String muscleKey,
-  ) {
-    final fatigue = fatigueMap[muscleKey] ?? 0.0;
-    Color color;
-    if (fatigue < 0.3) {
-      color = AppColors.muscleFresh;
-    } else if (fatigue < 0.7) {
-      color = AppColors.muscleRecovering;
-    } else {
-      color = AppColors.muscleFatigued;
-    }
-
-    final path = Path();
-    path.moveTo(points[0].dx * size.width, points[0].dy * size.height);
-    for (int i = 1; i < points.length; i++) {
-      path.lineTo(points[i].dx * size.width, points[i].dy * size.height);
-    }
-    path.close();
-
-    // Draw filled shape
-    canvas.drawPath(
-      path,
-      Paint()..color = Color.fromARGB(200, color.red, color.green, color.blue),
-    );
-
-    // Draw outline with rounded joins for a smoother look
-    canvas.drawPath(
-      path,
-      Paint()
-        ..color = Colors.white30
-        ..style = PaintingStyle.stroke
-        ..strokeWidth = 1.5
-        ..strokeJoin = StrokeJoin.round
-        ..strokeCap = StrokeCap.round,
-    );
-  }
-
-  @override
-  bool shouldRepaint(covariant CustomPainter oldDelegate) => true;
 }

@@ -15,22 +15,17 @@ dependencies:
   provider: ^6.1.5+1
   fl_chart: ^0.63.0
   intl: ^0.18.1
+  # Nueva dependencia para dibujar el mapa corporal
+  path_drawing: ^1.0.1
 
 dev_dependencies:
   flutter_test:
     sdk: flutter
-  flutter_lints: ^6.0.0
+  flutter_lints: ^3.0.0 # Nota: Bajé esto a 3.0.0 porque la 6.0.0 puede dar problemas si tu SDK no es el más nuevo (Dart 3.3). Si te da error, prueba con 2.0.0
   hive_generator: ^2.0.1
   build_runner: ^2.4.13
 
 flutter:
   uses-material-design: true
-  
-  # --- AQUÍ ESTÁ LA CLAVE ---
-  assets:
-    # Registramos las carpetas normalizadas (minúsculas)
-    - assets/images/body/male/front/
-    - assets/images/body/male/back/
-    # Descomenta estas cuando subas las imágenes de mujer
-    # - assets/images/body/female/front/
-    # - assets/images/body/female/back/
+
+  #   - assets/images/logo.png
