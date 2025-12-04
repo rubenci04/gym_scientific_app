@@ -15,7 +15,7 @@ dependencies:
   provider: ^6.1.5+1
   fl_chart: ^0.63.0
   intl: ^0.18.1
-  # LIBRERÍA NECESARIA PARA EL MAPA CORPORAL
+  # CRUCIAL: Librería para el mapa del cuerpo
   path_drawing: ^1.0.1 
 
 dev_dependencies:
@@ -29,7 +29,7 @@ flutter:
   uses-material-design: true
   
   assets:
-    # REGISTRAMOS TUS NUEVAS IMÁGENES
-    - assets/images/Ectomorph/Male/
-    - assets/images/Ectomorph/Female/
-    # (Si tienes las de Mesomorfo y Endomorfo, agrégalas aquí también)
+    # Rutas EXACTAS según tu estructura de carpetas subida
+    - assets/images/somatotypes/Male/
+    - assets/images/somatotypes/Female/
+    # (El resto de imágenes del cuerpo ya no se usan porque usaremos código SVG)

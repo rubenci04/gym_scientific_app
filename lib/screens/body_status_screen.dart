@@ -1,9 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:hive_flutter/hive_flutter.dart';
 import '../models/user_model.dart';
+import '../models/muscle_data.dart'; // Importante para la lista completa
 import '../theme/app_colors.dart';
 import '../services/fatigue_service.dart';
-import '../widgets/interactive_body_map.dart';
+import '../widgets/interactive_body_map.dart'; 
 
 class BodyStatusScreen extends StatefulWidget {
   const BodyStatusScreen({super.key});
@@ -17,35 +18,30 @@ class _BodyStatusScreenState extends State<BodyStatusScreen> {
 
   @override
   Widget build(BuildContext context) {
-    // Escucha cambios en el usuario (Hive)
     return ValueListenableBuilder(
       valueListenable: Hive.box<UserProfile>('userBox').listenable(),
       builder: (context, Box<UserProfile> box, _) {
         final currentUser = box.get('currentUser');
+        if (currentUser == null) return const Center(child: Text("Sin usuario"));
 
-        if (currentUser == null) {
-          return const Center(child: Text("No hay datos de usuario"));
-        }
-
-        // Calcular fatiga
         final fatigueMap = FatigueService.calculateMuscleFatigue(currentUser);
-        // Convertir datos genéricos a IDs del SVG
         final svgFatigueMap = _mapGenericFatigueToSvg(fatigueMap);
 
-        // Obtener imagen de fondo según perfil
-        final imagePath = _getBodyImagePath(currentUser);
+        // Obtenemos la lista única de nombres de músculos para mostrar en la lista
+        final musclesToShow = allMuscleParts
+            .where((m) => m.face == (_isFrontView ? 'ant' : 'post'))
+            .map((m) => m.name)
+            .toSet() // Eliminar duplicados (ej: biceps der/izq -> Biceps)
+            .toList();
 
         return Scaffold(
           backgroundColor: AppColors.background,
           appBar: AppBar(
-            title: const Text('Mapa de Recuperación'),
+            title: const Text('Estado Corporal'),
             backgroundColor: AppColors.surface,
             actions: [
               IconButton(
-                icon: Icon(
-                  _isFrontView ? Icons.flip_to_back : Icons.flip_to_front,
-                ),
-                tooltip: "Girar Cuerpo",
+                icon: Icon(_isFrontView ? Icons.flip_to_back : Icons.flip_to_front),
                 onPressed: () => setState(() => _isFrontView = !_isFrontView),
               ),
             ],
@@ -56,35 +52,34 @@ class _BodyStatusScreenState extends State<BodyStatusScreen> {
               Row(
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
-                  _buildLegendItem(Colors.grey[800]!, 'Fresco'),
+                  _buildLegendItem(Colors.grey[800]!, 'Descanso'),
                   const SizedBox(width: 15),
                   _buildLegendItem(Colors.green, 'Activo'),
                   const SizedBox(width: 15),
                   _buildLegendItem(Colors.red, 'Fatigado'),
                 ],
               ),
+              
               Expanded(
-                flex: 3,
+                flex: 3, 
                 child: InteractiveBodyMap(
-                  fatigueMap: svgFatigueMap,
-                  isFront: _isFrontView,
-                  imagePath: imagePath,
-                ),
+                  fatigueMap: svgFatigueMap, 
+                  isFront: _isFrontView
+                )
               ),
+
               Expanded(
                 flex: 2,
                 child: Container(
                   padding: const EdgeInsets.all(16),
                   decoration: const BoxDecoration(
                     color: AppColors.surface,
-                    borderRadius: BorderRadius.vertical(
-                      top: Radius.circular(20),
-                    ),
+                    borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
                   ),
                   child: ListView(
                     children: [
                       const Text(
-                        "Estado por Grupo Muscular",
+                        "Estado Muscular Detallado",
                         style: TextStyle(
                           color: Colors.white,
                           fontSize: 18,
@@ -92,25 +87,14 @@ class _BodyStatusScreenState extends State<BodyStatusScreen> {
                         ),
                       ),
                       const SizedBox(height: 10),
-                      ...(_isFrontView
-                              ? [
-                                  'Pectorales',
-                                  'Hombros',
-                                  'Biceps',
-                                  'Abdominales',
-                                  'Cuadriceps',
-                                ]
-                              : [
-                                  'Dorsales',
-                                  'Triceps',
-                                  'Gluteos',
-                                  'Isquiotibiales',
-                                  'Gemelos',
-                                ])
-                          .map(
-                            (key) =>
-                                _buildMuscleBar(key, fatigueMap[key] ?? 0.0),
-                          ),
+                      // Iteramos sobre TODOS los músculos visibles, no solo los fatigados
+                      ...musclesToShow.map((muscleName) {
+                        // Buscamos la ID interna para obtener la fatiga del mapa SVG
+                        // Esto es una simplificación, busca el primer ID que coincida con el nombre
+                        String sampleId = allMuscleParts.firstWhere((m) => m.name == muscleName).id;
+                        double val = svgFatigueMap[sampleId] ?? 0.0;
+                        return _buildMuscleBar(muscleName, val);
+                      }),
                     ],
                   ),
                 ),
@@ -122,76 +106,62 @@ class _BodyStatusScreenState extends State<BodyStatusScreen> {
     );
   }
 
-  String _getBodyImagePath(UserProfile user) {
-    // Mapeo de género
-    String genderStr = (user.gender == 'Masculino') ? 'Male' : 'Female';
-
-    // Mapeo de somatotipo
-    String somatoFolder = 'Ectomorph';
-    String somatoSuffix = 'Ectomorfo';
-
-    switch (user.somatotype) {
-      case Somatotype.mesomorph:
-        somatoFolder = 'Mesomorph';
-        somatoSuffix = 'Mesomorfo';
-        break;
-      case Somatotype.endomorph:
-        somatoFolder = 'Endomorph';
-        somatoSuffix = 'Endomorfo';
-        break;
-      default:
-        somatoFolder = 'Ectomorph';
-        somatoSuffix = 'Ectomorfo';
-    }
-
-    // Construcción de la ruta: assets/images/Ectomorph/Male/Male-Ectomorfo.png
-    return 'assets/images/$somatoFolder/$genderStr/$genderStr-$somatoSuffix.png';
-  }
-
+  // Mapeo exhaustivo para cubrir todos los nuevos músculos
   Map<String, double> _mapGenericFatigueToSvg(Map<String, double> general) {
     final Map<String, double> svgMap = {};
-    void set(String key, List<String> ids) {
-      final val = general[key] ?? 0.0;
-      for (var id in ids) {
-        svgMap[id] = val;
+    
+    // Función auxiliar para asignar a pares (izq/der)
+    void assign(String generalKey, List<String> ids) {
+      if (general.containsKey(generalKey)) {
+        for (var id in ids) svgMap[id] = general[generalKey]!;
       }
     }
 
-    set('Pectorales', ['pec_der', 'pec_izq']);
-    set('Hombros', ['hombro_der', 'hombro_izq']);
-    set('Biceps', ['biceps_der', 'biceps_izq']);
-    set('Abdominales', ['abd_der', 'abd_izq']);
-    set('Cuadriceps', ['quad_der', 'quad_izq']);
-    set('Dorsales', ['dorsal_der', 'dorsal_izq']);
-    set('Triceps', ['triceps_der', 'triceps_izq']);
-    set('Gluteos', ['gluteo_der', 'gluteo_izq']);
-    set('Isquiotibiales', ['isquio_der', 'isquio_izq']);
-    set('Gemelos', ['gemelo_der', 'gemelo_izq']);
-
+    // Mapeos (Asegúrate que las claves coinciden con FatigueService)
+    assign('Pectorales', ['pec_der', 'pec_izq']);
+    assign('Abdominales', ['abd_der', 'abd_izq']);
+    assign('Oblicuos', ['oblicuo_der', 'oblicuo_izq']); // Nuevo
+    assign('Aductores', ['aduc_der', 'aduc_izq']); // Nuevo
+    assign('Hombros', ['hombro_der', 'hombro_izq', 'hombro_post_der', 'hombro_post_izq']); // Incluye posterior
+    assign('Biceps', ['biceps_der', 'biceps_izq']);
+    assign('Cuadriceps', ['quad_der', 'quad_izq']);
+    assign('Dorsales', ['dorsal_der', 'dorsal_izq']);
+    assign('EspaldaAlta', ['trap_der', 'trap_izq', 'trap_der_post', 'trap_izq_post', 'espalda_alta_der', 'espalda_alta_izq']); // Mapeo masivo para espalda
+    assign('Triceps', ['triceps_der', 'triceps_izq']);
+    assign('Gluteos', ['gluteo_der', 'gluteo_izq']);
+    assign('Isquiotibiales', ['isquio_der', 'isquio_izq']);
+    assign('Gemelos', ['gemelo_der', 'gemelo_izq']);
+    assign('Lumbares', ['lumb_der', 'lumb_izq']);
+    
     return svgMap;
   }
 
   Widget _buildLegendItem(Color color, String label) {
     return Row(
       children: [
-        Container(
-          width: 12,
-          height: 12,
-          decoration: BoxDecoration(color: color, shape: BoxShape.circle),
-        ),
+        Container(width: 12, height: 12, decoration: BoxDecoration(color: color, shape: BoxShape.circle)),
         const SizedBox(width: 5),
-        Text(
-          label,
-          style: const TextStyle(color: Colors.white70, fontSize: 12),
-        ),
+        Text(label, style: const TextStyle(color: Colors.white70, fontSize: 12)),
       ],
     );
   }
 
   Widget _buildMuscleBar(String label, double fatigue) {
-    Color color = fatigue > 0
-        ? Color.lerp(Colors.green, Colors.red, fatigue)!
-        : AppColors.muscleFresh;
+    // Definir color y estado texto
+    Color color;
+    String statusText;
+    
+    if (fatigue <= 0.05) {
+      color = Colors.grey;
+      statusText = "Descanso";
+    } else if (fatigue < 0.6) {
+      color = Colors.green;
+      statusText = "Activo";
+    } else {
+      color = Colors.red;
+      statusText = "Fatigado";
+    }
+
     return Padding(
       padding: const EdgeInsets.only(bottom: 12.0),
       child: Column(
@@ -201,9 +171,12 @@ class _BodyStatusScreenState extends State<BodyStatusScreen> {
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
               Text(label, style: const TextStyle(color: Colors.white)),
-              Text(
-                "${(fatigue * 100).toInt()}%",
-                style: TextStyle(color: color, fontWeight: FontWeight.bold),
+              Row(
+                children: [
+                  Text(statusText, style: TextStyle(color: color, fontSize: 12, fontWeight: FontWeight.w300)),
+                  const SizedBox(width: 8),
+                  Text("${(fatigue * 100).toInt()}%", style: TextStyle(color: color, fontWeight: FontWeight.bold)),
+                ],
               ),
             ],
           ),

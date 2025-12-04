@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:hive_flutter/hive_flutter.dart';
 import '../models/user_model.dart';
-import 'goal_selection_screen.dart'; // <--- IMPORTANTE: Importamos la pantalla de objetivos
+import 'goal_selection_screen.dart';
 
 class OnboardingScreen extends StatefulWidget {
   const OnboardingScreen({super.key});
@@ -12,161 +12,184 @@ class OnboardingScreen extends StatefulWidget {
 
 class _OnboardingScreenState extends State<OnboardingScreen> {
   final _formKey = GlobalKey<FormState>();
-  
-  final TextEditingController _nameController = TextEditingController();
-  final TextEditingController _ageController = TextEditingController();
-  final TextEditingController _weightController = TextEditingController();
-  final TextEditingController _heightController = TextEditingController();
-  final TextEditingController _wristController = TextEditingController();
-  final TextEditingController _ankleController = TextEditingController();
+  final _nameCtrl = TextEditingController();
+  final _ageCtrl = TextEditingController();
+  final _weightCtrl = TextEditingController();
+  final _heightCtrl = TextEditingController();
+  final _wristCtrl = TextEditingController();
+  final _ankleCtrl = TextEditingController();
   
   String _gender = 'Masculino';
 
   Somatotype _calculateSomatotype(double bmi, double wrist, double height) {
     double rIndex = height / wrist;
-    if (bmi < 19 && rIndex > 10.4) {
-      return Somatotype.ectomorph; 
-    } else if (bmi > 25 && rIndex < 9.6) {
-      return Somatotype.endomorph; 
-    } else {
-      return Somatotype.mesomorph;
-    }
+    if (bmi < 19 && rIndex > 10.4) return Somatotype.ectomorph;
+    if (bmi > 25 && rIndex < 9.6) return Somatotype.endomorph;
+    return Somatotype.mesomorph;
   }
 
-  void _saveAndContinue() async {
-    if (_formKey.currentState!.validate()) {
-      final name = _nameController.text;
-      final age = int.parse(_ageController.text);
-      final weight = double.parse(_weightController.text);
-      final height = double.parse(_heightController.text);
-      final wrist = double.parse(_wristController.text);
-      final ankle = double.parse(_ankleController.text);
+  void _processData() {
+    if (!_formKey.currentState!.validate()) return;
 
-      final bmi = weight / ((height / 100) * (height / 100));
-      
-      double bmr;
-      if (_gender == 'Masculino') {
-        bmr = (10 * weight) + (6.25 * height) - (5 * age) + 5;
-      } else {
-        bmr = (10 * weight) + (6.25 * height) - (5 * age) - 161;
-      }
-      final tdee = bmr * 1.2; 
+    final weight = double.parse(_weightCtrl.text);
+    final height = double.parse(_heightCtrl.text);
+    final wrist = double.parse(_wristCtrl.text);
+    final bmi = weight / ((height / 100) * (height / 100));
+    
+    final somatotype = _calculateSomatotype(bmi, wrist, height);
+    _showResultDialog(somatotype);
+  }
 
-      final somatotype = _calculateSomatotype(bmi, wrist, height);
+  void _showResultDialog(Somatotype type) {
+    String folder = _gender == 'Masculino' ? 'Male' : 'Female';
+    String fileName = '';
+    String title = '';
+    String description = '';
+    String features = '';
 
-      final newUser = UserProfile(
-        name: name,
-        age: age,
-        weight: weight,
-        height: height,
-        gender: _gender,
-        wristCircumference: wrist,
-        ankleCircumference: ankle,
-        somatotype: somatotype,
-        tdee: tdee,
-      );
+    switch (type) {
+      case Somatotype.ectomorph:
+        fileName = '$folder-Ectomorfo.png';
+        title = 'Ectomorfo';
+        description = "Tu cuerpo tiende a ser delgado y ligero.";
+        features = "• Dificultad para ganar peso y músculo.\n• Metabolismo rápido.\n• Estructura ósea estrecha (hombros y caderas).";
+        break;
+      case Somatotype.mesomorph:
+        fileName = '$folder-Mesomorfo.png';
+        title = 'Mesomorfo';
+        description = "Tienes una complexión atlética natural.";
+        features = "• Ganas músculo con facilidad.\n• Postura erguida y hombros anchos.\n• Metabolismo equilibrado (ganas/pierdes peso fácil).";
+        break;
+      case Somatotype.endomorph:
+        fileName = '$folder-Endomorfo.png';
+        title = 'Endomorfo';
+        description = "Tu cuerpo tiende a acumular energía fácilmente.";
+        features = "• Estructura ósea gruesa y fuerte.\n• Facilidad para ganar fuerza.\n• Metabolismo más lento, tendencia a almacenar grasa.";
+        break;
+      default:
+        fileName = '$folder-Mesomorfo.png';
+        title = 'Indefinido';
+    }
 
-      final userBox = Hive.box<UserProfile>('userBox');
-      await userBox.put('currentUser', newUser); 
+    String imagePath = 'assets/images/somatotypes/$folder/$fileName';
 
-      // --- CAMBIO CLAVE: Vamos a Selección de Objetivos ---
-      if (mounted) {
-        Navigator.pushReplacement(
-          context, 
-          MaterialPageRoute(builder: (context) => const GoalSelectionScreen())
-        );
-      }
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (ctx) => AlertDialog(
+        backgroundColor: Colors.white,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(15)),
+        title: Center(
+          child: Text(
+            "Tu Somatotipo: $title", 
+            style: const TextStyle(color: Colors.black, fontWeight: FontWeight.bold)
+          )
+        ),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Container(
+              padding: const EdgeInsets.all(10),
+              decoration: BoxDecoration(
+                color: Colors.grey[100],
+                borderRadius: BorderRadius.circular(10)
+              ),
+              child: Image.asset(
+                imagePath, 
+                height: 180, 
+                fit: BoxFit.contain,
+                errorBuilder: (c, o, s) => const Icon(Icons.person, size: 80, color: Colors.grey),
+              ),
+            ),
+            const SizedBox(height: 15),
+            Text(description, 
+              textAlign: TextAlign.center, 
+              style: const TextStyle(color: Colors.black87, fontStyle: FontStyle.italic)
+            ),
+            const SizedBox(height: 15),
+            Container(
+              width: double.infinity,
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(
+                border: Border.all(color: Colors.blueAccent.withOpacity(0.3)),
+                borderRadius: BorderRadius.circular(8),
+                color: Colors.blue[50]
+              ),
+              child: Text(features, style: const TextStyle(fontSize: 13, color: Colors.black87, height: 1.4)),
+            ),
+          ],
+        ),
+        actions: [
+          SizedBox(
+            width: double.infinity,
+            child: ElevatedButton(
+              style: ElevatedButton.styleFrom(
+                backgroundColor: Colors.blueAccent,
+                padding: const EdgeInsets.symmetric(vertical: 12)
+              ),
+              onPressed: () {
+                Navigator.pop(ctx);
+                _saveAndContinue(type);
+              },
+              child: const Text("CONTINUAR", style: TextStyle(color: Colors.white)),
+            ),
+          )
+        ],
+      ),
+    );
+  }
+
+  void _saveAndContinue(Somatotype type) async {
+    final age = int.parse(_ageCtrl.text);
+    final weight = double.parse(_weightCtrl.text);
+    final height = double.parse(_heightCtrl.text);
+    
+    double bmr = (10 * weight) + (6.25 * height) - (5 * age) + (_gender == 'Masculino' ? 5 : -161);
+    
+    final newUser = UserProfile(
+      name: _nameCtrl.text,
+      age: age,
+      weight: weight,
+      height: height,
+      gender: _gender,
+      wristCircumference: double.parse(_wristCtrl.text),
+      ankleCircumference: double.parse(_ankleCtrl.text),
+      somatotype: type,
+      tdee: bmr * 1.2,
+    );
+
+    await Hive.box<UserProfile>('userBox').put('currentUser', newUser);
+
+    if (mounted) {
+      Navigator.pushReplacement(context, MaterialPageRoute(builder: (_) => const GoalSelectionScreen()));
     }
   }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: const Text('Configuración de Perfil')),
+      appBar: AppBar(title: const Text('Tus Datos')),
       body: Padding(
         padding: const EdgeInsets.all(16.0),
         child: Form(
           key: _formKey,
           child: ListView(
             children: [
-              const Text('Datos Biométricos', style: TextStyle(fontSize: 22, fontWeight: FontWeight.bold)),
-              const SizedBox(height: 20),
+              _buildInput(_nameCtrl, 'Nombre'),
+              _buildRowInput(_ageCtrl, 'Edad', _weightCtrl, 'Peso (kg)'),
+              _buildRowInput(_heightCtrl, 'Altura (cm)', _wristCtrl, 'Muñeca (cm)'),
+              _buildInput(_ankleCtrl, 'Tobillo (cm)', isNumber: true),
               
-              TextFormField(
-                controller: _nameController,
-                decoration: const InputDecoration(labelText: 'Nombre', border: OutlineInputBorder()),
-                validator: (v) => v!.isEmpty ? 'Requerido' : null,
-              ),
-              const SizedBox(height: 10),
-              Row(
-                children: [
-                  Expanded(
-                    child: TextFormField(
-                      controller: _ageController,
-                      keyboardType: TextInputType.number,
-                      decoration: const InputDecoration(labelText: 'Edad', border: OutlineInputBorder()),
-                      validator: (v) => v!.isEmpty ? 'Requerido' : null,
-                    ),
-                  ),
-                  const SizedBox(width: 10),
-                  Expanded(
-                    child: DropdownButtonFormField<String>(
-                      initialValue: _gender,
-                      items: ['Masculino', 'Femenino'].map((String val) {
-                        return DropdownMenuItem(value: val, child: Text(val));
-                      }).toList(),
-                      onChanged: (val) => setState(() => _gender = val!),
-                      decoration: const InputDecoration(labelText: 'Sexo', border: OutlineInputBorder()),
-                    ),
-                  ),
-                ],
-              ),
-              const SizedBox(height: 10),
-              Row(
-                children: [
-                  Expanded(
-                    child: TextFormField(
-                      controller: _weightController,
-                      keyboardType: TextInputType.number,
-                      decoration: const InputDecoration(labelText: 'Peso (kg)', border: OutlineInputBorder(), suffixText: 'kg'),
-                      validator: (v) => v!.isEmpty ? 'Requerido' : null,
-                    ),
-                  ),
-                  const SizedBox(width: 10),
-                  Expanded(
-                    child: TextFormField(
-                      controller: _heightController,
-                      keyboardType: TextInputType.number,
-                      decoration: const InputDecoration(labelText: 'Altura (cm)', border: OutlineInputBorder(), suffixText: 'cm'),
-                      validator: (v) => v!.isEmpty ? 'Requerido' : null,
-                    ),
-                  ),
-                ],
+              DropdownButtonFormField(
+                value: _gender,
+                items: ['Masculino', 'Femenino'].map((v) => DropdownMenuItem(value: v, child: Text(v))).toList(),
+                onChanged: (v) => setState(() => _gender = v.toString()),
+                decoration: const InputDecoration(labelText: 'Sexo'),
               ),
               const SizedBox(height: 20),
-              const Text('Estructura Ósea (Estimación)', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
-              const SizedBox(height: 10),
-              TextFormField(
-                controller: _wristController,
-                keyboardType: TextInputType.number,
-                decoration: const InputDecoration(labelText: 'Circunferencia Muñeca (cm)', border: OutlineInputBorder()),
-                validator: (v) => v!.isEmpty ? 'Requerido' : null,
-              ),
-              const SizedBox(height: 10),
-              TextFormField(
-                controller: _ankleController,
-                keyboardType: TextInputType.number,
-                decoration: const InputDecoration(labelText: 'Circunferencia Tobillo (cm)', border: OutlineInputBorder()),
-                validator: (v) => v!.isEmpty ? 'Requerido' : null,
-              ),
-              const SizedBox(height: 30),
               ElevatedButton(
-                onPressed: _saveAndContinue,
-                style: ElevatedButton.styleFrom(
-                  padding: const EdgeInsets.symmetric(vertical: 16),
-                  backgroundColor: Colors.blueAccent,
-                ),
-                child: const Text('CALCULAR MI PLAN Y CONTINUAR', style: TextStyle(fontSize: 16, color: Colors.white)),
+                onPressed: _processData,
+                child: const Text('CALCULAR'),
               ),
             ],
           ),
@@ -174,4 +197,11 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
       ),
     );
   }
+
+  Widget _buildInput(TextEditingController c, String label, {bool isNumber = false}) => Padding(
+    padding: const EdgeInsets.only(bottom: 10),
+    child: TextFormField(controller: c, keyboardType: isNumber ? TextInputType.number : TextInputType.text, decoration: InputDecoration(labelText: label, border: const OutlineInputBorder()), validator: (v) => v!.isEmpty ? 'Requerido' : null),
+  );
+
+  Widget _buildRowInput(TextEditingController c1, String l1, TextEditingController c2, String l2) => Row(children: [Expanded(child: _buildInput(c1, l1, isNumber: true)), const SizedBox(width: 10), Expanded(child: _buildInput(c2, l2, isNumber: true))]);
 }
