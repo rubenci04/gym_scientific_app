@@ -14,21 +14,13 @@ class RoutineDay extends HiveObject {
   List<String> targetMuscles;
 
   @HiveField(3)
-  List<String> exerciseIds;
-
-  @HiveField(4)
-  int sets;
-
-  @HiveField(5)
-  String reps;
+  List<RoutineExercise> exercises;
 
   RoutineDay({
     required this.id,
     required this.name,
     required this.targetMuscles,
-    required this.exerciseIds,
-    required this.sets,
-    required this.reps,
+    required this.exercises,
   });
 }
 
@@ -55,5 +47,35 @@ class WeeklyRoutine extends HiveObject {
     required this.days,
     required this.createdAt,
     this.isActive = false,
+  });
+}
+
+@HiveType(typeId: 11)
+class RoutineExercise extends HiveObject {
+  @HiveField(0)
+  String exerciseId;
+
+  @HiveField(1)
+  int sets;
+
+  @HiveField(2)
+  String reps;
+
+  @HiveField(3)
+  String? rpe;
+
+  @HiveField(4)
+  int? restTimeSeconds;
+
+  @HiveField(5)
+  String? note;
+
+  RoutineExercise({
+    required this.exerciseId,
+    required this.sets,
+    required this.reps,
+    this.rpe,
+    this.restTimeSeconds,
+    this.note,
   });
 }

@@ -21,9 +21,11 @@ class _RoutineListScreenState extends State<RoutineListScreen> {
     _loadRoutines();
   }
 
-  void _loadRoutines() {
+  Future<void> _loadRoutines() async {
+    final routines = await RoutineRepository.getAllRoutines();
+    if (!mounted) return;
     setState(() {
-      _routines = RoutineRepository.getAllRoutines();
+      _routines = routines;
       // Sort by creation date descending
       _routines.sort((a, b) => b.createdAt.compareTo(a.createdAt));
     });

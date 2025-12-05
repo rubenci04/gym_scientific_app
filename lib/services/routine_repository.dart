@@ -2,45 +2,52 @@ import 'package:hive/hive.dart';
 import '../models/routine_model.dart';
 
 class RoutineRepository {
-  static final Box<WeeklyRoutine> _box = Hive.box<WeeklyRoutine>('routineBox');
+  static const String _boxName = 'routineBox';
 
-  static List<WeeklyRoutine> getAllRoutines() {
-    return _box.values.toList();
+  static Future<void> saveRoutine(WeeklyRoutine routine) async {
+    final box = await Hive.openBox<WeeklyRoutine>(_boxName);
+    await box.put(routine.id, routine);
+  }
+
+  static Future<List<WeeklyRoutine>> getAllRoutines() async {
+    final box = await Hive.openBox<WeeklyRoutine>(_boxName);
+    return box.values.toList();
+  }
+
+  static Future<void> deleteRoutine(String id) async {
+    final box = await Hive.openBox<WeeklyRoutine>(_boxName);
+    await box.delete(id);
+  }
+
+  static Future<void> setActiveRoutine(String id) async {
+    final box = await Hive.openBox<WeeklyRoutine>(_boxName);
+    final routines = box.values.toList();
+
+    for (var routine in routines) {
+      if (routine.id == id) {
+        routine.isActive = true;
+      } else {
+        routine.isActive = false;
+      }
+      await routine.save();
+    }
   }
 
   static WeeklyRoutine? getActiveRoutine() {
+    // Nota: Hive.box debe estar abierto antes de llamar a esto síncronamente
+    // En main.dart ya abrimos las cajas, pero por seguridad usamos openBox si es async
+    if (!Hive.isBoxOpen(_boxName)) return null;
+
+    final box = Hive.box<WeeklyRoutine>(_boxName);
     try {
-      return _box.values.firstWhere((r) => r.isActive);
+      return box.values.firstWhere((r) => r.isActive);
     } catch (e) {
-      // Fallback: check 'currentRoutine' key if no active flag found (legacy support)
-      return _box.get('currentRoutine');
+      return null;
     }
   }
 
-  static Future<void> saveRoutine(WeeklyRoutine routine) async {
-    await _box.put(routine.id, routine);
-  }
-
-  static Future<void> setActiveRoutine(String routineId) async {
-    // Deactivate all
-    for (var routine in _box.values) {
-      if (routine.isActive) {
-        routine.isActive = false;
-        await routine.save();
-      }
-    }
-
-    // Activate selected
-    final routine = _box.get(routineId);
-    if (routine != null) {
-      routine.isActive = true;
-      await routine.save();
-      // Update legacy key for compatibility
-      await _box.put('currentRoutine', routine);
-    }
-  }
-
-  static Future<void> deleteRoutine(String routineId) async {
-    await _box.delete(routineId);
+  // Método para inicializar la caja si es necesario
+  static Future<void> init() async {
+    await Hive.openBox<WeeklyRoutine>(_boxName);
   }
 }

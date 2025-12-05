@@ -20,16 +20,14 @@ class RoutineDayAdapter extends TypeAdapter<RoutineDay> {
       id: fields[0] as String,
       name: fields[1] as String,
       targetMuscles: (fields[2] as List).cast<String>(),
-      exerciseIds: (fields[3] as List).cast<String>(),
-      sets: fields[4] as int,
-      reps: fields[5] as String,
+      exercises: (fields[3] as List).cast<RoutineExercise>(),
     );
   }
 
   @override
   void write(BinaryWriter writer, RoutineDay obj) {
     writer
-      ..writeByte(6)
+      ..writeByte(4)
       ..writeByte(0)
       ..write(obj.id)
       ..writeByte(1)
@@ -37,11 +35,7 @@ class RoutineDayAdapter extends TypeAdapter<RoutineDay> {
       ..writeByte(2)
       ..write(obj.targetMuscles)
       ..writeByte(3)
-      ..write(obj.exerciseIds)
-      ..writeByte(4)
-      ..write(obj.sets)
-      ..writeByte(5)
-      ..write(obj.reps);
+      ..write(obj.exercises);
   }
 
   @override
@@ -97,6 +91,55 @@ class WeeklyRoutineAdapter extends TypeAdapter<WeeklyRoutine> {
   bool operator ==(Object other) =>
       identical(this, other) ||
       other is WeeklyRoutineAdapter &&
+          runtimeType == other.runtimeType &&
+          typeId == other.typeId;
+}
+
+class RoutineExerciseAdapter extends TypeAdapter<RoutineExercise> {
+  @override
+  final int typeId = 11;
+
+  @override
+  RoutineExercise read(BinaryReader reader) {
+    final numOfFields = reader.readByte();
+    final fields = <int, dynamic>{
+      for (int i = 0; i < numOfFields; i++) reader.readByte(): reader.read(),
+    };
+    return RoutineExercise(
+      exerciseId: fields[0] as String,
+      sets: fields[1] as int,
+      reps: fields[2] as String,
+      rpe: fields[3] as String?,
+      restTimeSeconds: fields[4] as int?,
+      note: fields[5] as String?,
+    );
+  }
+
+  @override
+  void write(BinaryWriter writer, RoutineExercise obj) {
+    writer
+      ..writeByte(6)
+      ..writeByte(0)
+      ..write(obj.exerciseId)
+      ..writeByte(1)
+      ..write(obj.sets)
+      ..writeByte(2)
+      ..write(obj.reps)
+      ..writeByte(3)
+      ..write(obj.rpe)
+      ..writeByte(4)
+      ..write(obj.restTimeSeconds)
+      ..writeByte(5)
+      ..write(obj.note);
+  }
+
+  @override
+  int get hashCode => typeId.hashCode;
+
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      other is RoutineExerciseAdapter &&
           runtimeType == other.runtimeType &&
           typeId == other.typeId;
 }

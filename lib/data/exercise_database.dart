@@ -743,6 +743,76 @@ class ExerciseDatabase {
       variations: ['face_pull', 'rear_delt_machine'],
       isBilateral: true,
     ),
+    // Nuevos ejercicios de hombros
+    Exercise(
+      id: 'arnold_press',
+      name: 'Press Arnold',
+      muscleGroup: 'Hombros',
+      equipment: 'Mancuernas',
+      movementPattern: 'Empuje Vertical',
+      difficulty: 'Intermedio',
+      description:
+          'Press de hombros con rotación inventado por Arnold Schwarzenegger. Mayor rango de movimiento.',
+      tips: [
+        'Empieza con palmas hacia ti',
+        'Rota mientras subes',
+        'Termina con palmas al frente',
+      ],
+      commonMistakes: ['Usar demasiado peso', 'No completar la rotación'],
+      targetMuscles: [
+        'Deltoides Anterior',
+        'Deltoides Medio',
+        'Deltoides Posterior',
+      ],
+      secondaryMuscles: ['Tríceps'],
+      variations: ['ohp_db'],
+      isBilateral: true,
+    ),
+
+    Exercise(
+      id: 'upright_row',
+      name: 'Remo al Mentón',
+      muscleGroup: 'Hombros',
+      equipment: 'Barra',
+      movementPattern: 'Tracción Vertical',
+      difficulty: 'Intermedio',
+      description:
+          'Ejercicio para deltoides lateral y trapecios. Jala la barra hacia el mentón.',
+      tips: [
+        'Agarre ancho (más seguro para hombros)',
+        'Codos lideran el movimiento',
+        'No subir más allá de los hombros',
+      ],
+      commonMistakes: [
+        'Agarre muy estrecho (riesgo de pinzamiento)',
+        'Usar impulso',
+      ],
+      targetMuscles: ['Deltoides Medio', 'Trapecio Superior'],
+      secondaryMuscles: ['Bíceps'],
+      variations: ['lat_raise'],
+      isBilateral: true,
+    ),
+
+    Exercise(
+      id: 'egyptian_lat_raise',
+      name: 'Elevación Lateral Egipcia',
+      muscleGroup: 'Hombros',
+      equipment: 'Polea',
+      movementPattern: 'Aislamiento',
+      difficulty: 'Intermedio',
+      description:
+          'Elevación lateral unilateral en polea con inclinación. Tensión constante.',
+      tips: [
+        'Inclínate hacia el lado opuesto',
+        'Brazo recto',
+        'Controla la negativa',
+      ],
+      commonMistakes: ['Usar impulso'],
+      targetMuscles: ['Deltoides Medio'],
+      secondaryMuscles: [],
+      variations: ['lat_raise'],
+      isBilateral: false,
+    ),
   ];
 
   // ===================
@@ -795,6 +865,82 @@ class ExerciseDatabase {
       targetMuscles: ['Braquial', 'Braquiorradial'],
       secondaryMuscles: ['Bíceps'],
       variations: ['curl_db'],
+      isBilateral: true,
+    ),
+    // Nuevos ejercicios de bíceps
+    Exercise(
+      id: 'preacher_curl',
+      name: 'Curl Predicador',
+      muscleGroup: 'Bíceps',
+      equipment: 'Barra Z / Máquina',
+      movementPattern: 'Aislamiento',
+      difficulty: 'Intermedio',
+      description:
+          'Curl con los brazos apoyados en un banco predicador. Elimina el impulso.',
+      tips: [
+        'Axilas pegadas al borde',
+        'Extensión casi completa (cuidado con hiperextensión)',
+        'No levantar el cuerpo',
+      ],
+      commonMistakes: ['No bajar completo', 'Levantarse del asiento'],
+      targetMuscles: ['Bíceps (Cabeza Corta)'],
+      secondaryMuscles: ['Braquial'],
+      variations: ['curl_barbell'],
+      isBilateral: true,
+    ),
+
+    Exercise(
+      id: 'incline_db_curl',
+      name: 'Curl Inclinado con Mancuernas',
+      muscleGroup: 'Bíceps',
+      equipment: 'Mancuernas',
+      movementPattern: 'Aislamiento',
+      difficulty: 'Intermedio',
+      description:
+          'Curl sentado en banco inclinado. Maximiza el estiramiento del bíceps.',
+      tips: [
+        'Banco a 45-60 grados',
+        'Brazos colgando detrás del cuerpo',
+        'Mantén codos atrás',
+      ],
+      commonMistakes: ['Adelantar los codos', 'Usar impulso de hombros'],
+      targetMuscles: ['Bíceps (Cabeza Larga)'],
+      secondaryMuscles: [],
+      variations: ['bayesian_curl'],
+      isBilateral: true,
+    ),
+
+    Exercise(
+      id: 'bayesian_curl',
+      name: 'Curl Bayesiano (Polea)',
+      muscleGroup: 'Bíceps',
+      equipment: 'Polea',
+      movementPattern: 'Aislamiento',
+      difficulty: 'Intermedio',
+      description:
+          'Curl de espaldas a la polea. Tensión constante y gran estiramiento.',
+      tips: ['Da un paso adelante', 'Brazo extendido atrás', 'Contrae fuerte'],
+      commonMistakes: ['Mover el codo hacia adelante'],
+      targetMuscles: ['Bíceps (Cabeza Larga)'],
+      secondaryMuscles: [],
+      variations: ['incline_db_curl'],
+      isBilateral: false,
+    ),
+
+    Exercise(
+      id: 'spider_curl',
+      name: 'Spider Curl',
+      muscleGroup: 'Bíceps',
+      equipment: 'Barra / Mancuernas',
+      movementPattern: 'Aislamiento',
+      difficulty: 'Intermedio',
+      description:
+          'Curl pecho abajo en banco inclinado. Enfatiza el pico de contracción.',
+      tips: ['Pecho pegado al respaldo', 'Codos adelante', 'Apretar arriba'],
+      commonMistakes: ['Usar espalda baja'],
+      targetMuscles: ['Bíceps (Cabeza Corta)'],
+      secondaryMuscles: [],
+      variations: ['preacher_curl'],
       isBilateral: true,
     ),
   ];
@@ -1003,6 +1149,48 @@ class ExerciseDatabase {
       secondaryMuscles: ['Core'],
       variations: ['squat_barbell'],
       isBilateral: true,
+    ),
+
+    Exercise(
+      id: 'leg_extension',
+      name: 'Extensión de Pierna',
+      muscleGroup: 'Cuádriceps',
+      equipment: 'Máquina',
+      movementPattern: 'Aislamiento',
+      difficulty: 'Principiante',
+      description:
+          'Aislamiento puro de cuádriceps. Siéntate y extiende las piernas contra resistencia.',
+      tips: [
+        'No bloquees las rodillas',
+        'Pausa arriba 1 segundo',
+        'Contracción máxima',
+      ],
+      commonMistakes: ['Usar impulso', 'Rango parcial'],
+      targetMuscles: ['Cuádriceps'],
+      secondaryMuscles: [],
+      variations: ['sissy_squat'],
+      isBilateral: true,
+    ),
+
+    Exercise(
+      id: 'bulgarian_split_squat',
+      name: 'Sentadilla Búlgara',
+      muscleGroup: 'Cuádriceps',
+      equipment: 'Mancuernas',
+      movementPattern: 'Zancada',
+      difficulty: 'Intermedio',
+      description:
+          'Sentadilla a una pierna con pie trasero elevado. Excelente para equilibrio.',
+      tips: [
+        'Pie delantero firmemente plantado',
+        'Torso erguido',
+        'Baja verticalmente',
+      ],
+      commonMistakes: ['Rodilla muy adelante', 'Perder equilibrio'],
+      targetMuscles: ['Cuádriceps', 'Glúteos'],
+      secondaryMuscles: ['Core'],
+      variations: ['lunge_db'],
+      isBilateral: false,
     ),
   ];
 
@@ -1299,6 +1487,69 @@ class ExerciseDatabase {
       variations: ['plank'],
       isBilateral: true,
       alternativeExercise: 'plank',
+    ),
+
+    Exercise(
+      id: 'russian_twist',
+      name: 'Giro Ruso',
+      muscleGroup: 'Core',
+      equipment: 'Disco',
+      movementPattern: 'Rotación',
+      difficulty: 'Intermedio',
+      description: 'Sentado, gira el torso de lado a lado sosteniendo peso.',
+      tips: [
+        'Pies elevados para más intensidad',
+        'Gira con control',
+        'Mantén core tenso',
+      ],
+      commonMistakes: ['Mover solo los brazos', 'Ir muy rápido'],
+      targetMuscles: ['Oblicuos'],
+      secondaryMuscles: ['Recto Abdominal'],
+      variations: ['bicycle_crunch'],
+      isBilateral: true,
+    ),
+
+    Exercise(
+      id: 'hanging_leg_raise',
+      name: 'Elevación de Piernas Colgado',
+      muscleGroup: 'Core',
+      equipment: 'Barra',
+      movementPattern: 'Flexión',
+      difficulty: 'Avanzado',
+      description:
+          'Colgado de una barra, eleva las piernas hasta horizontales.',
+      tips: [
+        'No uses impulso',
+        'Control en la bajada',
+        'Piernas rectas o flexionadas',
+      ],
+      commonMistakes: ['Balanceo', 'Rango parcial'],
+      targetMuscles: ['Recto Abdominal Inferior'],
+      secondaryMuscles: ['Flexores de Cadera'],
+      variations: ['knee_raise'],
+      isBilateral: true,
+    ),
+
+    Exercise(
+      id: 'bicycle_crunch',
+      name: 'Bicicleta Abdominal',
+      muscleGroup: 'Core',
+      equipment: 'Corporal',
+      movementPattern: 'Rotación',
+      difficulty: 'Principiante',
+      description:
+          'Acostado, alterna codo con rodilla opuesta en movimiento de bicicleta.',
+      tips: [
+        'Activa el core',
+        'Lleva codo a rodilla opuesta',
+        'Movimiento controlado',
+      ],
+      commonMistakes: ['Ir demasiado rápido', 'Tirar del cuello'],
+      targetMuscles: ['Oblicuos', 'Recto Abdominal'],
+      secondaryMuscles: [],
+      variations: ['russian_twist'],
+      isBilateral: true,
+      alternativeExercise: 'russian_twist',
     ),
   ];
 

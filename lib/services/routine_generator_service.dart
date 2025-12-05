@@ -19,7 +19,7 @@ class RoutineGeneratorService {
 
     for (var i = 0; i < structure.length; i++) {
       var dayTemplate = structure[i];
-      List<String> selectedExerciseIds = [];
+      List<RoutineExercise> selectedExercises = [];
       Set<String> usedIds = {};
 
       // Definir series y repeticiones según el objetivo
@@ -57,7 +57,9 @@ class RoutineGeneratorService {
         if (candidates.isNotEmpty) {
           candidates.shuffle();
           final selected = candidates.first;
-          selectedExerciseIds.add(selected.id);
+          selectedExercises.add(
+            RoutineExercise(exerciseId: selected.id, sets: sets, reps: reps),
+          );
           usedIds.add(selected.id);
         }
       }
@@ -67,10 +69,7 @@ class RoutineGeneratorService {
           id: "day_${generatedDays.length + 1}",
           name: "Día ${i + 1}: ${dayTemplate['name']}",
           targetMuscles: dayTemplate['muscles'],
-          exerciseIds: selectedExerciseIds,
-          // Asignar series y reps a cada día
-          sets: sets,
-          reps: reps,
+          exercises: selectedExercises,
         ),
       );
     }
@@ -81,10 +80,11 @@ class RoutineGeneratorService {
           "Plan ${user.daysPerWeek} Días - ${_getGoalName(user.goal)} - ${_getLocationName(user.location)}",
       days: generatedDays,
       createdAt: DateTime.now(),
+      isActive: true,
     );
 
     var routineBox = Hive.box<WeeklyRoutine>('routineBox');
-    await routineBox.put('currentRoutine', newRoutine);
+    await routineBox.add(newRoutine);
   }
 
   static String _getGoalName(TrainingGoal goal) {

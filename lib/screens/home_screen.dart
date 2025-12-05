@@ -7,9 +7,13 @@ import '../services/routine_repository.dart';
 import '../theme/app_colors.dart';
 import 'workout_screen.dart';
 import 'body_status_screen.dart';
-import 'routine_list_screen.dart';
+import 'my_routines_screen.dart';
 import 'progress_screen.dart';
 import 'nutrition_screen.dart';
+import 'hydration_settings_screen.dart';
+import 'routine_editor_screen.dart';
+import 'somatotype_info_screen.dart';
+import 'exercise_library_screen.dart';
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
@@ -62,11 +66,23 @@ class _HomeScreenState extends State<HomeScreen> {
         elevation: 0,
         actions: [
           IconButton(
+            icon: const Icon(Icons.menu_book, color: AppColors.primary),
+            onPressed: () {
+              Navigator.push(
+                context,
+                MaterialPageRoute(
+                  builder: (c) => const ExerciseLibraryScreen(),
+                ),
+              );
+            },
+            tooltip: "Biblioteca de Ejercicios",
+          ),
+          IconButton(
             icon: const Icon(Icons.list_alt, color: AppColors.primary),
             onPressed: () {
               Navigator.push(
                 context,
-                MaterialPageRoute(builder: (c) => const RoutineListScreen()),
+                MaterialPageRoute(builder: (c) => const MyRoutinesScreen()),
               ).then((_) => _loadDataAndApplyProgression());
             },
             tooltip: "Mis Rutinas",
@@ -101,6 +117,18 @@ class _HomeScreenState extends State<HomeScreen> {
             },
             tooltip: "Ver Mapa de Fatiga",
           ),
+          IconButton(
+            icon: const Icon(Icons.water_drop, color: AppColors.primary),
+            onPressed: () {
+              Navigator.push(
+                context,
+                MaterialPageRoute(
+                  builder: (c) => const HydrationSettingsScreen(),
+                ),
+              );
+            },
+            tooltip: "Hidratación",
+          ),
         ],
       ),
       body: _isLoading
@@ -114,13 +142,46 @@ class _HomeScreenState extends State<HomeScreen> {
                   const SizedBox(height: 30),
                   _buildStatusCard(context),
                   const SizedBox(height: 30),
-                  const Text(
-                    "TU PLAN ASIGNADO",
-                    style: TextStyle(
-                      color: Colors.grey,
-                      letterSpacing: 1.5,
-                      fontSize: 12,
-                    ),
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      const Text(
+                        "TU PLAN ASIGNADO",
+                        style: TextStyle(
+                          color: Colors.grey,
+                          letterSpacing: 1.5,
+                          fontSize: 12,
+                        ),
+                      ),
+                      if (_currentRoutine != null)
+                        TextButton.icon(
+                          onPressed: () async {
+                            await Navigator.push(
+                              context,
+                              MaterialPageRoute(
+                                builder: (context) => RoutineEditorScreen(
+                                  routine: _currentRoutine,
+                                ),
+                              ),
+                            );
+                            _loadDataAndApplyProgression();
+                          },
+                          icon: const Icon(
+                            Icons.edit,
+                            size: 16,
+                            color: AppColors.primary,
+                          ),
+                          label: const Text(
+                            "Editar",
+                            style: TextStyle(color: AppColors.primary),
+                          ),
+                          style: TextButton.styleFrom(
+                            padding: EdgeInsets.zero,
+                            minimumSize: const Size(50, 30),
+                            tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                          ),
+                        ),
+                    ],
                   ),
                   const SizedBox(height: 10),
                   if (_currentRoutine != null)
@@ -139,39 +200,57 @@ class _HomeScreenState extends State<HomeScreen> {
   }
 
   Widget _buildHeader(UserProfile? user) {
-    return Row(
-      children: [
-        CircleAvatar(
-          radius: 30,
-          backgroundColor: AppColors.primary,
-          child: Text(
-            user?.name[0] ?? 'U',
-            style: const TextStyle(
-              fontSize: 24,
-              color: Colors.white,
-              fontWeight: FontWeight.bold,
-            ),
-          ),
-        ),
-        const SizedBox(width: 15),
-        Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(
-              'Bienvenido, ${user?.name}',
+    return GestureDetector(
+      onTap: () {
+        Navigator.push(
+          context,
+          MaterialPageRoute(builder: (c) => const SomatotypeInfoScreen()),
+        );
+      },
+      child: Row(
+        children: [
+          CircleAvatar(
+            radius: 30,
+            backgroundColor: AppColors.primary,
+            child: Text(
+              user?.name[0] ?? 'U',
               style: const TextStyle(
-                fontSize: 22,
+                fontSize: 24,
                 color: Colors.white,
                 fontWeight: FontWeight.bold,
               ),
             ),
-            Text(
-              '${user?.somatotype.toString().split('.').last.toUpperCase()} • Objetivo: ${user?.goal.toString().split('.').last}',
-              style: const TextStyle(color: AppColors.textSecondary),
-            ),
-          ],
-        ),
-      ],
+          ),
+          const SizedBox(width: 15),
+          Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                'Bienvenido, ${user?.name}',
+                style: const TextStyle(
+                  fontSize: 22,
+                  color: Colors.white,
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+              Row(
+                children: [
+                  Text(
+                    '${user?.somatotype.toString().split('.').last.toUpperCase()} • Objetivo: ${user?.goal.toString().split('.').last}',
+                    style: const TextStyle(color: AppColors.textSecondary),
+                  ),
+                  const SizedBox(width: 5),
+                  const Icon(
+                    Icons.info_outline,
+                    color: AppColors.textSecondary,
+                    size: 16,
+                  ),
+                ],
+              ),
+            ],
+          ),
+        ],
+      ),
     );
   }
 
@@ -242,7 +321,7 @@ class _HomeScreenState extends State<HomeScreen> {
               ),
             ),
             subtitle: Text(
-              "Enfoque: ${day.targetMuscles.join(", ")} • ${day.sets} series de ${day.reps} reps",
+              "Enfoque: ${day.targetMuscles.join(", ")}",
               style: const TextStyle(color: AppColors.textSecondary),
             ),
             trailing: const Icon(
@@ -256,8 +335,8 @@ class _HomeScreenState extends State<HomeScreen> {
                 MaterialPageRoute(
                   builder: (context) => WorkoutScreen(
                     dayName: day.name,
-                    exerciseIds: day.exerciseIds,
-                    routineDayId: day.id, // Pasar el ID del día
+                    routineExercises: day.exercises,
+                    routineDayId: day.id,
                   ),
                 ),
               );

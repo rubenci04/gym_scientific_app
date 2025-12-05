@@ -15,8 +15,9 @@ dependencies:
   provider: ^6.1.5+1
   fl_chart: ^0.63.0
   intl: ^0.18.1
-  # CRUCIAL: Librería para el mapa del cuerpo
-  path_drawing: ^1.0.1 
+  path_drawing: ^1.0.1
+  flutter_local_notifications: ^17.2.3
+  timezone: ^0.9.4
 
 dev_dependencies:
   flutter_test:
@@ -29,7 +30,5 @@ flutter:
   uses-material-design: true
   
   assets:
-    # Rutas EXACTAS según tu estructura de carpetas subida
     - assets/images/somatotypes/Male/
     - assets/images/somatotypes/Female/
-    # (El resto de imágenes del cuerpo ya no se usan porque usaremos código SVG)

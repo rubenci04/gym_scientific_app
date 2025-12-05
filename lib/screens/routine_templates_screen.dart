@@ -1,0 +1,119 @@
+import 'package:flutter/material.dart';
+import '../data/routine_templates.dart';
+import '../models/routine_model.dart';
+import '../theme/app_colors.dart';
+import 'routine_editor_screen.dart';
+
+class RoutineTemplatesScreen extends StatelessWidget {
+  const RoutineTemplatesScreen({super.key});
+
+  void _selectTemplate(BuildContext context, WeeklyRoutine template) {
+    // Clone the template to avoid modifying the static instance
+    final newRoutine = WeeklyRoutine(
+      id: 'routine_${DateTime.now().millisecondsSinceEpoch}',
+      name: template.name,
+      days: template.days
+          .map(
+            (day) => RoutineDay(
+              id: 'day_${DateTime.now().millisecondsSinceEpoch}_${day.id}',
+              name: day.name,
+              targetMuscles: List.from(day.targetMuscles),
+              exercises: day.exercises
+                  .map(
+                    (ex) => RoutineExercise(
+                      exerciseId: ex.exerciseId,
+                      sets: ex.sets,
+                      reps: ex.reps,
+                      rpe: ex.rpe,
+                      restTimeSeconds: ex.restTimeSeconds,
+                    ),
+                  )
+                  .toList(),
+            ),
+          )
+          .toList(),
+      createdAt: DateTime.now(),
+      isActive: false,
+    );
+
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (context) => RoutineEditorScreen(routine: newRoutine),
+      ),
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final templates = RoutineTemplates.templates;
+
+    return Scaffold(
+      backgroundColor: AppColors.background,
+      appBar: AppBar(
+        title: const Text('Plantillas de Rutina'),
+        backgroundColor: AppColors.surface,
+      ),
+      body: ListView.separated(
+        padding: const EdgeInsets.all(16),
+        itemCount: templates.length,
+        separatorBuilder: (c, i) => const SizedBox(height: 16),
+        itemBuilder: (context, index) {
+          final template = templates[index];
+          return Card(
+            color: AppColors.surface,
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(12),
+            ),
+            child: InkWell(
+              onTap: () => _selectTemplate(context, template),
+              borderRadius: BorderRadius.circular(12),
+              child: Padding(
+                padding: const EdgeInsets.all(16),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      template.name,
+                      style: const TextStyle(
+                        color: Colors.white,
+                        fontSize: 18,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                    const SizedBox(height: 8),
+                    Text(
+                      '${template.days.length} Días • ${template.days.map((d) => d.targetMuscles.join(", ")).join(" | ")}',
+                      style: const TextStyle(color: Colors.white70),
+                      maxLines: 2,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                    const SizedBox(height: 12),
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.end,
+                      children: const [
+                        Text(
+                          "Usar Plantilla",
+                          style: TextStyle(
+                            color: AppColors.primary,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                        SizedBox(width: 4),
+                        Icon(
+                          Icons.arrow_forward,
+                          color: AppColors.primary,
+                          size: 16,
+                        ),
+                      ],
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          );
+        },
+      ),
+    );
+  }
+}

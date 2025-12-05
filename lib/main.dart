@@ -6,9 +6,11 @@ import 'models/user_model.dart';
 import 'models/exercise_model.dart';
 import 'models/history_model.dart';
 import 'models/routine_model.dart';
+import 'models/hydration_settings_model.dart';
 
 // Servicios
 import 'services/seed_data_service.dart';
+import 'services/notification_service.dart';
 
 // UI & Theme
 import 'screens/onboarding_screen.dart';
@@ -30,14 +32,18 @@ void main() async {
   Hive.registerAdapter(RoutineDayAdapter()); // 8
   Hive.registerAdapter(WeeklyRoutineAdapter()); // 9
   Hive.registerAdapter(ExperienceAdapter()); // 10
+  Hive.registerAdapter(RoutineExerciseAdapter()); // 11
+  Hive.registerAdapter(HydrationSettingsAdapter()); // 12
 
   // ABRIR CAJAS
   await Hive.openBox<UserProfile>('userBox');
   await Hive.openBox<Exercise>('exerciseBox');
   await Hive.openBox<WorkoutSession>('historyBox');
   await Hive.openBox<WeeklyRoutine>('routineBox');
+  await Hive.openBox<HydrationSettings>('hydrationBox');
 
   await SeedDataService.initializeExercises();
+  await NotificationService.initialize();
 
   runApp(const GymApp());
 }

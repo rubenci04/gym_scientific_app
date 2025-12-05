@@ -2,16 +2,29 @@ import 'package:flutter/material.dart';
 import '../theme/app_colors.dart';
 
 class PlateCalculatorScreen extends StatefulWidget {
-  const PlateCalculatorScreen({super.key});
+  final double initialWeight;
+
+  const PlateCalculatorScreen({super.key, this.initialWeight = 0});
 
   @override
   State<PlateCalculatorScreen> createState() => _PlateCalculatorScreenState();
 }
 
 class _PlateCalculatorScreenState extends State<PlateCalculatorScreen> {
-  final TextEditingController _weightController = TextEditingController();
+  late TextEditingController _weightController;
   List<double> _plates = [];
   double _barWeight = 20.0; // Barra olímpica estándar
+
+  @override
+  void initState() {
+    super.initState();
+    _weightController = TextEditingController(
+      text: widget.initialWeight > 0 ? widget.initialWeight.toString() : '',
+    );
+    if (widget.initialWeight > 0) {
+      _calculatePlates();
+    }
+  }
 
   void _calculatePlates() {
     double targetWeight = double.tryParse(_weightController.text) ?? 0;
