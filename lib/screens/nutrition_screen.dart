@@ -127,7 +127,7 @@ class _NutritionScreenState extends State<NutritionScreen> {
           children: [
             const Text(
               "OBJETIVO CALÓRICO DIARIO",
-              style: TextStyle(color: Colors.white70),
+              style: TextStyle(color: AppColors.textSecondary),
             ),
             Text(
               "${_user!.tdee.toInt()} kcal",
@@ -283,7 +283,10 @@ class _NutritionScreenState extends State<NutritionScreen> {
           ),
         ),
         const SizedBox(height: 4),
-        Text(desc, style: const TextStyle(color: Colors.white70, fontSize: 12)),
+        Text(
+          desc,
+          style: const TextStyle(color: AppColors.textSecondary, fontSize: 12),
+        ),
       ],
     );
   }

@@ -76,7 +76,7 @@ class _PlateCalculatorScreenState extends State<PlateCalculatorScreen> {
             const SizedBox(height: 30),
             const Text(
               "Cargar por lado:",
-              style: TextStyle(color: Colors.white70, fontSize: 18),
+              style: TextStyle(color: AppColors.textSecondary, fontSize: 18),
             ),
             const SizedBox(height: 20),
             if (_plates.isEmpty)

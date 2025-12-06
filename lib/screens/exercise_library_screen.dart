@@ -72,7 +72,10 @@ class _ExerciseLibraryScreenState extends State<ExerciseLibraryScreen> {
                   decoration: InputDecoration(
                     hintText: 'Buscar ejercicio...',
                     hintStyle: TextStyle(color: Colors.white.withOpacity(0.5)),
-                    prefixIcon: const Icon(Icons.search, color: Colors.white70),
+                    prefixIcon: const Icon(
+                      Icons.search,
+                      color: AppColors.textSecondary,
+                    ),
                     filled: true,
                     fillColor: AppColors.surface,
                     border: OutlineInputBorder(
@@ -83,7 +86,7 @@ class _ExerciseLibraryScreenState extends State<ExerciseLibraryScreen> {
                         ? IconButton(
                             icon: const Icon(
                               Icons.clear,
-                              color: Colors.white70,
+                              color: AppColors.textSecondary,
                             ),
                             onPressed: () {
                               setState(() {
@@ -246,7 +249,7 @@ class _ExerciseLibraryScreenState extends State<ExerciseLibraryScreen> {
             const SizedBox(height: 8),
             const Text(
               "Mantén una postura correcta y controla el movimiento en todo momento. Realiza el rango de movimiento completo.",
-              style: TextStyle(color: Colors.white70),
+              style: TextStyle(color: AppColors.textSecondary),
             ),
             const SizedBox(height: 24),
           ],

@@ -33,7 +33,7 @@ class RoutineDetailScreen extends StatelessWidget {
               ),
               subtitle: Text(
                 '${day.exercises.length} Ejercicios',
-                style: const TextStyle(color: Colors.white70),
+                style: const TextStyle(color: AppColors.textSecondary),
               ),
               children: [
                 Padding(
@@ -66,7 +66,9 @@ class RoutineDetailScreen extends StatelessWidget {
                               ),
                               Text(
                                 '${exercise.sets} x ${exercise.reps}',
-                                style: const TextStyle(color: Colors.white70),
+                                style: const TextStyle(
+                                  color: AppColors.textSecondary,
+                                ),
                               ),
                             ],
                           ),

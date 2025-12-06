@@ -115,10 +115,6 @@ class RoutineGeneratorService {
     }
   }
 
-  static String _getLocationName(TrainingLocation loc) {
-    return loc == TrainingLocation.gym ? "Gym" : "Casa";
-  }
-
   static List<Exercise> _filterExercisesByLocation(
     List<Exercise> all,
     TrainingLocation location,

@@ -105,7 +105,7 @@ class _RoutineEditorScreenState extends State<RoutineEditorScreen> {
               style: const TextStyle(color: Colors.white),
               decoration: const InputDecoration(
                 labelText: 'Nombre de la Rutina',
-                labelStyle: TextStyle(color: Colors.white70),
+                labelStyle: TextStyle(color: AppColors.textSecondary),
                 enabledBorder: UnderlineInputBorder(
                   borderSide: BorderSide(color: Colors.white24),
                 ),
@@ -141,7 +141,7 @@ class _RoutineEditorScreenState extends State<RoutineEditorScreen> {
                     ),
                     subtitle: Text(
                       '${day.exercises.length} Ejercicios',
-                      style: const TextStyle(color: Colors.white70),
+                      style: const TextStyle(color: AppColors.textSecondary),
                     ),
                     trailing: Row(
                       mainAxisSize: MainAxisSize.min,

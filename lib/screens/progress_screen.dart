@@ -95,7 +95,7 @@ class _ProgressScreenState extends State<ProgressScreen> {
                   ? const Center(
                       child: Text(
                         'No hay datos suficientes.',
-                        style: TextStyle(color: Colors.white70),
+                        style: TextStyle(color: AppColors.textSecondary),
                       ),
                     )
                   : LineChart(

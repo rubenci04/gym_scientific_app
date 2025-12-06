@@ -144,7 +144,7 @@ class RoutineTemplatesScreen extends StatelessWidget {
                       const SizedBox(height: 8),
                       Text(
                         'Crear un plan de ${user.daysPerWeek} días basado en tu objetivo (${user.goal.toString().split('.').last}) y equipamiento.',
-                        style: const TextStyle(color: Colors.white70),
+                        style: const TextStyle(color: AppColors.textSecondary),
                       ),
                       const SizedBox(height: 12),
                       Row(

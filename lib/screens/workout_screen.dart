@@ -222,7 +222,7 @@ class _WorkoutScreenState extends State<WorkoutScreen>
             ),
             content: const Text(
               'Si sales ahora, se guardará tu progreso para continuar luego.',
-              style: TextStyle(color: Colors.white70),
+              style: TextStyle(color: AppColors.textSecondary),
             ),
             actions: [
               TextButton(
@@ -299,15 +299,15 @@ class _WorkoutScreenState extends State<WorkoutScreen>
           children: [
             Text(
               'Ejercicios: ${exercisesDone.length}',
-              style: const TextStyle(color: Colors.white70),
+              style: const TextStyle(color: AppColors.textSecondary),
             ),
             Text(
               'Series Totales: $totalSets',
-              style: const TextStyle(color: Colors.white70),
+              style: const TextStyle(color: AppColors.textSecondary),
             ),
             Text(
               'Volumen Total: ${totalVolume.toStringAsFixed(0)} kg',
-              style: const TextStyle(color: Colors.white70),
+              style: const TextStyle(color: AppColors.textSecondary),
             ),
             const SizedBox(height: 10),
             const Text(

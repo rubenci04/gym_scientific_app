@@ -284,7 +284,7 @@ class _HomeScreenState extends State<HomeScreen> {
                 ),
                 Text(
                   "Toca para ver mapa de fatiga",
-                  style: TextStyle(color: Colors.white70),
+                  style: TextStyle(color: AppColors.textSecondary),
                 ),
               ],
             ),

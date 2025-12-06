@@ -132,7 +132,7 @@ class _MyRoutinesScreenState extends State<MyRoutinesScreen> {
                     ),
                     subtitle: const Text(
                       "PPL, Arnold Split, Full Body...",
-                      style: TextStyle(color: Colors.white70),
+                      style: TextStyle(color: AppColors.textSecondary),
                     ),
                     onTap: () {
                       Navigator.pop(context);
@@ -164,7 +164,7 @@ class _MyRoutinesScreenState extends State<MyRoutinesScreen> {
           const SizedBox(height: 16),
           const Text(
             'No tienes rutinas guardadas',
-            style: TextStyle(color: Colors.white70, fontSize: 18),
+            style: TextStyle(color: AppColors.textSecondary, fontSize: 18),
           ),
           const SizedBox(height: 8),
           ElevatedButton(
@@ -203,7 +203,7 @@ class _MyRoutinesScreenState extends State<MyRoutinesScreen> {
             const SizedBox(height: 8),
             Text(
               '${routine.days.length} Días por semana',
-              style: const TextStyle(color: Colors.white70),
+              style: const TextStyle(color: AppColors.textSecondary),
             ),
             if (routine.isActive)
               Container(

@@ -124,7 +124,7 @@ class _DayEditorScreenState extends State<DayEditorScreen> {
               style: const TextStyle(color: Colors.white),
               decoration: const InputDecoration(
                 labelText: 'Series',
-                labelStyle: TextStyle(color: Colors.white70),
+                labelStyle: TextStyle(color: AppColors.textSecondary),
               ),
               keyboardType: TextInputType.number,
             ),
@@ -133,7 +133,7 @@ class _DayEditorScreenState extends State<DayEditorScreen> {
               style: const TextStyle(color: Colors.white),
               decoration: const InputDecoration(
                 labelText: 'Reps',
-                labelStyle: TextStyle(color: Colors.white70),
+                labelStyle: TextStyle(color: AppColors.textSecondary),
               ),
             ),
             TextField(
@@ -141,7 +141,7 @@ class _DayEditorScreenState extends State<DayEditorScreen> {
               style: const TextStyle(color: Colors.white),
               decoration: const InputDecoration(
                 labelText: 'RPE (Opcional)',
-                labelStyle: TextStyle(color: Colors.white70),
+                labelStyle: TextStyle(color: AppColors.textSecondary),
               ),
             ),
             TextField(
@@ -149,7 +149,7 @@ class _DayEditorScreenState extends State<DayEditorScreen> {
               style: const TextStyle(color: Colors.white),
               decoration: const InputDecoration(
                 labelText: 'Descanso (seg)',
-                labelStyle: TextStyle(color: Colors.white70),
+                labelStyle: TextStyle(color: AppColors.textSecondary),
               ),
               keyboardType: TextInputType.number,
             ),
@@ -233,7 +233,7 @@ class _DayEditorScreenState extends State<DayEditorScreen> {
               ),
               subtitle: Text(
                 '${routineEx.sets} x ${routineEx.reps} @ RPE ${routineEx.rpe ?? "-"}',
-                style: const TextStyle(color: Colors.white70),
+                style: const TextStyle(color: AppColors.textSecondary),
               ),
               trailing: Row(
                 mainAxisSize: MainAxisSize.min,
