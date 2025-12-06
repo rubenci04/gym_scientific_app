@@ -6,10 +6,10 @@ import '../models/user_model.dart';
 
 class FatigueService {
   // --- CONSTANTES ---
-  static const double _maxFatigueUnits =
-      10.0; // Un valor de referencia para la fatiga máxima. 10 sets a RPE 10.
-  static const double _baseLambda =
-      0.02; // Controla la velocidad de recuperación base (aprox 38% restante en 48h)
+  // Un valor de referencia para la fatiga máxima. ~20 sets a RPE 8 = 16 unidades.
+  static const double _maxFatigueUnits = 25.0;
+  // Controla la velocidad de recuperación base (aprox 50% restante en 48h)
+  static const double _baseLambda = 0.015;
 
   // Retorna un mapa con el estado de fatiga (0.0 a 1.0) por grupo muscular
   static Map<String, double> calculateMuscleFatigue(UserProfile? user) {

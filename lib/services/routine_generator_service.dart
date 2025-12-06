@@ -4,7 +4,19 @@ import '../models/exercise_model.dart';
 import '../models/routine_model.dart';
 
 class RoutineGeneratorService {
-  static Future<void> generateAndSaveRoutine(UserProfile user) async {
+  static Future<void> generateAndSaveRoutine(
+    UserProfile user, {
+    String focusArea = 'Full Body',
+  }) async {
+    final newRoutine = await generateRoutine(user, focusArea: focusArea);
+    var routineBox = Hive.box<WeeklyRoutine>('routineBox');
+    await routineBox.put(newRoutine.id, newRoutine);
+  }
+
+  static Future<WeeklyRoutine> generateRoutine(
+    UserProfile user, {
+    String focusArea = 'Full Body',
+  }) async {
     final exerciseBox = Hive.box<Exercise>('exerciseBox');
     final allExercises = exerciseBox.values.toList();
 
@@ -13,7 +25,13 @@ class RoutineGeneratorService {
       user.location,
     );
 
-    final structure = _getSplitStructure(user.daysPerWeek, user.goal);
+    // If a specific focus area is selected, generate a focused routine
+    List<Map<String, dynamic>> structure;
+    if (focusArea != 'Full Body') {
+      structure = _getFocusedStructure(user.daysPerWeek, focusArea);
+    } else {
+      structure = _getSplitStructure(user.daysPerWeek, user.goal);
+    }
 
     List<RoutineDay> generatedDays = [];
 
@@ -66,7 +84,7 @@ class RoutineGeneratorService {
 
       generatedDays.add(
         RoutineDay(
-          id: "day_${generatedDays.length + 1}",
+          id: "day_${DateTime.now().millisecondsSinceEpoch}_$i",
           name: "Día ${i + 1}: ${dayTemplate['name']}",
           targetMuscles: dayTemplate['muscles'],
           exercises: selectedExercises,
@@ -74,17 +92,14 @@ class RoutineGeneratorService {
       );
     }
 
-    final newRoutine = WeeklyRoutine(
+    return WeeklyRoutine(
       id: "routine_${DateTime.now().millisecondsSinceEpoch}",
       name:
-          "Plan ${user.daysPerWeek} Días - ${_getGoalName(user.goal)} - ${_getLocationName(user.location)}",
+          "Plan $focusArea - ${user.daysPerWeek} Días - ${_getGoalName(user.goal)}",
       days: generatedDays,
       createdAt: DateTime.now(),
-      isActive: true,
+      isActive: true, // Active by default for first-time users
     );
-
-    var routineBox = Hive.box<WeeklyRoutine>('routineBox');
-    await routineBox.add(newRoutine);
   }
 
   static String _getGoalName(TrainingGoal goal) {
@@ -133,6 +148,107 @@ class RoutineGeneratorService {
     }
   }
 
+  // NEW: Generate focused routines based on user selection
+  static List<Map<String, dynamic>> _getFocusedStructure(
+    int days,
+    String focusArea,
+  ) {
+    List<Map<String, dynamic>> result = [];
+
+    for (int i = 0; i < days; i++) {
+      switch (focusArea) {
+        case 'Piernas':
+          result.add({
+            'name': 'Piernas ${i + 1}',
+            'muscles': ['Cuádriceps', 'Isquiotibiales', 'Glúteos', 'Gemelos'],
+            'patterns': [
+              'Sentadilla',
+              'Bisagra',
+              'Zancada',
+              'Puente',
+              'Aislamiento Cuádriceps',
+              'Aislamiento Gemelo',
+            ],
+          });
+          break;
+        case 'Pecho':
+          result.add({
+            'name': 'Pecho ${i + 1}',
+            'muscles': ['Pecho', 'Tríceps'],
+            'patterns': [
+              'Empuje Horizontal',
+              'Empuje Inclinado',
+              'Aislamiento Pecho',
+              'Empuje Horizontal',
+              'Aislamiento Tríceps',
+            ],
+          });
+          break;
+        case 'Espalda':
+          result.add({
+            'name': 'Espalda ${i + 1}',
+            'muscles': ['Espalda', 'Bíceps'],
+            'patterns': [
+              'Tracción Vertical',
+              'Tracción Horizontal',
+              'Tracción Vertical',
+              'Bisagra',
+              'Aislamiento Bíceps',
+            ],
+          });
+          break;
+        case 'Hombros':
+          result.add({
+            'name': 'Hombros ${i + 1}',
+            'muscles': ['Hombros'],
+            'patterns': [
+              'Empuje Vertical',
+              'Aislamiento Hombro',
+              'Aislamiento Hombro',
+              'Empuje Vertical',
+              'Aislamiento Tríceps',
+            ],
+          });
+          break;
+        case 'Brazos':
+          result.add({
+            'name': 'Brazos ${i + 1}',
+            'muscles': ['Bíceps', 'Tríceps', 'Antebrazos'],
+            'patterns': [
+              'Aislamiento Bíceps',
+              'Aislamiento Tríceps',
+              'Aislamiento Bíceps',
+              'Aislamiento Tríceps',
+              'Aislamiento Antebrazos',
+            ],
+          });
+          break;
+        case 'Core':
+          result.add({
+            'name': 'Core ${i + 1}',
+            'muscles': ['Abdominales', 'Oblicuos', 'Lumbares'],
+            'patterns': ['Core', 'Core', 'Core', 'Core', 'Aislamiento'],
+          });
+          break;
+        default:
+          // Full Body fallback
+          result.add({
+            'name': 'Full Body ${i + 1}',
+            'muscles': ['Todo'],
+            'patterns': [
+              'Sentadilla',
+              'Empuje Horizontal',
+              'Tracción Vertical',
+              'Bisagra',
+              'Empuje Vertical',
+              'Aislamiento',
+            ],
+          });
+      }
+    }
+    return result;
+  }
+
   // Estructuras para Fuerza (menos volumen, más frecuencia en básicos)
   static List<Map<String, dynamic>> _getStrengthStructure(int days) {
     switch (days) {
@@ -151,6 +267,38 @@ class RoutineGeneratorService {
           },
         ];
       case 2:
+        // Opción 1: Full Body A/B (Default)
+        // Opción 2: Torso / Pierna (Nueva variación)
+        // Simple randomizer para variedad o alternancia
+        bool useTorsoPierna = DateTime.now().millisecond % 2 == 0;
+
+        if (useTorsoPierna) {
+          return [
+            {
+              'name': 'Torso Completo',
+              'muscles': ['Pecho', 'Espalda', 'Hombros', 'Brazos'],
+              'patterns': [
+                'Empuje Horizontal',
+                'Tracción Horizontal',
+                'Empuje Vertical',
+                'Tracción Vertical',
+                'Aislamiento',
+              ],
+            },
+            {
+              'name': 'Pierna Completa',
+              'muscles': ['Cuádriceps', 'Isquios', 'Glúteo', 'Gemelo'],
+              'patterns': [
+                'Sentadilla',
+                'Bisagra',
+                'Zancada',
+                'Puente',
+                'Aislamiento',
+              ],
+            },
+          ];
+        }
+
         return [
           {
             'name': 'Full Body A',

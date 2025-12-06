@@ -16,6 +16,7 @@ class _GoalSelectionScreenState extends State<GoalSelectionScreen> {
   TrainingLocation _selectedLocation = TrainingLocation.gym;
   double _daysPerWeek = 3;
   bool _isLoading = false;
+  String _focusArea = 'Full Body'; // NEW: Focus area selection
 
   void _generateRoutine() async {
     setState(() => _isLoading = true);
@@ -29,7 +30,10 @@ class _GoalSelectionScreenState extends State<GoalSelectionScreen> {
       currentUser.daysPerWeek = _daysPerWeek.round();
       await currentUser.save();
 
-      await RoutineGeneratorService.generateAndSaveRoutine(currentUser);
+      await RoutineGeneratorService.generateAndSaveRoutine(
+        currentUser,
+        focusArea: _focusArea,
+      );
 
       if (mounted) {
         Navigator.pushReplacement(
@@ -157,6 +161,39 @@ class _GoalSelectionScreenState extends State<GoalSelectionScreen> {
                         ),
                       ],
                     ),
+                  ),
+
+                  const SizedBox(height: 30),
+
+                  const Text(
+                    '¿Qué deseas entrenar?',
+                    style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+                  ),
+                  const SizedBox(height: 10),
+                  Wrap(
+                    spacing: 8,
+                    runSpacing: 8,
+                    children:
+                        [
+                          'Full Body',
+                          'Piernas',
+                          'Pecho',
+                          'Espalda',
+                          'Hombros',
+                          'Brazos',
+                          'Core',
+                        ].map((area) {
+                          return ChoiceChip(
+                            label: Text(area),
+                            selected: _focusArea == area,
+                            onSelected: (selected) =>
+                                setState(() => _focusArea = area),
+                            selectedColor: Colors.blueAccent,
+                            labelStyle: TextStyle(
+                              color: _focusArea == area ? Colors.white : null,
+                            ),
+                          );
+                        }).toList(),
                   ),
 
                   const Spacer(),

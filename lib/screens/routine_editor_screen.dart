@@ -71,6 +71,12 @@ class _RoutineEditorScreenState extends State<RoutineEditorScreen> {
     );
 
     await RoutineRepository.saveRoutine(newRoutine);
+
+    // If the routine is set to active, ensure it's the only one
+    if (newRoutine.isActive) {
+      await RoutineRepository.setActiveRoutine(newRoutine.id);
+    }
+
     if (mounted) {
       Navigator.pop(context);
     }

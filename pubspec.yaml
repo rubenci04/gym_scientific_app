@@ -32,3 +32,4 @@ flutter:
   assets:
     - assets/images/somatotypes/Male/
     - assets/images/somatotypes/Female/
+    - assets/logo/

@@ -218,6 +218,23 @@ class _MyRoutinesScreenState extends State<MyRoutinesScreen> {
                   'ACTIVA',
                   style: TextStyle(color: Colors.green, fontSize: 12),
                 ),
+              )
+            else
+              Padding(
+                padding: const EdgeInsets.only(top: 8),
+                child: OutlinedButton.icon(
+                  icon: const Icon(Icons.check_circle_outline, size: 16),
+                  label: const Text('ACTIVAR'),
+                  style: OutlinedButton.styleFrom(
+                    foregroundColor: AppColors.primary,
+                    side: const BorderSide(color: AppColors.primary),
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 12,
+                      vertical: 4,
+                    ),
+                  ),
+                  onPressed: () => _activateRoutine(routine),
+                ),
               ),
           ],
         ),

@@ -422,6 +422,11 @@ class _WorkoutScreenState extends State<WorkoutScreen>
           backgroundColor: AppColors.surface,
           actions: [
             IconButton(
+              icon: const Icon(Icons.save, color: AppColors.secondary),
+              onPressed: _finishWorkout,
+              tooltip: "Guardar Todo",
+            ),
+            IconButton(
               icon: const Icon(Icons.calculate, color: Colors.orange),
               onPressed: () => _openCalculator(0),
               tooltip: "Calculadora",
