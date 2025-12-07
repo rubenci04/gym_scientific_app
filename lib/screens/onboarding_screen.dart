@@ -18,7 +18,7 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
   final _heightCtrl = TextEditingController();
   final _wristCtrl = TextEditingController();
   final _ankleCtrl = TextEditingController();
-  
+
   String _gender = 'Masculino';
 
   Somatotype _calculateSomatotype(double bmi, double wrist, double height) {
@@ -35,7 +35,7 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
     final height = double.parse(_heightCtrl.text);
     final wrist = double.parse(_wristCtrl.text);
     final bmi = weight / ((height / 100) * (height / 100));
-    
+
     final somatotype = _calculateSomatotype(bmi, wrist, height);
     _showResultDialog(somatotype);
   }
@@ -52,19 +52,22 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
         fileName = '$folder-Ectomorfo.png';
         title = 'Ectomorfo';
         description = "Tu cuerpo tiende a ser delgado y ligero.";
-        features = "• Dificultad para ganar peso y músculo.\n• Metabolismo rápido.\n• Estructura ósea estrecha (hombros y caderas).";
+        features =
+            "• Dificultad para ganar peso y músculo.\n• Metabolismo rápido.\n• Estructura ósea estrecha (hombros y caderas).";
         break;
       case Somatotype.mesomorph:
         fileName = '$folder-Mesomorfo.png';
         title = 'Mesomorfo';
         description = "Tienes una complexión atlética natural.";
-        features = "• Ganas músculo con facilidad.\n• Postura erguida y hombros anchos.\n• Metabolismo equilibrado (ganas/pierdes peso fácil).";
+        features =
+            "• Ganas músculo con facilidad.\n• Postura erguida y hombros anchos.\n• Metabolismo equilibrado (ganas/pierdes peso fácil).";
         break;
       case Somatotype.endomorph:
         fileName = '$folder-Endomorfo.png';
         title = 'Endomorfo';
         description = "Tu cuerpo tiende a acumular energía fácilmente.";
-        features = "• Estructura ósea gruesa y fuerte.\n• Facilidad para ganar fuerza.\n• Metabolismo más lento, tendencia a almacenar grasa.";
+        features =
+            "• Estructura ósea gruesa y fuerte.\n• Facilidad para ganar fuerza.\n• Metabolismo más lento, tendencia a almacenar grasa.";
         break;
       default:
         fileName = '$folder-Mesomorfo.png';
@@ -81,9 +84,12 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(15)),
         title: Center(
           child: Text(
-            "Tu Somatotipo: $title", 
-            style: const TextStyle(color: Colors.black, fontWeight: FontWeight.bold)
-          )
+            "Tu Somatotipo: $title",
+            style: const TextStyle(
+              color: Colors.black,
+              fontWeight: FontWeight.bold,
+            ),
+          ),
         ),
         content: Column(
           mainAxisSize: MainAxisSize.min,
@@ -92,19 +98,24 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
               padding: const EdgeInsets.all(10),
               decoration: BoxDecoration(
                 color: Colors.grey[100],
-                borderRadius: BorderRadius.circular(10)
+                borderRadius: BorderRadius.circular(10),
               ),
               child: Image.asset(
-                imagePath, 
-                height: 180, 
+                imagePath,
+                height: 180,
                 fit: BoxFit.contain,
-                errorBuilder: (c, o, s) => const Icon(Icons.person, size: 80, color: Colors.grey),
+                errorBuilder: (c, o, s) =>
+                    const Icon(Icons.person, size: 80, color: Colors.grey),
               ),
             ),
             const SizedBox(height: 15),
-            Text(description, 
-              textAlign: TextAlign.center, 
-              style: const TextStyle(color: Colors.black87, fontStyle: FontStyle.italic)
+            Text(
+              description,
+              textAlign: TextAlign.center,
+              style: const TextStyle(
+                color: Colors.black87,
+                fontStyle: FontStyle.italic,
+              ),
             ),
             const SizedBox(height: 15),
             Container(
@@ -113,9 +124,16 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
               decoration: BoxDecoration(
                 border: Border.all(color: Colors.blueAccent.withOpacity(0.3)),
                 borderRadius: BorderRadius.circular(8),
-                color: Colors.blue[50]
+                color: Colors.blue[50],
               ),
-              child: Text(features, style: const TextStyle(fontSize: 13, color: Colors.black87, height: 1.4)),
+              child: Text(
+                features,
+                style: const TextStyle(
+                  fontSize: 13,
+                  color: Colors.black87,
+                  height: 1.4,
+                ),
+              ),
             ),
           ],
         ),
@@ -125,15 +143,18 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
             child: ElevatedButton(
               style: ElevatedButton.styleFrom(
                 backgroundColor: Colors.blueAccent,
-                padding: const EdgeInsets.symmetric(vertical: 12)
+                padding: const EdgeInsets.symmetric(vertical: 12),
               ),
               onPressed: () {
                 Navigator.pop(ctx);
                 _saveAndContinue(type);
               },
-              child: const Text("CONTINUAR", style: TextStyle(color: Colors.white)),
+              child: const Text(
+                "CONTINUAR",
+                style: TextStyle(color: Colors.white),
+              ),
             ),
-          )
+          ),
         ],
       ),
     );
@@ -143,9 +164,13 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
     final age = int.parse(_ageCtrl.text);
     final weight = double.parse(_weightCtrl.text);
     final height = double.parse(_heightCtrl.text);
-    
-    double bmr = (10 * weight) + (6.25 * height) - (5 * age) + (_gender == 'Masculino' ? 5 : -161);
-    
+
+    double bmr =
+        (10 * weight) +
+        (6.25 * height) -
+        (5 * age) +
+        (_gender == 'Masculino' ? 5 : -161);
+
     final newUser = UserProfile(
       name: _nameCtrl.text,
       age: age,
@@ -159,8 +184,55 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
     );
 
     await Hive.box<UserProfile>('userBox').put('currentUser', newUser);
+
+    if (mounted) {
+      Navigator.of(context).pushReplacement(
+        MaterialPageRoute(builder: (_) => const GoalSelectionScreen()),
+      );
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      appBar: AppBar(title: const Text('Tus Datos')),
+      body: Padding(
+        padding: const EdgeInsets.all(16.0),
+        child: Form(
+          key: _formKey,
+          child: ListView(
+            children: [
+              // Logo at top
+              Center(
+                child: Padding(
+                  padding: const EdgeInsets.only(bottom: 20),
+                  child: Image.asset(
+                    'assets/logo/app_logo.png.png',
+                    height: 100,
+                    fit: BoxFit.contain,
+                    errorBuilder: (context, error, stackTrace) => const Icon(
+                      Icons.fitness_center,
+                      size: 80,
+                      color: Colors.blue,
+                    ),
+                  ),
+                ),
+              ),
+              _buildInput(_nameCtrl, 'Nombre'),
+              _buildRowInput(_ageCtrl, 'Edad', _weightCtrl, 'Peso (kg)'),
+              _buildRowInput(
+                _heightCtrl,
+                'Altura (cm)',
+                _wristCtrl,
+                'Muñeca (cm)',
+              ),
+              _buildInput(_ankleCtrl, 'Tobillo (cm)', isNumber: true),
+
+              DropdownButtonFormField(
                 value: _gender,
-                items: ['Masculino', 'Femenino'].map((v) => DropdownMenuItem(value: v, child: Text(v))).toList(),
+                items: ['Masculino', 'Femenino']
+                    .map((v) => DropdownMenuItem(value: v, child: Text(v)))
+                    .toList(),
                 onChanged: (v) => setState(() => _gender = v.toString()),
                 decoration: const InputDecoration(labelText: 'Sexo'),
               ),
@@ -176,10 +248,33 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
     );
   }
 
-  Widget _buildInput(TextEditingController c, String label, {bool isNumber = false}) => Padding(
+  Widget _buildInput(
+    TextEditingController c,
+    String label, {
+    bool isNumber = false,
+  }) => Padding(
     padding: const EdgeInsets.only(bottom: 10),
-    child: TextFormField(controller: c, keyboardType: isNumber ? TextInputType.number : TextInputType.text, decoration: InputDecoration(labelText: label, border: const OutlineInputBorder()), validator: (v) => v!.isEmpty ? 'Requerido' : null),
+    child: TextFormField(
+      controller: c,
+      keyboardType: isNumber ? TextInputType.number : TextInputType.text,
+      decoration: InputDecoration(
+        labelText: label,
+        border: const OutlineInputBorder(),
+      ),
+      validator: (v) => v!.isEmpty ? 'Requerido' : null,
+    ),
   );
 
-  Widget _buildRowInput(TextEditingController c1, String l1, TextEditingController c2, String l2) => Row(children: [Expanded(child: _buildInput(c1, l1, isNumber: true)), const SizedBox(width: 10), Expanded(child: _buildInput(c2, l2, isNumber: true))]);
+  Widget _buildRowInput(
+    TextEditingController c1,
+    String l1,
+    TextEditingController c2,
+    String l2,
+  ) => Row(
+    children: [
+      Expanded(child: _buildInput(c1, l1, isNumber: true)),
+      const SizedBox(width: 10),
+      Expanded(child: _buildInput(c2, l2, isNumber: true)),
+    ],
+  );
 }
