@@ -159,28 +159,6 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
     );
 
     await Hive.box<UserProfile>('userBox').put('currentUser', newUser);
-
-    if (mounted) {
-      Navigator.pushReplacement(context, MaterialPageRoute(builder: (_) => const GoalSelectionScreen()));
-    }
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    return Scaffold(
-      appBar: AppBar(title: const Text('Tus Datos')),
-      body: Padding(
-        padding: const EdgeInsets.all(16.0),
-        child: Form(
-          key: _formKey,
-          child: ListView(
-            children: [
-              _buildInput(_nameCtrl, 'Nombre'),
-              _buildRowInput(_ageCtrl, 'Edad', _weightCtrl, 'Peso (kg)'),
-              _buildRowInput(_heightCtrl, 'Altura (cm)', _wristCtrl, 'Muñeca (cm)'),
-              _buildInput(_ankleCtrl, 'Tobillo (cm)', isNumber: true),
-              
-              DropdownButtonFormField(
                 value: _gender,
                 items: ['Masculino', 'Femenino'].map((v) => DropdownMenuItem(value: v, child: Text(v))).toList(),
                 onChanged: (v) => setState(() => _gender = v.toString()),

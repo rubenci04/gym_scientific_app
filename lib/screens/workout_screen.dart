@@ -327,7 +327,10 @@ class _WorkoutScreenState extends State<WorkoutScreen>
           ElevatedButton(
             style: ElevatedButton.styleFrom(backgroundColor: AppColors.primary),
             onPressed: () => Navigator.pop(context, true),
-            child: const Text('Finalizar'),
+            child: const Text(
+              'Finalizar',
+              style: TextStyle(color: Colors.white),
+            ),
           ),
         ],
       ),
@@ -545,15 +548,31 @@ class _WorkoutScreenState extends State<WorkoutScreen>
                                     keyboardType: TextInputType.number,
                                     textAlign: TextAlign.center,
                                     style: const TextStyle(color: Colors.white),
-                                    decoration: const InputDecoration(
+                                    decoration: InputDecoration(
                                       isDense: true,
                                       contentPadding: EdgeInsets.symmetric(
                                         vertical: 8,
                                       ),
                                       filled: true,
-                                      fillColor: Colors.black26,
+                                      fillColor: AppColors.inputBackground,
                                       border: OutlineInputBorder(
-                                        borderSide: BorderSide.none,
+                                        borderSide: BorderSide(
+                                          color: AppColors.inputBorder,
+                                        ),
+                                        borderRadius: BorderRadius.circular(4),
+                                      ),
+                                      enabledBorder: OutlineInputBorder(
+                                        borderSide: BorderSide(
+                                          color: AppColors.inputBorder,
+                                        ),
+                                        borderRadius: BorderRadius.circular(4),
+                                      ),
+                                      focusedBorder: OutlineInputBorder(
+                                        borderSide: BorderSide(
+                                          color: AppColors.primary,
+                                          width: 2,
+                                        ),
+                                        borderRadius: BorderRadius.circular(4),
                                       ),
                                     ),
                                     onChanged: (v) {
@@ -580,15 +599,31 @@ class _WorkoutScreenState extends State<WorkoutScreen>
                                     keyboardType: TextInputType.number,
                                     textAlign: TextAlign.center,
                                     style: const TextStyle(color: Colors.white),
-                                    decoration: const InputDecoration(
+                                    decoration: InputDecoration(
                                       isDense: true,
                                       contentPadding: EdgeInsets.symmetric(
                                         vertical: 8,
                                       ),
                                       filled: true,
-                                      fillColor: Colors.black26,
+                                      fillColor: AppColors.inputBackground,
                                       border: OutlineInputBorder(
-                                        borderSide: BorderSide.none,
+                                        borderSide: BorderSide(
+                                          color: AppColors.inputBorder,
+                                        ),
+                                        borderRadius: BorderRadius.circular(4),
+                                      ),
+                                      enabledBorder: OutlineInputBorder(
+                                        borderSide: BorderSide(
+                                          color: AppColors.inputBorder,
+                                        ),
+                                        borderRadius: BorderRadius.circular(4),
+                                      ),
+                                      focusedBorder: OutlineInputBorder(
+                                        borderSide: BorderSide(
+                                          color: AppColors.primary,
+                                          width: 2,
+                                        ),
+                                        borderRadius: BorderRadius.circular(4),
                                       ),
                                     ),
                                     onChanged: (v) {

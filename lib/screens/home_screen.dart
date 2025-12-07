@@ -58,6 +58,15 @@ class _HomeScreenState extends State<HomeScreen> {
     return Scaffold(
       backgroundColor: AppColors.background,
       appBar: AppBar(
+        leading: Padding(
+          padding: const EdgeInsets.all(8.0),
+          child: Image.asset(
+            'assets/logo/logo_icon.png.png',
+            fit: BoxFit.contain,
+            errorBuilder: (context, error, stackTrace) =>
+                const Icon(Icons.fitness_center, color: AppColors.primary),
+          ),
+        ),
         title: const Text(
           'Panel de Control',
           style: TextStyle(fontWeight: FontWeight.bold),
