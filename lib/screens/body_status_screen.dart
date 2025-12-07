@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:hive_flutter/hive_flutter.dart';
 import '../models/user_model.dart';
-import '../models/muscle_data.dart'; // Importante para la lista completa
+import '../models/muscle_data.dart';
 import '../theme/app_colors.dart';
 import '../services/fatigue_service.dart';
 import '../widgets/interactive_body_map.dart';
@@ -22,86 +22,114 @@ class _BodyStatusScreenState extends State<BodyStatusScreen> {
       valueListenable: Hive.box<UserProfile>('userBox').listenable(),
       builder: (context, Box<UserProfile> box, _) {
         final currentUser = box.get('currentUser');
-        if (currentUser == null)
-          return const Center(child: Text("Sin usuario"));
+        if (currentUser == null) return const Center(child: Text("Sin usuario"));
 
+        // Calculo la fatiga real usando tu servicio
         final fatigueMap = FatigueService.calculateMuscleFatigue(currentUser);
         final svgFatigueMap = _mapGenericFatigueToSvg(fatigueMap);
 
-        // Obtenemos la lista única de nombres de músculos para mostrar en la lista
+        // --- CÁLCULO CIENTÍFICO DE RECUPERACIÓN (READINESS) ---
+        // Promedio la fatiga de todos los músculos para dar un score general
+        double totalFatigue = 0;
+        int count = 0;
+        fatigueMap.forEach((_, val) {
+          totalFatigue += val;
+          count++;
+        });
+        // Si la fatiga promedio es 0.2 (20%), la recuperación es 80%
+        double avgFatigue = count > 0 ? totalFatigue / count : 0;
+        double readinessScore = (1.0 - avgFatigue).clamp(0.0, 1.0) * 100;
+
+        // Lista de músculos para el desglose inferior
         final musclesToShow = allMuscleParts
             .where((m) => m.face == (_isFrontView ? 'ant' : 'post'))
             .map((m) => m.name)
-            .toSet() // Eliminar duplicados (ej: biceps der/izq -> Biceps)
+            .toSet()
             .toList();
 
         return Scaffold(
           backgroundColor: AppColors.background,
           appBar: AppBar(
-            title: const Text('Estado Corporal'),
+            title: const Text('Análisis de Fatiga'),
             backgroundColor: AppColors.surface,
+            elevation: 0,
             actions: [
               IconButton(
-                icon: Icon(
-                  _isFrontView ? Icons.flip_to_back : Icons.flip_to_front,
-                ),
+                icon: Icon(_isFrontView ? Icons.flip_to_back : Icons.flip_to_front),
+                tooltip: "Girar Cuerpo",
                 onPressed: () => setState(() => _isFrontView = !_isFrontView),
               ),
             ],
           ),
           body: Column(
             children: [
+              // --- PANEL DE DIAGNÓSTICO (NUEVO) ---
+              _buildReadinessCard(readinessScore),
+
               const SizedBox(height: 10),
+              
+              // Leyenda
               Row(
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
-                  _buildLegendItem(Colors.grey[800]!, 'Descanso'),
+                  _buildLegendItem(Colors.grey[800]!, 'Fresco'),
                   const SizedBox(width: 15),
-                  _buildLegendItem(Colors.green, 'Activo'),
+                  _buildLegendItem(Colors.green, 'Estímulo'),
                   const SizedBox(width: 15),
-                  _buildLegendItem(Colors.red, 'Fatigado'),
+                  _buildLegendItem(Colors.red, 'Fatiga Alta'),
                 ],
               ),
 
+              // --- MAPA INTERACTIVO ---
               Expanded(
-                flex: 3,
-                child: InteractiveBodyMap(
-                  fatigueMap: svgFatigueMap,
-                  isFront: _isFrontView,
+                flex: 4, // Le doy más espacio al mapa
+                child: Padding(
+                  padding: const EdgeInsets.symmetric(vertical: 10),
+                  child: InteractiveBodyMap(
+                    fatigueMap: svgFatigueMap,
+                    isFront: _isFrontView,
+                  ),
                 ),
               ),
 
+              // --- LISTA DETALLADA (BOTTOM SHEET ESTILIZADO) ---
               Expanded(
-                flex: 2,
+                flex: 3,
                 child: Container(
-                  padding: const EdgeInsets.all(16),
-                  decoration: const BoxDecoration(
+                  padding: const EdgeInsets.all(20),
+                  decoration: BoxDecoration(
                     color: AppColors.surface,
-                    borderRadius: BorderRadius.vertical(
-                      top: Radius.circular(20),
-                    ),
+                    borderRadius: const BorderRadius.vertical(top: Radius.circular(30)),
+                    boxShadow: [
+                      BoxShadow(color: Colors.black.withOpacity(0.3), blurRadius: 10, offset: const Offset(0, -5))
+                    ]
                   ),
-                  child: ListView(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      const Text(
-                        "Estado Muscular Detallado",
-                        style: TextStyle(
-                          color: Colors.white,
-                          fontSize: 18,
-                          fontWeight: FontWeight.bold,
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        children: [
+                          const Text(
+                            "Estado Muscular Local",
+                            style: TextStyle(color: Colors.white, fontSize: 18, fontWeight: FontWeight.bold),
+                          ),
+                          Icon(Icons.keyboard_arrow_down, color: Colors.white.withOpacity(0.5))
+                        ],
+                      ),
+                      const SizedBox(height: 15),
+                      Expanded(
+                        child: ListView(
+                          physics: const BouncingScrollPhysics(),
+                          children: musclesToShow.map((muscleName) {
+                            String sampleId = allMuscleParts.firstWhere((m) => m.name == muscleName).id;
+                            double val = svgFatigueMap[sampleId] ?? 0.0;
+                            // Solo muestro los que tienen algo de actividad para no saturar
+                            if (val > 0.05) return _buildMuscleBar(muscleName, val);
+                            return const SizedBox.shrink(); 
+                          }).toList(),
                         ),
                       ),
-                      const SizedBox(height: 10),
-                      // Iteramos sobre TODOS los músculos visibles, no solo los fatigados
-                      ...musclesToShow.map((muscleName) {
-                        // Buscamos la ID interna para obtener la fatiga del mapa SVG
-                        // Esto es una simplificación, busca el primer ID que coincida con el nombre
-                        String sampleId = allMuscleParts
-                            .firstWhere((m) => m.name == muscleName)
-                            .id;
-                        double val = svgFatigueMap[sampleId] ?? 0.0;
-                        return _buildMuscleBar(muscleName, val);
-                      }),
                     ],
                   ),
                 ),
@@ -113,124 +141,133 @@ class _BodyStatusScreenState extends State<BodyStatusScreen> {
     );
   }
 
-  // Mapeo exhaustivo para cubrir todos los nuevos músculos
+  // Tarjeta de "Readiness" tipo Oura Ring / Whoop
+  Widget _buildReadinessCard(double score) {
+    Color scoreColor = score > 80 ? Colors.greenAccent : (score > 50 ? Colors.orangeAccent : Colors.redAccent);
+    String message = score > 80 ? "Listo para entrenar fuerte." : (score > 50 ? "Entrena con precaución." : "Prioriza el descanso.");
+
+    return Container(
+      margin: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
+      padding: const EdgeInsets.all(15),
+      decoration: BoxDecoration(
+        gradient: LinearGradient(
+          colors: [AppColors.surface, AppColors.surface.withOpacity(0.8)],
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+        ),
+        borderRadius: BorderRadius.circular(15),
+        border: Border.all(color: Colors.white10),
+      ),
+      child: Row(
+        children: [
+          // Círculo de porcentaje
+          Stack(
+            alignment: Alignment.center,
+            children: [
+              SizedBox(
+                width: 60, height: 60,
+                child: CircularProgressIndicator(
+                  value: score / 100,
+                  backgroundColor: Colors.grey[800],
+                  color: scoreColor,
+                  strokeWidth: 6,
+                ),
+              ),
+              Text("${score.toInt()}%", style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
+            ],
+          ),
+          const SizedBox(width: 20),
+          // Textos
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const Text("RECUPERACIÓN SISTÉMICA", style: TextStyle(color: Colors.grey, fontSize: 10, letterSpacing: 1.5)),
+                const SizedBox(height: 4),
+                Text(message, style: TextStyle(color: scoreColor, fontWeight: FontWeight.bold, fontSize: 14)),
+              ],
+            ),
+          )
+        ],
+      ),
+    );
+  }
+
+  // ... (Mantengo tu función _mapGenericFatigueToSvg exacta, es correcta)
   Map<String, double> _mapGenericFatigueToSvg(Map<String, double> general) {
     final Map<String, double> svgMap = {};
-
-    // Función auxiliar para asignar a pares (izq/der)
     void assign(String generalKey, List<String> ids) {
       if (general.containsKey(generalKey)) {
         for (var id in ids) svgMap[id] = general[generalKey]!;
       }
     }
-
-    // Mapeos (Asegúrate que las claves coinciden con FatigueService)
+    // Mapeos (Igual que tu archivo original)
     assign('Pectorales', ['pec_der', 'pec_izq']);
     assign('Abdominales', ['abd_der', 'abd_izq']);
     assign('Oblicuos', ['oblicuo_der', 'oblicuo_izq']);
     assign('Aductores', ['aduc_der', 'aduc_izq']);
-    assign('Hombros', [
-      'hombro_der',
-      'hombro_izq',
-      'hombro_post_der',
-      'hombro_post_izq',
-    ]);
+    assign('Hombros', ['hombro_der', 'hombro_izq', 'hombro_post_der', 'hombro_post_izq']);
     assign('Biceps', ['biceps_der', 'biceps_izq']);
     assign('Cuadriceps', ['quad_der', 'quad_izq']);
     assign('Dorsales', ['dorsal_der', 'dorsal_izq']);
-    assign('EspaldaAlta', [
-      'trap_der',
-      'trap_izq',
-      'trap_der_post',
-      'trap_izq_post',
-      'espalda_alta_der',
-      'espalda_alta_izq',
-    ]);
+    assign('EspaldaAlta', ['trap_der', 'trap_izq', 'trap_der_post', 'trap_izq_post', 'espalda_alta_der', 'espalda_alta_izq']);
     assign('Triceps', ['triceps_der', 'triceps_izq']);
     assign('Gluteos', ['gluteo_der', 'gluteo_izq']);
     assign('Isquiotibiales', ['isquio_der', 'isquio_izq']);
     assign('Gemelos', ['gemelo_der', 'gemelo_izq']);
     assign('Lumbares', ['lumb_der', 'lumb_izq']);
-    assign('Trapecios', [
-      'trap_der',
-      'trap_izq',
-      'trap_der_post',
-      'trap_izq_post',
-    ]);
+    assign('Trapecios', ['trap_der', 'trap_izq', 'trap_der_post', 'trap_izq_post']);
     assign('Antebrazos', ['antebrazo_der', 'antebrazo_izq']);
     assign('Abductores', ['abduc_der', 'abduc_izq']);
-
     return svgMap;
   }
 
   Widget _buildLegendItem(Color color, String label) {
     return Row(
       children: [
-        Container(
-          width: 12,
-          height: 12,
-          decoration: BoxDecoration(color: color, shape: BoxShape.circle),
-        ),
-        const SizedBox(width: 5),
-        Text(
-          label,
-          style: const TextStyle(color: Colors.white70, fontSize: 12),
-        ),
+        Container(width: 10, height: 10, decoration: BoxDecoration(color: color, shape: BoxShape.circle)),
+        const SizedBox(width: 6),
+        Text(label, style: const TextStyle(color: Colors.white70, fontSize: 12)),
       ],
     );
   }
 
   Widget _buildMuscleBar(String label, double fatigue) {
-    // Definir color y estado texto
     Color color;
     String statusText;
 
     if (fatigue <= 0.05) {
       color = Colors.grey;
-      statusText = "Descanso";
+      statusText = "Recuperado";
     } else if (fatigue < 0.6) {
-      color = Colors.green;
+      color = AppColors.primary; // Verde/Azul corporativo
       statusText = "Activo";
     } else {
-      color = Colors.red;
+      color = Colors.redAccent;
       statusText = "Fatigado";
     }
 
     return Padding(
-      padding: const EdgeInsets.only(bottom: 12.0),
+      padding: const EdgeInsets.only(bottom: 15.0),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              Text(label, style: const TextStyle(color: Colors.white)),
-              Row(
-                children: [
-                  Text(
-                    statusText,
-                    style: TextStyle(
-                      color: color,
-                      fontSize: 12,
-                      fontWeight: FontWeight.w300,
-                    ),
-                  ),
-                  const SizedBox(width: 8),
-                  Text(
-                    "${(fatigue * 100).toInt()}%",
-                    style: TextStyle(color: color, fontWeight: FontWeight.bold),
-                  ),
-                ],
-              ),
+              Text(label, style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w500)),
+              Text(statusText, style: TextStyle(color: color, fontSize: 12, fontWeight: FontWeight.bold)),
             ],
           ),
-          const SizedBox(height: 5),
-          LinearProgressIndicator(
-            value: fatigue,
-            backgroundColor: Colors.grey.shade800,
-            color: color,
-            minHeight: 6,
-            borderRadius: BorderRadius.circular(3),
+          const SizedBox(height: 6),
+          ClipRRect(
+            borderRadius: BorderRadius.circular(4),
+            child: LinearProgressIndicator(
+              value: fatigue,
+              backgroundColor: Colors.white10,
+              color: color,
+              minHeight: 8,
+            ),
           ),
         ],
       ),

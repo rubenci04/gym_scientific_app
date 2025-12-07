@@ -40,11 +40,12 @@ class _HomeScreenState extends State<HomeScreen> {
     _currentRoutine = RoutineRepository.getActiveRoutine();
 
     if (_currentUser != null && _currentRoutine != null) {
+      // Aplico la sobrecarga progresiva automática al abrir la app
       await ProgressiveOverloadService.applyProgressiveOverload(
         _currentUser!,
         _currentRoutine!,
       );
-      // Recargamos la rutina por si se ha generado una nueva
+      // Recargo la rutina por si hubo cambios
       _currentRoutine = RoutineRepository.getActiveRoutine();
     }
 
@@ -58,85 +59,27 @@ class _HomeScreenState extends State<HomeScreen> {
     return Scaffold(
       backgroundColor: AppColors.background,
       appBar: AppBar(
-        leading: Padding(
-          padding: const EdgeInsets.all(8.0),
-          child: Image.asset(
-            'assets/logo/logo_icon.png.png',
-            fit: BoxFit.contain,
-            errorBuilder: (context, error, stackTrace) =>
-                const Icon(Icons.fitness_center, color: AppColors.primary),
-          ),
-        ),
-        title: const Text(
-          'Panel de Control',
-          style: TextStyle(fontWeight: FontWeight.bold),
+        // He limpiado el AppBar para que se vea elegante
+        title: Row(
+          children: [
+            Image.asset(
+              'assets/logo/logo_icon.png.png',
+              height: 30,
+              errorBuilder: (c, e, s) => const Icon(Icons.fitness_center),
+            ),
+            const SizedBox(width: 10),
+            const Text('GYM SCIENTIFIC', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 18, letterSpacing: 1.0)),
+          ],
         ),
         backgroundColor: AppColors.surface,
         elevation: 0,
         actions: [
+          // Solo dejo la configuración de usuario aquí arriba
           IconButton(
-            icon: const Icon(Icons.menu_book, color: AppColors.primary),
+            icon: const Icon(Icons.person_outline, color: Colors.white),
             onPressed: () {
-              Navigator.push(
-                context,
-                MaterialPageRoute(
-                  builder: (c) => const ExerciseLibraryScreen(),
-                ),
-              );
+               Navigator.push(context, MaterialPageRoute(builder: (c) => const SomatotypeInfoScreen()));
             },
-            tooltip: "Biblioteca de Ejercicios",
-          ),
-          IconButton(
-            icon: const Icon(Icons.list_alt, color: AppColors.primary),
-            onPressed: () {
-              Navigator.push(
-                context,
-                MaterialPageRoute(builder: (c) => const MyRoutinesScreen()),
-              ).then((_) => _loadDataAndApplyProgression());
-            },
-            tooltip: "Mis Rutinas",
-          ),
-          IconButton(
-            icon: const Icon(Icons.show_chart, color: AppColors.primary),
-            onPressed: () {
-              Navigator.push(
-                context,
-                MaterialPageRoute(builder: (c) => const ProgressScreen()),
-              );
-            },
-            tooltip: "Mi Progreso",
-          ),
-          IconButton(
-            icon: const Icon(Icons.restaurant_menu, color: AppColors.primary),
-            onPressed: () {
-              Navigator.push(
-                context,
-                MaterialPageRoute(builder: (c) => const NutritionScreen()),
-              );
-            },
-            tooltip: "Nutrición",
-          ),
-          IconButton(
-            icon: const Icon(Icons.accessibility_new, color: AppColors.primary),
-            onPressed: () {
-              Navigator.push(
-                context,
-                MaterialPageRoute(builder: (c) => const BodyStatusScreen()),
-              );
-            },
-            tooltip: "Ver Mapa de Fatiga",
-          ),
-          IconButton(
-            icon: const Icon(Icons.water_drop, color: AppColors.primary),
-            onPressed: () {
-              Navigator.push(
-                context,
-                MaterialPageRoute(
-                  builder: (c) => const HydrationSettingsScreen(),
-                ),
-              );
-            },
-            tooltip: "Hidratación",
           ),
         ],
       ),
@@ -147,164 +90,126 @@ class _HomeScreenState extends State<HomeScreen> {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  _buildHeader(_currentUser),
-                  const SizedBox(height: 30),
-                  _buildStatusCard(context),
-                  const SizedBox(height: 30),
+                  _buildWelcomeCard(_currentUser),
+                  const SizedBox(height: 25),
+                  
+                  // --- SECCIÓN 1: ACCESOS RÁPIDOS (GRID) ---
+                  const Text("HERRAMIENTAS", style: TextStyle(color: Colors.grey, fontSize: 12, letterSpacing: 1.5)),
+                  const SizedBox(height: 10),
+                  _buildToolsGrid(context),
+                  
+                  const SizedBox(height: 25),
+
+                  // --- SECCIÓN 2: RUTINA ACTIVA ---
                   Row(
                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [
-                      const Text(
-                        "TU PLAN ASIGNADO",
-                        style: TextStyle(
-                          color: Colors.grey,
-                          letterSpacing: 1.5,
-                          fontSize: 12,
-                        ),
-                      ),
+                      const Text("TU PLAN DE HOY", style: TextStyle(color: Colors.grey, fontSize: 12, letterSpacing: 1.5)),
                       if (_currentRoutine != null)
-                        TextButton.icon(
+                        TextButton(
                           onPressed: () async {
                             await Navigator.push(
                               context,
-                              MaterialPageRoute(
-                                builder: (context) => RoutineEditorScreen(
-                                  routine: _currentRoutine,
-                                ),
-                              ),
+                              MaterialPageRoute(builder: (_) => RoutineEditorScreen(routine: _currentRoutine)),
                             );
                             _loadDataAndApplyProgression();
                           },
-                          icon: const Icon(
-                            Icons.edit,
-                            size: 16,
-                            color: AppColors.primary,
-                          ),
-                          label: const Text(
-                            "Editar",
-                            style: TextStyle(color: AppColors.primary),
-                          ),
-                          style: TextButton.styleFrom(
-                            padding: EdgeInsets.zero,
-                            minimumSize: const Size(50, 30),
-                            tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-                          ),
+                          child: const Text("Editar Plan", style: TextStyle(color: AppColors.primary)),
                         ),
                     ],
                   ),
                   const SizedBox(height: 10),
                   if (_currentRoutine != null)
-                    _buildRoutineCard(context, _currentRoutine!)
+                    _buildRoutineList(context, _currentRoutine!)
                   else
-                    const Center(
-                      child: Text(
-                        "Sin plan asignado.",
-                        style: TextStyle(color: Colors.white),
-                      ),
-                    ),
+                    _buildEmptyRoutineState(context),
                 ],
               ),
             ),
     );
   }
 
-  Widget _buildHeader(UserProfile? user) {
-    return GestureDetector(
-      onTap: () {
-        Navigator.push(
-          context,
-          MaterialPageRoute(builder: (c) => const SomatotypeInfoScreen()),
-        );
-      },
-      child: Row(
+  Widget _buildWelcomeCard(UserProfile? user) {
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(20),
+      decoration: BoxDecoration(
+        gradient: const LinearGradient(
+          colors: [AppColors.primary, Color(0xFF2E86C1)], // Degradado azul científico
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+        ),
+        borderRadius: BorderRadius.circular(15),
+        boxShadow: const [BoxShadow(color: Colors.black26, blurRadius: 10, offset: Offset(0, 5))],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          CircleAvatar(
-            radius: 30,
-            backgroundColor: AppColors.primary,
-            child: Text(
-              user?.name[0] ?? 'U',
-              style: const TextStyle(
-                fontSize: 24,
-                color: Colors.white,
-                fontWeight: FontWeight.bold,
-              ),
-            ),
+          Text(
+            'Hola, ${user?.name ?? "Atleta"}',
+            style: const TextStyle(fontSize: 24, color: Colors.white, fontWeight: FontWeight.bold),
           ),
-          const SizedBox(width: 15),
-          Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(
-                'Bienvenido, ${user?.name}',
-                style: const TextStyle(
-                  fontSize: 22,
-                  color: Colors.white,
-                  fontWeight: FontWeight.bold,
-                ),
-              ),
-              Row(
-                children: [
-                  Text(
-                    '${user?.somatotype.toString().split('.').last.toUpperCase()} • Objetivo: ${user?.goal.toString().split('.').last}',
-                    style: const TextStyle(color: AppColors.textSecondary),
-                  ),
-                  const SizedBox(width: 5),
-                  const Icon(
-                    Icons.info_outline,
-                    color: AppColors.textSecondary,
-                    size: 16,
-                  ),
-                ],
-              ),
-            ],
+          const SizedBox(height: 5),
+          const Text(
+            "Prepárate para entrenar con base científica.",
+            style: TextStyle(color: Colors.white70),
           ),
         ],
       ),
     );
   }
 
-  Widget _buildStatusCard(BuildContext context) {
-    return GestureDetector(
-      onTap: () => Navigator.push(
-        context,
-        MaterialPageRoute(builder: (c) => const BodyStatusScreen()),
+  Widget _buildToolsGrid(BuildContext context) {
+    // Definimos los botones del dashboard aquí para fácil edición
+    final tools = [
+      {'icon': Icons.menu_book, 'label': 'Ejercicios', 'route': const ExerciseLibraryScreen(), 'color': Colors.orange},
+      {'icon': Icons.list_alt, 'label': 'Rutinas', 'route': const MyRoutinesScreen(), 'color': Colors.purple},
+      {'icon': Icons.show_chart, 'label': 'Progreso', 'route': const ProgressScreen(), 'color': Colors.green},
+      {'icon': Icons.accessibility_new, 'label': 'Fatiga', 'route': const BodyStatusScreen(), 'color': Colors.redAccent},
+      {'icon': Icons.restaurant_menu, 'label': 'Nutrición', 'route': const NutritionScreen(), 'color': Colors.teal},
+      {'icon': Icons.water_drop, 'label': 'Hidratación', 'route': const HydrationSettingsScreen(), 'color': Colors.blue},
+    ];
+
+    return GridView.builder(
+      shrinkWrap: true,
+      physics: const NeverScrollableScrollPhysics(),
+      itemCount: tools.length,
+      gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+        crossAxisCount: 3, // 3 columnas
+        crossAxisSpacing: 10,
+        mainAxisSpacing: 10,
+        childAspectRatio: 1.1,
       ),
-      child: Container(
-        padding: const EdgeInsets.all(20),
-        decoration: BoxDecoration(
-          gradient: const LinearGradient(
-            colors: [Color(0xFF2C3E50), Color(0xFF4CA1AF)],
-          ),
-          borderRadius: BorderRadius.circular(15),
-        ),
-        child: const Row(
-          mainAxisAlignment: MainAxisAlignment.spaceBetween,
-          children: [
-            Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
+      itemBuilder: (context, index) {
+        final tool = tools[index];
+        return Material(
+          color: AppColors.surface,
+          borderRadius: BorderRadius.circular(12),
+          child: InkWell(
+            borderRadius: BorderRadius.circular(12),
+            onTap: () {
+              Navigator.push(context, MaterialPageRoute(builder: (c) => tool['route'] as Widget));
+              if (tool['label'] == 'Rutinas') _loadDataAndApplyProgression(); // Recargar si vuelve de rutinas
+            },
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
               children: [
+                Icon(tool['icon'] as IconData, color: tool['color'] as Color, size: 28),
+                const SizedBox(height: 8),
                 Text(
-                  "Estado Corporal",
-                  style: TextStyle(
-                    color: Colors.white,
-                    fontSize: 18,
-                    fontWeight: FontWeight.bold,
-                  ),
-                ),
-                Text(
-                  "Toca para ver mapa de fatiga",
-                  style: TextStyle(color: AppColors.textSecondary),
+                  tool['label'] as String,
+                  style: const TextStyle(color: Colors.white, fontSize: 12),
+                  textAlign: TextAlign.center,
                 ),
               ],
             ),
-            Icon(Icons.analytics, color: Colors.white, size: 40),
-          ],
-        ),
-      ),
+          ),
+        );
+      },
     );
   }
 
-  Widget _buildRoutineCard(BuildContext context, WeeklyRoutine routine) {
+  Widget _buildRoutineList(BuildContext context, WeeklyRoutine routine) {
     return ListView.separated(
       shrinkWrap: true,
       physics: const NeverScrollableScrollPhysics(),
@@ -312,31 +217,20 @@ class _HomeScreenState extends State<HomeScreen> {
       separatorBuilder: (c, i) => const SizedBox(height: 10),
       itemBuilder: (context, index) {
         final day = routine.days[index];
-        return Card(
-          color: AppColors.surface,
-          shape: RoundedRectangleBorder(
+        return Container(
+          decoration: BoxDecoration(
+            color: AppColors.surface,
             borderRadius: BorderRadius.circular(12),
+            border: Border.all(color: Colors.white10),
           ),
           child: ListTile(
-            contentPadding: const EdgeInsets.symmetric(
-              horizontal: 20,
-              vertical: 10,
-            ),
-            title: Text(
-              day.name,
-              style: const TextStyle(
-                color: Colors.white,
-                fontWeight: FontWeight.bold,
-              ),
-            ),
-            subtitle: Text(
-              "Enfoque: ${day.targetMuscles.join(", ")}",
-              style: const TextStyle(color: AppColors.textSecondary),
-            ),
-            trailing: const Icon(
-              Icons.play_circle_fill,
-              color: AppColors.secondary,
-              size: 40,
+            contentPadding: const EdgeInsets.symmetric(horizontal: 20, vertical: 8),
+            title: Text(day.name, style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
+            subtitle: Text("${day.exercises.length} Ejercicios • ${day.targetMuscles.join(", ")}", style: const TextStyle(color: Colors.grey, fontSize: 12)),
+            trailing: const CircleAvatar(
+              backgroundColor: AppColors.primary,
+              radius: 18,
+              child: Icon(Icons.play_arrow, color: Colors.white, size: 20),
             ),
             onTap: () {
               Navigator.push(
@@ -353,6 +247,36 @@ class _HomeScreenState extends State<HomeScreen> {
           ),
         );
       },
+    );
+  }
+
+  Widget _buildEmptyRoutineState(BuildContext context) {
+    return Center(
+      child: Container(
+        padding: const EdgeInsets.all(30),
+        decoration: BoxDecoration(
+          color: AppColors.surface.withOpacity(0.5),
+          borderRadius: BorderRadius.circular(15),
+          border: Border.all(color: Colors.white10, style: BorderStyle.solid),
+        ),
+        child: Column(
+          children: [
+            const Icon(Icons.fitness_center, size: 50, color: Colors.grey),
+            const SizedBox(height: 15),
+            const Text("No tienes un plan activo", style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
+            const SizedBox(height: 5),
+            const Text("Crea uno o selecciona una plantilla para empezar.", textAlign: TextAlign.center, style: TextStyle(color: Colors.grey)),
+            const SizedBox(height: 20),
+            ElevatedButton(
+              style: ElevatedButton.styleFrom(backgroundColor: AppColors.primary),
+              onPressed: () {
+                Navigator.push(context, MaterialPageRoute(builder: (c) => const MyRoutinesScreen()));
+              },
+              child: const Text("Ir a Mis Rutinas", style: TextStyle(color: Colors.white)),
+            )
+          ],
+        ),
+      ),
     );
   }
 }
