@@ -219,13 +219,14 @@ class _ExerciseLibraryScreenState extends State<ExerciseLibraryScreen> {
     );
   }
 
+  // --- AQUÍ ESTÁ EL CAMBIO CLAVE ---
   void _showExerciseDetails(BuildContext context, Exercise exercise) {
     final imagePath = 'assets/exercises/${exercise.id}.png';
 
     showModalBottomSheet(
       context: context,
       isScrollControlled: true, // Para que pueda ocupar más pantalla
-      backgroundColor: Colors.transparent, // Fondo transparente para ver los bordes redondeados
+      backgroundColor: Colors.transparent, // Fondo transparente
       builder: (context) => DraggableScrollableSheet(
         initialChildSize: 0.85,
         minChildSize: 0.5,
@@ -239,18 +240,24 @@ class _ExerciseLibraryScreenState extends State<ExerciseLibraryScreen> {
             controller: controller,
             padding: EdgeInsets.zero,
             children: [
-              // --- IMAGEN GRANDE EN CABECERA ---
+              // --- IMAGEN GRANDE EN CABECERA (CORREGIDA) ---
               Stack(
                 children: [
-                  Container(
-                    height: 250,
-                    width: double.infinity,
-                    color: Colors.grey[900],
-                    child: Image.asset(
-                      imagePath,
-                      fit: BoxFit.cover,
-                      errorBuilder: (c,e,s) => const Center(
-                        child: Icon(Icons.image_not_supported, color: Colors.white24, size: 50)
+                  // Usamos AspectRatio para forzar un cuadrado perfecto (1:1)
+                  // Esto evita que se corte la imagen si es cuadrada.
+                  AspectRatio(
+                    aspectRatio: 1.0, 
+                    child: Container(
+                      width: double.infinity,
+                      color: Colors.grey[900],
+                      child: Image.asset(
+                        imagePath,
+                        // BoxFit.contain asegura que se vea ENTERA sin recortes
+                        // Si la imagen es cuadrada y el AspectRatio es 1, se verá perfecta.
+                        fit: BoxFit.contain, 
+                        errorBuilder: (c,e,s) => const Center(
+                          child: Icon(Icons.image_not_supported, color: Colors.white24, size: 50)
+                        ),
                       ),
                     ),
                   ),
@@ -300,7 +307,7 @@ class _ExerciseLibraryScreenState extends State<ExerciseLibraryScreen> {
                     
                     const SizedBox(height: 25),
 
-                    // --- SECCIÓN: TIPS PRO (USANDO DATOS REALES) ---
+                    // --- SECCIÓN: TIPS PRO ---
                     if (exercise.tips.isNotEmpty) ...[
                       _buildSectionTitle("Consejos Pro"),
                       const SizedBox(height: 10),
@@ -308,7 +315,7 @@ class _ExerciseLibraryScreenState extends State<ExerciseLibraryScreen> {
                       const SizedBox(height: 25),
                     ],
 
-                    // --- SECCIÓN: ERRORES COMUNES (USANDO DATOS REALES) ---
+                    // --- SECCIÓN: ERRORES COMUNES ---
                     if (exercise.commonMistakes.isNotEmpty) ...[
                       _buildSectionTitle("Errores Comunes"),
                       const SizedBox(height: 10),
