@@ -18,6 +18,7 @@ class _MuscleSelectorScreenState extends State<MuscleSelectorScreen> {
   String? _selectedMuscleName;
   List<Exercise> _filteredExercises = [];
 
+  // Mapeo corregido: ID del músculo (parte del string) -> Grupo Muscular en Base de Datos
   final Map<String, String> muscleToExerciseGroup = {
     'pec': 'Pecho',
     'abd': 'Core',
@@ -33,20 +34,21 @@ class _MuscleSelectorScreenState extends State<MuscleSelectorScreen> {
     'isquio': 'Isquiotibiales',
     'gemelo': 'Gemelos',
     'lumb': 'Espalda',
-    'aduc': 'Cuádriceps',
-    'avb': 'Antebrazo',
+    'aduc': 'Aductores', // CORREGIDO: Antes decía Cuádriceps
+    'abduc': 'Abductores', // NUEVO: Añadido para Abductores
+    'antebrazo': 'Antebrazo', // CORREGIDO: 'avb' no coincidía con 'antebrazo_der'
   };
 
   void _onMuscleTapped(String muscleId) {
     final exerciseBox = Hive.box<Exercise>('exerciseBox');
 
-    // Find muscle name for display
+    // Buscamos el nombre legible del músculo para mostrarlo en el título
     final musclePart = allMuscleParts.firstWhere(
       (m) => m.id == muscleId,
       orElse: () => allMuscleParts.first,
     );
 
-    // Map muscle ID to exercise muscle group
+    // Identificamos a qué grupo de ejercicios pertenece este músculo
     String? targetGroup;
     for (var entry in muscleToExerciseGroup.entries) {
       if (muscleId.contains(entry.key)) {
@@ -56,6 +58,7 @@ class _MuscleSelectorScreenState extends State<MuscleSelectorScreen> {
     }
 
     if (targetGroup != null) {
+      // Filtramos los ejercicios que coincidan con ese grupo
       final exercises = exerciseBox.values.where((ex) {
         return ex.muscleGroup == targetGroup ||
             ex.targetMuscles.any((m) => m.contains(targetGroup!)) ||
@@ -67,6 +70,15 @@ class _MuscleSelectorScreenState extends State<MuscleSelectorScreen> {
         _selectedMuscleName = musclePart.name;
         _filteredExercises = exercises;
       });
+    } else {
+      // Feedback visual si tocamos un músculo sin ejercicios mapeados
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text("No hay ejercicios vinculados a: ${musclePart.name}"),
+          duration: const Duration(milliseconds: 1000),
+          backgroundColor: Colors.grey,
+        ),
+      );
     }
   }
 
@@ -77,6 +89,7 @@ class _MuscleSelectorScreenState extends State<MuscleSelectorScreen> {
       appBar: AppBar(
         title: const Text('Selecciona un Músculo'),
         backgroundColor: AppColors.surface,
+        elevation: 0,
         actions: [
           IconButton(
             icon: Icon(_isFrontView ? Icons.flip_to_back : Icons.flip_to_front),
@@ -121,6 +134,7 @@ class _MuscleSelectorScreenState extends State<MuscleSelectorScreen> {
                 ],
               ),
             ),
+          
           if (_selectedMuscleName == null)
             Expanded(
               child: Column(
@@ -144,10 +158,18 @@ class _MuscleSelectorScreenState extends State<MuscleSelectorScreen> {
           else
             Expanded(
               child: _filteredExercises.isEmpty
-                  ? const Center(
-                      child: Text(
-                        'No hay ejercicios para este músculo',
-                        style: TextStyle(color: Colors.white70),
+                  ? Center(
+                      child: Column(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          const Icon(Icons.fitness_center, size: 60, color: Colors.white24),
+                          const SizedBox(height: 15),
+                          const Text(
+                            'No se encontraron ejercicios específicos\npara este grupo muscular.',
+                            textAlign: TextAlign.center,
+                            style: TextStyle(color: Colors.white70),
+                          ),
+                        ],
                       ),
                     )
                   : ListView.builder(
@@ -155,13 +177,29 @@ class _MuscleSelectorScreenState extends State<MuscleSelectorScreen> {
                       itemCount: _filteredExercises.length,
                       itemBuilder: (context, index) {
                         final exercise = _filteredExercises[index];
+                        // Ruta de imagen para la miniatura
+                        final imagePath = 'assets/exercises/${exercise.id}.png';
+                        
                         return Card(
                           color: AppColors.surface,
                           margin: const EdgeInsets.only(bottom: 12),
+                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
                           child: ListTile(
-                            leading: const Icon(
-                              Icons.fitness_center,
-                              color: AppColors.primary,
+                            contentPadding: const EdgeInsets.all(12),
+                            leading: Container(
+                              width: 50, height: 50,
+                              decoration: BoxDecoration(
+                                color: Colors.white10,
+                                borderRadius: BorderRadius.circular(8),
+                              ),
+                              child: ClipRRect(
+                                borderRadius: BorderRadius.circular(8),
+                                child: Image.asset(
+                                  imagePath,
+                                  fit: BoxFit.cover,
+                                  errorBuilder: (c, e, s) => const Icon(Icons.fitness_center, color: AppColors.primary),
+                                ),
+                              ),
                             ),
                             title: Text(
                               exercise.name,
@@ -174,6 +212,7 @@ class _MuscleSelectorScreenState extends State<MuscleSelectorScreen> {
                               '${exercise.equipment} • ${exercise.difficulty}',
                               style: const TextStyle(color: Colors.white54),
                             ),
+                            trailing: const Icon(Icons.add_circle_outline, color: AppColors.primary),
                             onTap: () {
                               Navigator.pop(context, exercise);
                             },
@@ -201,7 +240,7 @@ class _MuscleMapSelector extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    // No fatigue for selector mode
+    // Mapa de fatiga vacío porque estamos en modo selección (no análisis)
     final Map<String, double> emptyFatigue = {};
 
     return InteractiveBodyMap(

@@ -25,10 +25,12 @@ class _MyRoutinesScreenState extends State<MyRoutinesScreen> {
 
   Future<void> _loadRoutines() async {
     final routines = await RoutineRepository.getAllRoutines();
-    setState(() {
-      _routines = routines;
-      _isLoading = false;
-    });
+    if (mounted) {
+      setState(() {
+        _routines = routines;
+        _isLoading = false;
+      });
+    }
   }
 
   Future<void> _activateRoutine(WeeklyRoutine routine) async {
@@ -45,8 +47,9 @@ class _MyRoutinesScreenState extends State<MyRoutinesScreen> {
     final confirm = await showDialog<bool>(
       context: context,
       builder: (context) => AlertDialog(
-        title: const Text('Eliminar Rutina'),
-        content: Text('¿Estás seguro de eliminar "${routine.name}"?'),
+        backgroundColor: AppColors.surface,
+        title: const Text('Eliminar Rutina', style: TextStyle(color: Colors.white)),
+        content: Text('¿Estás seguro de eliminar "${routine.name}"?', style: const TextStyle(color: Colors.white70)),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context, false),
@@ -66,6 +69,24 @@ class _MyRoutinesScreenState extends State<MyRoutinesScreen> {
     }
   }
 
+  // Helper para crear una rutina vacía y navegar al editor
+  void _createNewRoutine() {
+    final newRoutine = WeeklyRoutine(
+      id: DateTime.now().millisecondsSinceEpoch.toString(),
+      name: 'Nueva Rutina',
+      days: [],
+      createdAt: DateTime.now(),
+      isActive: false,
+    );
+
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (context) => RoutineEditorScreen(routine: newRoutine),
+      ),
+    ).then((_) => _loadRoutines());
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -73,6 +94,7 @@ class _MyRoutinesScreenState extends State<MyRoutinesScreen> {
       appBar: AppBar(
         title: const Text('Mis Rutinas'),
         backgroundColor: AppColors.surface,
+        elevation: 0,
       ),
       body: _isLoading
           ? const Center(child: CircularProgressIndicator())
@@ -116,12 +138,7 @@ class _MyRoutinesScreenState extends State<MyRoutinesScreen> {
                     ),
                     onTap: () {
                       Navigator.pop(context);
-                      Navigator.push(
-                        context,
-                        MaterialPageRoute(
-                          builder: (context) => const RoutineEditorScreen(),
-                        ),
-                      ).then((_) => _loadRoutines());
+                      _createNewRoutine(); // Usamos el helper corregido
                     },
                   ),
                   ListTile(
@@ -168,15 +185,9 @@ class _MyRoutinesScreenState extends State<MyRoutinesScreen> {
           ),
           const SizedBox(height: 8),
           ElevatedButton(
-            onPressed: () {
-              Navigator.push(
-                context,
-                MaterialPageRoute(
-                  builder: (context) => const RoutineEditorScreen(),
-                ),
-              ).then((_) => _loadRoutines());
-            },
-            child: const Text('Crear mi primera rutina'),
+            style: ElevatedButton.styleFrom(backgroundColor: AppColors.primary),
+            onPressed: _createNewRoutine, // Usamos el helper corregido
+            child: const Text('Crear mi primera rutina', style: TextStyle(color: Colors.white)),
           ),
         ],
       ),
@@ -240,6 +251,7 @@ class _MyRoutinesScreenState extends State<MyRoutinesScreen> {
         ),
         trailing: PopupMenuButton<String>(
           icon: const Icon(Icons.more_vert, color: Colors.white),
+          color: AppColors.surface,
           onSelected: (value) {
             if (value == 'activate') _activateRoutine(routine);
             if (value == 'edit') {
@@ -254,8 +266,8 @@ class _MyRoutinesScreenState extends State<MyRoutinesScreen> {
           },
           itemBuilder: (context) => [
             if (!routine.isActive)
-              const PopupMenuItem(value: 'activate', child: Text('Activar')),
-            const PopupMenuItem(value: 'edit', child: Text('Editar')),
+              const PopupMenuItem(value: 'activate', child: Text('Activar', style: TextStyle(color: Colors.white))),
+            const PopupMenuItem(value: 'edit', child: Text('Editar', style: TextStyle(color: Colors.white))),
             const PopupMenuItem(
               value: 'delete',
               child: Text('Eliminar', style: TextStyle(color: Colors.red)),

@@ -4,6 +4,12 @@ import '../models/routine_model.dart';
 class RoutineRepository {
   static const String _boxName = 'routineBox';
 
+  // --- MÉTODO AGREGADO PARA CORREGIR EL ERROR ---
+  static Future<void> addRoutine(WeeklyRoutine routine) async {
+    final box = await Hive.openBox<WeeklyRoutine>(_boxName);
+    await box.put(routine.id, routine);
+  }
+
   static Future<void> saveRoutine(WeeklyRoutine routine) async {
     final box = await Hive.openBox<WeeklyRoutine>(_boxName);
     await box.put(routine.id, routine);
@@ -35,7 +41,6 @@ class RoutineRepository {
 
   static WeeklyRoutine? getActiveRoutine() {
     // Nota: Hive.box debe estar abierto antes de llamar a esto síncronamente
-    // En main.dart ya abrimos las cajas, pero por seguridad usamos openBox si es async
     if (!Hive.isBoxOpen(_boxName)) return null;
 
     final box = Hive.box<WeeklyRoutine>(_boxName);
@@ -46,7 +51,6 @@ class RoutineRepository {
     }
   }
 
-  // Método para inicializar la caja si es necesario
   static Future<void> init() async {
     await Hive.openBox<WeeklyRoutine>(_boxName);
   }

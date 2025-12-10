@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:hive_flutter/hive_flutter.dart';
 import '../models/user_model.dart';
+import '../theme/app_colors.dart'; 
 import 'goal_selection_screen.dart';
 
 class OnboardingScreen extends StatefulWidget {
@@ -80,13 +81,13 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
       context: context,
       barrierDismissible: false,
       builder: (ctx) => AlertDialog(
-        backgroundColor: Colors.white,
+        backgroundColor: AppColors.surface, // Adaptado a tema oscuro
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(15)),
         title: Center(
           child: Text(
             "Tu Somatotipo: $title",
             style: const TextStyle(
-              color: Colors.black,
+              color: Colors.white,
               fontWeight: FontWeight.bold,
             ),
           ),
@@ -97,7 +98,7 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
             Container(
               padding: const EdgeInsets.all(10),
               decoration: BoxDecoration(
-                color: Colors.grey[100],
+                color: Colors.white10,
                 borderRadius: BorderRadius.circular(10),
               ),
               child: Image.asset(
@@ -113,7 +114,7 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
               description,
               textAlign: TextAlign.center,
               style: const TextStyle(
-                color: Colors.black87,
+                color: Colors.white70,
                 fontStyle: FontStyle.italic,
               ),
             ),
@@ -122,15 +123,15 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
               width: double.infinity,
               padding: const EdgeInsets.all(12),
               decoration: BoxDecoration(
-                border: Border.all(color: Colors.blueAccent.withOpacity(0.3)),
+                border: Border.all(color: AppColors.primary.withOpacity(0.3)),
                 borderRadius: BorderRadius.circular(8),
-                color: Colors.blue[50],
+                color: AppColors.primary.withOpacity(0.1),
               ),
               child: Text(
                 features,
                 style: const TextStyle(
                   fontSize: 13,
-                  color: Colors.black87,
+                  color: Colors.white,
                   height: 1.4,
                 ),
               ),
@@ -142,7 +143,7 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
             width: double.infinity,
             child: ElevatedButton(
               style: ElevatedButton.styleFrom(
-                backgroundColor: Colors.blueAccent,
+                backgroundColor: AppColors.primary,
                 padding: const EdgeInsets.symmetric(vertical: 12),
               ),
               onPressed: () {
@@ -161,9 +162,9 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
   }
 
   void _saveAndContinue(Somatotype type) async {
-    final age = int.parse(_ageCtrl.text);
-    final weight = double.parse(_weightCtrl.text);
-    final height = double.parse(_heightCtrl.text);
+    final age = int.tryParse(_ageCtrl.text) ?? 25;
+    final weight = double.tryParse(_weightCtrl.text) ?? 70.0;
+    final height = double.tryParse(_heightCtrl.text) ?? 170.0;
 
     double bmr =
         (10 * weight) +
@@ -171,16 +172,21 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
         (5 * age) +
         (_gender == 'Masculino' ? 5 : -161);
 
+    // Creamos el perfil (con valores por defecto seguros)
     final newUser = UserProfile(
       name: _nameCtrl.text,
       age: age,
       weight: weight,
       height: height,
       gender: _gender,
-      wristCircumference: double.parse(_wristCtrl.text),
-      ankleCircumference: double.parse(_ankleCtrl.text),
+      wristCircumference: double.tryParse(_wristCtrl.text) ?? 17.0,
+      ankleCircumference: double.tryParse(_ankleCtrl.text) ?? 22.0,
       somatotype: type,
       tdee: bmr * 1.2,
+      // Valores iniciales que se refinarán en siguientes pantallas
+      goal: TrainingGoal.generalHealth, 
+      daysPerWeek: 3, 
+      experience: Experience.beginner 
     );
 
     await Hive.box<UserProfile>('userBox').put('currentUser', newUser);
@@ -195,29 +201,58 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: const Text('Tus Datos')),
+      backgroundColor: AppColors.background, // Fondo oscuro corporativo
+      appBar: AppBar(
+        title: const Text('Tus Datos'),
+        backgroundColor: AppColors.surface,
+        elevation: 0,
+      ),
       body: Padding(
         padding: const EdgeInsets.all(16.0),
         child: Form(
           key: _formKey,
           child: ListView(
             children: [
-              // Logo at top
+              // --- HEADER CON LOGO Y TEXTO ---
+              const SizedBox(height: 20),
               Center(
-                child: Padding(
-                  padding: const EdgeInsets.only(bottom: 20),
-                  child: Image.asset(
-                    'assets/logo/app_logo.png.png',
-                    height: 100,
-                    fit: BoxFit.contain,
-                    errorBuilder: (context, error, stackTrace) => const Icon(
-                      Icons.fitness_center,
-                      size: 80,
-                      color: Colors.blue,
+                child: Column(
+                  children: [
+                    Container(
+                      padding: const EdgeInsets.all(15),
+                      decoration: BoxDecoration(
+                        shape: BoxShape.circle,
+                        color: AppColors.surface,
+                        boxShadow: [
+                          BoxShadow(
+                            color: AppColors.primary.withOpacity(0.3),
+                            blurRadius: 20,
+                            spreadRadius: 2,
+                          )
+                        ]
+                      ),
+                      child: Image.asset(
+                        'assets/logo/logo_icon.png.png', // Ruta corregida
+                        height: 90, 
+                        errorBuilder: (c, e, s) => const Icon(Icons.fitness_center, size: 60, color: AppColors.primary),
+                      ),
                     ),
-                  ),
+                    const SizedBox(height: 15),
+                    const Text(
+                      'GYM SCIENTIFIC',
+                      style: TextStyle(
+                        fontSize: 24,
+                        fontWeight: FontWeight.w900,
+                        color: Colors.white,
+                        letterSpacing: 2.5,
+                      ),
+                    ),
+                  ],
                 ),
               ),
+              const SizedBox(height: 30),
+
+              // Inputs estilizados para fondo oscuro
               _buildInput(_nameCtrl, 'Nombre'),
               _buildRowInput(_ageCtrl, 'Edad', _weightCtrl, 'Peso (kg)'),
               _buildRowInput(
@@ -228,18 +263,36 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
               ),
               _buildInput(_ankleCtrl, 'Tobillo (cm)', isNumber: true),
 
-              DropdownButtonFormField(
-                value: _gender,
-                items: ['Masculino', 'Femenino']
-                    .map((v) => DropdownMenuItem(value: v, child: Text(v)))
-                    .toList(),
-                onChanged: (v) => setState(() => _gender = v.toString()),
-                decoration: const InputDecoration(labelText: 'Sexo'),
+              Padding(
+                padding: const EdgeInsets.only(bottom: 20),
+                child: DropdownButtonFormField(
+                  value: _gender,
+                  dropdownColor: AppColors.surface,
+                  style: const TextStyle(color: Colors.white),
+                  items: ['Masculino', 'Femenino']
+                      .map((v) => DropdownMenuItem(value: v, child: Text(v)))
+                      .toList(),
+                  onChanged: (v) => setState(() => _gender = v.toString()),
+                  decoration: const InputDecoration(
+                    labelText: 'Sexo',
+                    labelStyle: TextStyle(color: Colors.white70),
+                    filled: true,
+                    fillColor: AppColors.surface,
+                    border: OutlineInputBorder(),
+                    enabledBorder: OutlineInputBorder(borderSide: BorderSide(color: Colors.white24)),
+                  ),
+                ),
               ),
-              const SizedBox(height: 20),
+              
+              const SizedBox(height: 10),
               ElevatedButton(
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: AppColors.primary,
+                  padding: const EdgeInsets.symmetric(vertical: 15),
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                ),
                 onPressed: _processData,
-                child: const Text('CALCULAR'),
+                child: const Text('CALCULAR SOMATOTIPO', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: Colors.white)),
               ),
             ],
           ),
@@ -253,13 +306,19 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
     String label, {
     bool isNumber = false,
   }) => Padding(
-    padding: const EdgeInsets.only(bottom: 10),
+    padding: const EdgeInsets.only(bottom: 15),
     child: TextFormField(
       controller: c,
       keyboardType: isNumber ? TextInputType.number : TextInputType.text,
+      style: const TextStyle(color: Colors.white),
       decoration: InputDecoration(
         labelText: label,
+        labelStyle: const TextStyle(color: Colors.white70),
+        filled: true,
+        fillColor: AppColors.surface,
         border: const OutlineInputBorder(),
+        enabledBorder: const OutlineInputBorder(borderSide: BorderSide(color: Colors.white24)),
+        focusedBorder: const OutlineInputBorder(borderSide: BorderSide(color: AppColors.primary)),
       ),
       validator: (v) => v!.isEmpty ? 'Requerido' : null,
     ),
@@ -273,7 +332,7 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
   ) => Row(
     children: [
       Expanded(child: _buildInput(c1, l1, isNumber: true)),
-      const SizedBox(width: 10),
+      const SizedBox(width: 15),
       Expanded(child: _buildInput(c2, l2, isNumber: true)),
     ],
   );

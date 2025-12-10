@@ -43,7 +43,6 @@ class _HomeScreenState extends State<HomeScreen> {
         _currentUser!,
         _currentRoutine!,
       );
-      // Recargamos por si hubo cambios
       _currentRoutine = RoutineRepository.getActiveRoutine();
     }
 
@@ -56,7 +55,6 @@ class _HomeScreenState extends State<HomeScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: AppColors.background,
-      // Ocultamos el AppBar estándar para usar nuestro diseño personalizado
       appBar: AppBar(
         backgroundColor: AppColors.background,
         elevation: 0,
@@ -70,7 +68,7 @@ class _HomeScreenState extends State<HomeScreen> {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.center,
                   children: [
-                    // --- NUEVO HEADER (LOGO + TEXTO) ---
+                    // --- HEADER (LOGO + TEXTO) ---
                     const SizedBox(height: 20),
                     Center(
                       child: Column(
@@ -89,8 +87,10 @@ class _HomeScreenState extends State<HomeScreen> {
                               ]
                             ),
                             child: Image.asset(
-                              'assets/logo/logo_icon.png',
-                              height: 90, // Tamaño grande
+                              // He puesto la ruta con doble extensión para que te funcione ya mismo
+                              'assets/logo/logo_icon.png.png', 
+                              height: 90, 
+                              // Si falla, mostramos un icono de fallback pero intentará cargar tu imagen
                               errorBuilder: (c, e, s) => const Icon(Icons.fitness_center, size: 60, color: AppColors.primary),
                             ),
                           ),
@@ -143,7 +143,7 @@ class _HomeScreenState extends State<HomeScreen> {
                               await Navigator.push(
                                 context,
                                 MaterialPageRoute(
-                                  builder: (_) => RoutineEditorScreen(routine: _currentRoutine),
+                                  builder: (_) => RoutineEditorScreen(routine: _currentRoutine!),
                                 ),
                               );
                               _loadDataAndApplyProgression();

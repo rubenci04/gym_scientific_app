@@ -24,17 +24,20 @@ class InteractiveBodyMap extends StatefulWidget {
 }
 
 class _InteractiveBodyMapState extends State<InteractiveBodyMap> {
+  // Dimensiones estándar del SVG original
   final double svgWidth = 375.42;
   final double svgHeight = 832.97;
 
   @override
   Widget build(BuildContext context) {
+    // Filtramos los músculos según la vista (frontal o posterior)
     final visibleMuscles = allMuscleParts
         .where((m) => m.face == (widget.isFront ? "ant" : "post"))
         .toList();
 
     return LayoutBuilder(
       builder: (context, constraints) {
+        // Calculamos la escala para que el cuerpo se ajuste a la pantalla
         final double scale = constraints.maxHeight / svgHeight;
 
         return Center(
@@ -65,14 +68,20 @@ class _InteractiveBodyMapState extends State<InteractiveBodyMap> {
   ) {
     final RenderBox box = context.findRenderObject() as RenderBox;
     final Offset localOffset = box.globalToLocal(details.globalPosition);
+    // Des-escalamos el punto de toque para coincidir con las coordenadas del SVG
     final Offset scaledOffset = localOffset / scale;
 
     for (var muscle in muscles) {
       final Path path = parseSvgPathData(muscle.pathSvg);
+      // Verificamos si el toque cayó dentro del dibujo del músculo
       if (path.contains(scaledOffset)) {
         if (widget.onMuscleTap != null) {
-          widget.onMuscleTap!(muscle.name);
+          // --- CORRECCIÓN CRÍTICA ---
+          // Antes enviaba muscle.name, ahora envía muscle.id
+          // Esto permite que el selector encuentre los ejercicios correctamente.
+          widget.onMuscleTap!(muscle.id); 
         } else {
+          // Comportamiento por defecto (ej: en pantalla de fatiga): Mostrar nombre
           ScaffoldMessenger.of(context).hideCurrentSnackBar();
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(
@@ -82,7 +91,7 @@ class _InteractiveBodyMapState extends State<InteractiveBodyMap> {
             ),
           );
         }
-        break;
+        break; // Detenemos el bucle al encontrar el músculo tocado
       }
     }
   }
@@ -113,33 +122,32 @@ class BodyPainter extends CustomPainter {
       final Path path = parseSvgPathData(muscle.pathSvg);
       final double fatigue = fatigueMap[muscle.id] ?? 0.0;
 
-      // Check if this muscle is selected (by ID or Name - trying both for safety)
-      // Ideally we should use IDs everywhere, but let's check both to be safe with legacy code
-      final bool isSelected =
-          selectedMuscleId == muscle.id || selectedMuscleId == muscle.name;
+      // Verificamos si este músculo está seleccionado
+      final bool isSelected = selectedMuscleId == muscle.id;
 
       Color muscleColor;
 
       if (isSelected) {
-        muscleColor = AppColors.primary; // Highlight selected
+        muscleColor = AppColors.primary; // Resaltado azul/cian si está seleccionado
       } else if (fatigue > 0) {
-        // Cap fatigue at 1.0 for color interpolation
+        // Lógica de mapa de calor (Verde -> Rojo)
         final double effectiveFatigue = fatigue > 1.0 ? 1.0 : fatigue;
         muscleColor = Color.lerp(Colors.green, Colors.red, effectiveFatigue)!;
       } else {
-        // Neutral color for non-fatigued/non-selected
+        // Color gris neutro por defecto
         muscleColor = Colors.grey[800]!;
       }
 
+      // Pintar el relleno
       canvas.drawPath(path, Paint()..color = muscleColor);
 
-      // Draw border (thicker if selected)
+      // Pintar el borde
       if (isSelected) {
         canvas.drawPath(
           path,
           borderPaint
             ..strokeWidth = 2.0
-            ..color = Colors.white,
+            ..color = Colors.white, // Borde blanco brillante si está seleccionado
         );
       } else {
         canvas.drawPath(
