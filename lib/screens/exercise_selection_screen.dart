@@ -7,8 +7,7 @@ class ExerciseSelectionScreen extends StatefulWidget {
   const ExerciseSelectionScreen({super.key});
 
   @override
-  State<ExerciseSelectionScreen> createState() =>
-      _ExerciseSelectionScreenState();
+  State<ExerciseSelectionScreen> createState() => _ExerciseSelectionScreenState();
 }
 
 class _ExerciseSelectionScreenState extends State<ExerciseSelectionScreen> {
@@ -16,6 +15,7 @@ class _ExerciseSelectionScreenState extends State<ExerciseSelectionScreen> {
   List<Exercise> _allExercises = [];
   List<Exercise> _filteredExercises = [];
   final TextEditingController _searchController = TextEditingController();
+  String? _selectedFilter; // Para el filtro de grupo muscular
 
   @override
   void initState() {
@@ -25,31 +25,28 @@ class _ExerciseSelectionScreenState extends State<ExerciseSelectionScreen> {
     _filteredExercises = _allExercises;
   }
 
-  void _filterExercises(String query) {
+  void _applyFilters() {
+    final query = _removeAccents(_searchController.text.toLowerCase());
+    
     setState(() {
-      if (query.isEmpty) {
-        _filteredExercises = _allExercises;
-      } else {
-        final normalizedQuery = _removeAccents(query.toLowerCase());
-        _filteredExercises = _allExercises.where((ex) {
-          final normalizedName = _removeAccents(ex.name.toLowerCase());
-          final normalizedMuscle = _removeAccents(ex.muscleGroup.toLowerCase());
-          final normalizedEquipment = _removeAccents(
-            ex.equipment.toLowerCase(),
-          );
+      _filteredExercises = _allExercises.where((ex) {
+        // Coincidencia por texto (Nombre o Músculo)
+        final matchesSearch = query.isEmpty || 
+            _removeAccents(ex.name.toLowerCase()).contains(query) ||
+            _removeAccents(ex.muscleGroup.toLowerCase()).contains(query);
+            
+        // Coincidencia por Chip seleccionado
+        final matchesGroup = _selectedFilter == null || 
+            ex.muscleGroup == _selectedFilter;
 
-          return normalizedName.contains(normalizedQuery) ||
-              normalizedMuscle.contains(normalizedQuery) ||
-              normalizedEquipment.contains(normalizedQuery);
-        }).toList();
-      }
+        return matchesSearch && matchesGroup;
+      }).toList();
     });
   }
 
   String _removeAccents(String text) {
     const accents = 'áéíóúÁÉÍÓÚñÑüÜ';
     const withoutAccents = 'aeiouAEIOUnNuU';
-
     String result = text;
     for (int i = 0; i < accents.length; i++) {
       result = result.replaceAll(accents[i], withoutAccents[i]);
@@ -59,6 +56,9 @@ class _ExerciseSelectionScreenState extends State<ExerciseSelectionScreen> {
 
   @override
   Widget build(BuildContext context) {
+    // Obtenemos lista única de grupos musculares para los filtros
+    final muscleGroups = _allExercises.map((e) => e.muscleGroup).toSet().toList()..sort();
+
     return Scaffold(
       backgroundColor: AppColors.background,
       appBar: AppBar(
@@ -67,47 +67,88 @@ class _ExerciseSelectionScreenState extends State<ExerciseSelectionScreen> {
       ),
       body: Column(
         children: [
-          Padding(
+          Container(
             padding: const EdgeInsets.all(16.0),
-            child: TextField(
-              controller: _searchController,
-              style: const TextStyle(color: Colors.white),
-              decoration: const InputDecoration(
-                hintText: 'Buscar por nombre o músculo...',
-                hintStyle: TextStyle(color: Colors.white54),
-                prefixIcon: Icon(Icons.search, color: Colors.white54),
-                filled: true,
-                fillColor: AppColors.surface,
-                border: OutlineInputBorder(
-                  borderRadius: BorderRadius.all(Radius.circular(12)),
-                  borderSide: BorderSide.none,
+            color: AppColors.surface,
+            child: Column(
+              children: [
+                // Barra de Búsqueda
+                TextField(
+                  controller: _searchController,
+                  style: const TextStyle(color: Colors.white),
+                  decoration: InputDecoration(
+                    hintText: 'Buscar por nombre...',
+                    hintStyle: const TextStyle(color: Colors.white54),
+                    prefixIcon: const Icon(Icons.search, color: Colors.white54),
+                    filled: true,
+                    fillColor: AppColors.background,
+                    border: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide.none),
+                  ),
+                  onChanged: (v) => _applyFilters(),
                 ),
-              ),
-              onChanged: _filterExercises,
+                const SizedBox(height: 10),
+                
+                // --- FILTROS DE GRUPO MUSCULAR (CHIPS) ---
+                SingleChildScrollView(
+                  scrollDirection: Axis.horizontal,
+                  child: Row(
+                    children: [
+                      _buildFilterChip('Todos', _selectedFilter == null, () {
+                        setState(() {
+                          _selectedFilter = null;
+                          _applyFilters();
+                        });
+                      }),
+                      ...muscleGroups.map((group) => _buildFilterChip(group, _selectedFilter == group, () {
+                        setState(() {
+                          _selectedFilter = (_selectedFilter == group) ? null : group;
+                          _applyFilters();
+                        });
+                      })),
+                    ],
+                  ),
+                ),
+              ],
             ),
           ),
+          
+          // Lista de Resultados
           Expanded(
             child: ListView.builder(
               itemCount: _filteredExercises.length,
               itemBuilder: (context, index) {
                 final exercise = _filteredExercises[index];
                 return ListTile(
-                  title: Text(
-                    exercise.name,
-                    style: const TextStyle(color: Colors.white),
+                  leading: Container(
+                    width: 40, height: 40,
+                    decoration: BoxDecoration(color: Colors.white10, borderRadius: BorderRadius.circular(8)),
+                    child: Center(child: Text(exercise.name[0], style: const TextStyle(color: AppColors.primary, fontWeight: FontWeight.bold))),
                   ),
-                  subtitle: Text(
-                    '${exercise.muscleGroup} • ${exercise.equipment}',
-                    style: const TextStyle(color: Colors.white54),
-                  ),
-                  onTap: () {
-                    Navigator.pop(context, exercise);
-                  },
+                  title: Text(exercise.name, style: const TextStyle(color: Colors.white)),
+                  subtitle: Text('${exercise.muscleGroup} • ${exercise.equipment}', style: const TextStyle(color: Colors.white54)),
+                  onTap: () => Navigator.pop(context, exercise),
                 );
               },
             ),
           ),
         ],
+      ),
+    );
+  }
+
+  Widget _buildFilterChip(String label, bool isSelected, VoidCallback onTap) {
+    return Padding(
+      padding: const EdgeInsets.only(right: 8),
+      child: FilterChip(
+        label: Text(label),
+        selected: isSelected,
+        onSelected: (_) => onTap(),
+        backgroundColor: AppColors.background,
+        selectedColor: AppColors.primary,
+        checkmarkColor: Colors.white,
+        labelStyle: TextStyle(color: isSelected ? Colors.white : Colors.grey),
+        side: BorderSide(color: isSelected ? AppColors.primary : Colors.transparent),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
       ),
     );
   }

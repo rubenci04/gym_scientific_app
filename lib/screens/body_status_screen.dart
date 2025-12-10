@@ -29,13 +29,13 @@ class _BodyStatusScreenState extends State<BodyStatusScreen> {
         final svgFatigueMap = _mapGenericFatigueToSvg(fatigueMap);
 
         // --- CÁLCULO CIENTÍFICO DE RECUPERACIÓN (READINESS) ---
-        // Promedio la fatiga de todos los músculos para dar un score general
         double totalFatigue = 0;
         int count = 0;
         fatigueMap.forEach((_, val) {
           totalFatigue += val;
           count++;
         });
+        
         // Si la fatiga promedio es 0.2 (20%), la recuperación es 80%
         double avgFatigue = count > 0 ? totalFatigue / count : 0;
         double readinessScore = (1.0 - avgFatigue).clamp(0.0, 1.0) * 100;
@@ -63,7 +63,7 @@ class _BodyStatusScreenState extends State<BodyStatusScreen> {
           ),
           body: Column(
             children: [
-              // --- PANEL DE DIAGNÓSTICO (NUEVO) ---
+              // --- PANEL DE DIAGNÓSTICO ---
               _buildReadinessCard(readinessScore),
 
               const SizedBox(height: 10),
@@ -82,7 +82,7 @@ class _BodyStatusScreenState extends State<BodyStatusScreen> {
 
               // --- MAPA INTERACTIVO ---
               Expanded(
-                flex: 4, // Le doy más espacio al mapa
+                flex: 4, 
                 child: Padding(
                   padding: const EdgeInsets.symmetric(vertical: 10),
                   child: InteractiveBodyMap(
@@ -92,7 +92,7 @@ class _BodyStatusScreenState extends State<BodyStatusScreen> {
                 ),
               ),
 
-              // --- LISTA DETALLADA (BOTTOM SHEET ESTILIZADO) ---
+              // --- LISTA DETALLADA ---
               Expanded(
                 flex: 3,
                 child: Container(
@@ -122,9 +122,11 @@ class _BodyStatusScreenState extends State<BodyStatusScreen> {
                         child: ListView(
                           physics: const BouncingScrollPhysics(),
                           children: musclesToShow.map((muscleName) {
+                            // Buscamos la ID interna para obtener la fatiga del mapa SVG
                             String sampleId = allMuscleParts.firstWhere((m) => m.name == muscleName).id;
                             double val = svgFatigueMap[sampleId] ?? 0.0;
-                            // Solo muestro los que tienen algo de actividad para no saturar
+                            
+                            // Solo mostramos si tiene algo de fatiga para no saturar la lista
                             if (val > 0.05) return _buildMuscleBar(muscleName, val);
                             return const SizedBox.shrink(); 
                           }).toList(),
@@ -141,7 +143,6 @@ class _BodyStatusScreenState extends State<BodyStatusScreen> {
     );
   }
 
-  // Tarjeta de "Readiness" tipo Oura Ring / Whoop
   Widget _buildReadinessCard(double score) {
     Color scoreColor = score > 80 ? Colors.greenAccent : (score > 50 ? Colors.orangeAccent : Colors.redAccent);
     String message = score > 80 ? "Listo para entrenar fuerte." : (score > 50 ? "Entrena con precaución." : "Prioriza el descanso.");
@@ -160,7 +161,6 @@ class _BodyStatusScreenState extends State<BodyStatusScreen> {
       ),
       child: Row(
         children: [
-          // Círculo de porcentaje
           Stack(
             alignment: Alignment.center,
             children: [
@@ -177,7 +177,6 @@ class _BodyStatusScreenState extends State<BodyStatusScreen> {
             ],
           ),
           const SizedBox(width: 20),
-          // Textos
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
@@ -193,19 +192,25 @@ class _BodyStatusScreenState extends State<BodyStatusScreen> {
     );
   }
 
-  // ... (Mantengo tu función _mapGenericFatigueToSvg exacta, es correcta)
+  // Mapeo exhaustivo para conectar el Servicio de Fatiga con el Mapa SVG
   Map<String, double> _mapGenericFatigueToSvg(Map<String, double> general) {
     final Map<String, double> svgMap = {};
+
     void assign(String generalKey, List<String> ids) {
       if (general.containsKey(generalKey)) {
         for (var id in ids) svgMap[id] = general[generalKey]!;
       }
     }
-    // Mapeos (Igual que tu archivo original)
+
     assign('Pectorales', ['pec_der', 'pec_izq']);
     assign('Abdominales', ['abd_der', 'abd_izq']);
     assign('Oblicuos', ['oblicuo_der', 'oblicuo_izq']);
-    assign('Aductores', ['aduc_der', 'aduc_izq']);
+    
+    // --- CORRECCIÓN CLAVE PARA QUE SE PINTEN ---
+    // El servicio debe enviar 'Aductores' o 'Abductores' para que esto funcione.
+    assign('Aductores', ['aduc_der', 'aduc_izq']); 
+    assign('Abductores', ['abduc_der', 'abduc_izq']);
+    
     assign('Hombros', ['hombro_der', 'hombro_izq', 'hombro_post_der', 'hombro_post_izq']);
     assign('Biceps', ['biceps_der', 'biceps_izq']);
     assign('Cuadriceps', ['quad_der', 'quad_izq']);
@@ -218,7 +223,7 @@ class _BodyStatusScreenState extends State<BodyStatusScreen> {
     assign('Lumbares', ['lumb_der', 'lumb_izq']);
     assign('Trapecios', ['trap_der', 'trap_izq', 'trap_der_post', 'trap_izq_post']);
     assign('Antebrazos', ['antebrazo_der', 'antebrazo_izq']);
-    assign('Abductores', ['abduc_der', 'abduc_izq']);
+
     return svgMap;
   }
 
@@ -240,7 +245,7 @@ class _BodyStatusScreenState extends State<BodyStatusScreen> {
       color = Colors.grey;
       statusText = "Recuperado";
     } else if (fatigue < 0.6) {
-      color = AppColors.primary; // Verde/Azul corporativo
+      color = AppColors.primary;
       statusText = "Activo";
     } else {
       color = Colors.redAccent;

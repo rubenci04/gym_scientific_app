@@ -116,6 +116,22 @@ class _WorkoutScreenState extends State<WorkoutScreen>
     });
   }
 
+  // --- NUEVA FUNCIÓN: SOLO GUARDAR (Para el botón de arriba) ---
+  void _saveProgressOnly() {
+    CurrentWorkoutService.saveSession(
+      routineId: widget.routineDayId,
+      dayName: widget.dayName,
+      sessionData: _sessionData,
+    );
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(
+        content: Text('✅ Progreso guardado correctamente'),
+        backgroundColor: Colors.green,
+        duration: Duration(milliseconds: 1500),
+      ),
+    );
+  }
+
   @override
   void dispose() {
     WidgetsBinding.instance.removeObserver(this);
@@ -187,7 +203,6 @@ class _WorkoutScreenState extends State<WorkoutScreen>
     return "${oneRM.toInt()}";
   }
 
-  // --- DIÁLOGOS EDUCATIVOS ---
   void _showEducationalDialog(String title, String content) {
     showDialog(
       context: context,
@@ -329,7 +344,6 @@ class _WorkoutScreenState extends State<WorkoutScreen>
             Text('Tonelaje: ${totalVolume.toStringAsFixed(0)} kg', style: const TextStyle(color: AppColors.textSecondary)),
             const SizedBox(height: 10),
             
-            // --- RECORDATORIO ESTIRAMIENTO ---
             Container(
               padding: const EdgeInsets.all(10),
               decoration: BoxDecoration(color: Colors.blue.withOpacity(0.1), borderRadius: BorderRadius.circular(8)),
@@ -431,13 +445,17 @@ class _WorkoutScreenState extends State<WorkoutScreen>
           title: Text(widget.dayName),
           backgroundColor: AppColors.surface,
           actions: [
-            IconButton(icon: const Icon(Icons.save, color: AppColors.secondary), onPressed: _finishWorkout),
+            // --- BOTÓN DE GUARDAR CORREGIDO (Llama a _saveProgressOnly) ---
+            IconButton(
+              icon: const Icon(Icons.save, color: AppColors.secondary),
+              onPressed: _saveProgressOnly,
+              tooltip: "Guardar Progreso",
+            ),
             IconButton(icon: const Icon(Icons.calculate, color: Colors.orange), onPressed: () => _openCalculator(0)),
           ],
         ),
         body: Stack(
           children: [
-            // --- HEADER DE CALENTAMIENTO ---
             Positioned(
               top: 0, left: 0, right: 0,
               child: GestureDetector(
@@ -458,7 +476,7 @@ class _WorkoutScreenState extends State<WorkoutScreen>
             ),
 
             Padding(
-              padding: const EdgeInsets.only(top: 40), // Espacio para el banner de calentamiento
+              padding: const EdgeInsets.only(top: 40), 
               child: ListView.builder(
                 padding: const EdgeInsets.only(bottom: 120),
                 itemCount: currentExercises.length,
@@ -524,7 +542,6 @@ class _WorkoutScreenState extends State<WorkoutScreen>
                           ),
                           const SizedBox(height: 15),
 
-                          // --- ENCABEZADOS DE COLUMNAS (CON AYUDA) ---
                           if (sets.isNotEmpty)
                             Padding(
                               padding: const EdgeInsets.only(bottom: 8.0),
@@ -543,7 +560,6 @@ class _WorkoutScreenState extends State<WorkoutScreen>
                               ),
                             ),
 
-                          // ... (RESTO DEL CÓDIGO DE SERIES IGUAL QUE ANTES) ...
                           ...sets.asMap().entries.map((entry) {
                             int setIdx = entry.key;
                             WorkoutSet set = entry.value;
@@ -566,7 +582,6 @@ class _WorkoutScreenState extends State<WorkoutScreen>
                             );
                           }).toList(),
 
-                          // --- BOTONES ---
                           Row(
                             mainAxisAlignment: MainAxisAlignment.spaceBetween,
                             children: [
@@ -604,6 +619,7 @@ class _WorkoutScreenState extends State<WorkoutScreen>
                 ),
               ),
 
+            // --- BOTÓN DE FINALIZAR (ABAJO) ---
             Positioned(
               bottom: 20, left: 20, right: 20,
               child: ElevatedButton.icon(style: ElevatedButton.styleFrom(backgroundColor: AppColors.primary, padding: const EdgeInsets.symmetric(vertical: 15), shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10))), onPressed: _finishWorkout, icon: const Icon(Icons.check_circle, color: Colors.white), label: const Text("TERMINAR SESIÓN", style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: Colors.white))),
@@ -614,7 +630,6 @@ class _WorkoutScreenState extends State<WorkoutScreen>
     );
   }
 
-  // Header clickeable para ayuda
   Widget _buildHeaderWithHelp(String text, String helpText, {Color color = Colors.grey, bool isSmall = false}) {
     return GestureDetector(
       onTap: () => _showEducationalDialog(text, helpText),

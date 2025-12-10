@@ -755,11 +755,11 @@ class ExerciseDatabase {
       targetMuscles: ['Cuádriceps', 'Glúteos'],
       secondaryMuscles: ['Aductores'],
     ),
-    // --- NUEVO ---
+    // --- NUEVO (CORREGIDO GRUPO MUSCULAR) ---
     Exercise(
       id: 'machine_hip_adduction',
       name: 'Aducción de Cadera',
-      muscleGroup: 'Cuádriceps', // O Aductores
+      muscleGroup: 'Aductores', // CAMBIADO DE 'Cuádriceps' A 'Aductores'
       equipment: 'Máquina',
       movementPattern: 'Aislamiento',
       difficulty: 'Principiante',
@@ -853,11 +853,11 @@ class ExerciseDatabase {
   // GLÚTEOS / CADERA
   // ===================
   static final List<Exercise> gluteExercises = [
-    // --- NUEVO ---
+    // --- NUEVO (CORREGIDO GRUPO MUSCULAR) ---
     Exercise(
       id: 'machine_hip_abduction',
       name: 'Abducción de Cadera',
-      muscleGroup: 'Glúteos',
+      muscleGroup: 'Abductores', // CAMBIADO DE 'Glúteos' A 'Abductores'
       equipment: 'Máquina',
       movementPattern: 'Aislamiento',
       difficulty: 'Principiante',

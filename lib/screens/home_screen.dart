@@ -36,7 +36,6 @@ class _HomeScreenState extends State<HomeScreen> {
   Future<void> _loadDataAndApplyProgression() async {
     final userBox = Hive.box<UserProfile>('userBox');
     _currentUser = userBox.get('currentUser');
-
     _currentRoutine = RoutineRepository.getActiveRoutine();
 
     if (_currentUser != null && _currentRoutine != null) {
@@ -44,81 +43,123 @@ class _HomeScreenState extends State<HomeScreen> {
         _currentUser!,
         _currentRoutine!,
       );
+      // Recargamos por si hubo cambios
       _currentRoutine = RoutineRepository.getActiveRoutine();
     }
 
-    setState(() {
-      _isLoading = false;
-    });
+    if (mounted) {
+      setState(() => _isLoading = false);
+    }
   }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: AppColors.background,
+      // Ocultamos el AppBar estándar para usar nuestro diseño personalizado
       appBar: AppBar(
-        title: Row(
-          children: [
-            // --- CORRECCIÓN DE NOMBRE DE ARCHIVO AQUÍ ---
-            Image.asset(
-              'assets/logo/logo_icon.png', // Antes decía .png.png
-              height: 30,
-              errorBuilder: (c, e, s) => const Icon(Icons.fitness_center, color: AppColors.primary),
-            ),
-            const SizedBox(width: 10),
-            const Text('GYM SCIENTIFIC', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 18, letterSpacing: 1.0)),
-          ],
-        ),
-        backgroundColor: AppColors.surface,
+        backgroundColor: AppColors.background,
         elevation: 0,
-        actions: [
-          IconButton(
-            icon: const Icon(Icons.person_outline, color: Colors.white),
-            onPressed: () {
-               Navigator.push(context, MaterialPageRoute(builder: (c) => const SomatotypeInfoScreen()));
-            },
-          ),
-        ],
+        toolbarHeight: 0, 
       ),
       body: _isLoading
           ? const Center(child: CircularProgressIndicator())
-          : SingleChildScrollView(
-              padding: const EdgeInsets.all(20),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  _buildWelcomeCard(_currentUser),
-                  const SizedBox(height: 25),
-                  
-                  const Text("HERRAMIENTAS", style: TextStyle(color: Colors.grey, fontSize: 12, letterSpacing: 1.5)),
-                  const SizedBox(height: 10),
-                  _buildToolsGrid(context),
-                  
-                  const SizedBox(height: 25),
+          : SafeArea(
+              child: SingleChildScrollView(
+                padding: const EdgeInsets.all(20),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.center,
+                  children: [
+                    // --- NUEVO HEADER (LOGO + TEXTO) ---
+                    const SizedBox(height: 20),
+                    Center(
+                      child: Column(
+                        children: [
+                          Container(
+                            padding: const EdgeInsets.all(15),
+                            decoration: BoxDecoration(
+                              shape: BoxShape.circle,
+                              color: AppColors.surface,
+                              boxShadow: [
+                                BoxShadow(
+                                  color: AppColors.primary.withOpacity(0.3),
+                                  blurRadius: 20,
+                                  spreadRadius: 2,
+                                )
+                              ]
+                            ),
+                            child: Image.asset(
+                              'assets/logo/logo_icon.png',
+                              height: 90, // Tamaño grande
+                              errorBuilder: (c, e, s) => const Icon(Icons.fitness_center, size: 60, color: AppColors.primary),
+                            ),
+                          ),
+                          const SizedBox(height: 15),
+                          const Text(
+                            'GYM SCIENTIFIC',
+                            style: TextStyle(
+                              fontSize: 26,
+                              fontWeight: FontWeight.w900,
+                              color: Colors.white,
+                              letterSpacing: 2.5,
+                              shadows: [
+                                Shadow(color: Colors.black, blurRadius: 10, offset: Offset(0, 4))
+                              ]
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                    
+                    const SizedBox(height: 35),
+                    
+                    // Tarjeta de Bienvenida
+                    _buildWelcomeCard(_currentUser),
+                    const SizedBox(height: 30),
+                    
+                    const Align(
+                      alignment: Alignment.centerLeft,
+                      child: Text(
+                        "HERRAMIENTAS", 
+                        style: TextStyle(color: Colors.grey, fontSize: 12, letterSpacing: 1.5, fontWeight: FontWeight.bold)
+                      ),
+                    ),
+                    const SizedBox(height: 15),
+                    _buildToolsGrid(context),
+                    
+                    const SizedBox(height: 30),
 
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                    children: [
-                      const Text("TU PLAN DE HOY", style: TextStyle(color: Colors.grey, fontSize: 12, letterSpacing: 1.5)),
-                      if (_currentRoutine != null)
-                        TextButton(
-                          onPressed: () async {
-                            await Navigator.push(
-                              context,
-                              MaterialPageRoute(builder: (_) => RoutineEditorScreen(routine: _currentRoutine)),
-                            );
-                            _loadDataAndApplyProgression();
-                          },
-                          child: const Text("Editar Plan", style: TextStyle(color: AppColors.primary)),
+                    // Sección Rutina Activa
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        const Text(
+                          "TU PLAN DE HOY", 
+                          style: TextStyle(color: Colors.grey, fontSize: 12, letterSpacing: 1.5, fontWeight: FontWeight.bold)
                         ),
-                    ],
-                  ),
-                  const SizedBox(height: 10),
-                  if (_currentRoutine != null)
-                    _buildRoutineList(context, _currentRoutine!)
-                  else
-                    _buildEmptyRoutineState(context),
-                ],
+                        if (_currentRoutine != null)
+                          TextButton.icon(
+                            onPressed: () async {
+                              await Navigator.push(
+                                context,
+                                MaterialPageRoute(
+                                  builder: (_) => RoutineEditorScreen(routine: _currentRoutine),
+                                ),
+                              );
+                              _loadDataAndApplyProgression();
+                            },
+                            icon: const Icon(Icons.edit, size: 16, color: AppColors.primary),
+                            label: const Text("Editar Plan", style: TextStyle(color: AppColors.primary)),
+                          ),
+                      ],
+                    ),
+                    const SizedBox(height: 10),
+                    if (_currentRoutine != null)
+                      _buildRoutineList(context, _currentRoutine!)
+                    else
+                      _buildEmptyRoutineState(context),
+                  ],
+                ),
               ),
             ),
     );
@@ -134,21 +175,36 @@ class _HomeScreenState extends State<HomeScreen> {
           begin: Alignment.topLeft,
           end: Alignment.bottomRight,
         ),
-        borderRadius: BorderRadius.circular(15),
-        boxShadow: const [BoxShadow(color: Colors.black26, blurRadius: 10, offset: Offset(0, 5))],
+        borderRadius: BorderRadius.circular(20),
+        boxShadow: const [BoxShadow(color: Colors.black45, blurRadius: 10, offset: Offset(0, 5))],
       ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.spaceBetween,
         children: [
-          Text(
-            'Hola, ${user?.name ?? "Atleta"}',
-            style: const TextStyle(fontSize: 24, color: Colors.white, fontWeight: FontWeight.bold),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  'Hola, ${user?.name ?? "Atleta"}',
+                  style: const TextStyle(fontSize: 24, color: Colors.white, fontWeight: FontWeight.bold),
+                ),
+                const SizedBox(height: 5),
+                const Text(
+                  "Tu entrenamiento, respaldado por ciencia.",
+                  style: TextStyle(color: Colors.white70, fontSize: 14),
+                ),
+              ],
+            ),
           ),
-          const SizedBox(height: 5),
-          const Text(
-            "Prepárate para entrenar con base científica.",
-            style: TextStyle(color: Colors.white70),
-          ),
+          Container(
+            decoration: BoxDecoration(color: Colors.white.withOpacity(0.2), borderRadius: BorderRadius.circular(12)),
+            child: IconButton(
+              onPressed: () => Navigator.push(context, MaterialPageRoute(builder: (c) => const SomatotypeInfoScreen())),
+              icon: const Icon(Icons.person, color: Colors.white),
+              tooltip: "Perfil y Somatotipo",
+            ),
+          )
         ],
       ),
     );
@@ -170,17 +226,17 @@ class _HomeScreenState extends State<HomeScreen> {
       itemCount: tools.length,
       gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
         crossAxisCount: 3,
-        crossAxisSpacing: 10,
-        mainAxisSpacing: 10,
-        childAspectRatio: 1.1,
+        crossAxisSpacing: 12,
+        mainAxisSpacing: 12,
+        childAspectRatio: 1.0,
       ),
       itemBuilder: (context, index) {
         final tool = tools[index];
         return Material(
           color: AppColors.surface,
-          borderRadius: BorderRadius.circular(12),
+          borderRadius: BorderRadius.circular(16),
           child: InkWell(
-            borderRadius: BorderRadius.circular(12),
+            borderRadius: BorderRadius.circular(16),
             onTap: () {
               Navigator.push(context, MaterialPageRoute(builder: (c) => tool['route'] as Widget));
               if (tool['label'] == 'Rutinas') _loadDataAndApplyProgression();
@@ -188,11 +244,18 @@ class _HomeScreenState extends State<HomeScreen> {
             child: Column(
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
-                Icon(tool['icon'] as IconData, color: tool['color'] as Color, size: 28),
+                Container(
+                  padding: const EdgeInsets.all(10),
+                  decoration: BoxDecoration(
+                    color: (tool['color'] as Color).withOpacity(0.1),
+                    shape: BoxShape.circle,
+                  ),
+                  child: Icon(tool['icon'] as IconData, color: tool['color'] as Color, size: 28),
+                ),
                 const SizedBox(height: 8),
                 Text(
                   tool['label'] as String,
-                  style: const TextStyle(color: Colors.white, fontSize: 12),
+                  style: const TextStyle(color: Colors.white, fontSize: 12, fontWeight: FontWeight.w500),
                   textAlign: TextAlign.center,
                 ),
               ],
@@ -208,23 +271,32 @@ class _HomeScreenState extends State<HomeScreen> {
       shrinkWrap: true,
       physics: const NeverScrollableScrollPhysics(),
       itemCount: routine.days.length,
-      separatorBuilder: (c, i) => const SizedBox(height: 10),
+      separatorBuilder: (c, i) => const SizedBox(height: 12),
       itemBuilder: (context, index) {
         final day = routine.days[index];
         return Container(
           decoration: BoxDecoration(
             color: AppColors.surface,
-            borderRadius: BorderRadius.circular(12),
-            border: Border.all(color: Colors.white10),
+            borderRadius: BorderRadius.circular(16),
+            border: Border.all(color: Colors.white.withOpacity(0.05)),
           ),
           child: ListTile(
             contentPadding: const EdgeInsets.symmetric(horizontal: 20, vertical: 8),
-            title: Text(day.name, style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
-            subtitle: Text("${day.exercises.length} Ejercicios • ${day.targetMuscles.join(", ")}", style: const TextStyle(color: Colors.grey, fontSize: 12)),
-            trailing: const CircleAvatar(
-              backgroundColor: AppColors.primary,
-              radius: 18,
-              child: Icon(Icons.play_arrow, color: Colors.white, size: 20),
+            title: Text(day.name, style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 16)),
+            subtitle: Padding(
+              padding: const EdgeInsets.only(top: 4.0),
+              child: Text(
+                "${day.exercises.length} Ejercicios • Enfoque: ${day.targetMuscles.join(", ")}", 
+                style: const TextStyle(color: Colors.grey, fontSize: 12)
+              ),
+            ),
+            trailing: Container(
+              padding: const EdgeInsets.all(8),
+              decoration: BoxDecoration(
+                color: AppColors.primary.withOpacity(0.2),
+                shape: BoxShape.circle,
+              ),
+              child: const Icon(Icons.play_arrow, color: AppColors.primary, size: 24),
             ),
             onTap: () {
               Navigator.push(
@@ -247,22 +319,27 @@ class _HomeScreenState extends State<HomeScreen> {
   Widget _buildEmptyRoutineState(BuildContext context) {
     return Center(
       child: Container(
+        margin: const EdgeInsets.only(top: 20),
         padding: const EdgeInsets.all(30),
         decoration: BoxDecoration(
           color: AppColors.surface.withOpacity(0.5),
-          borderRadius: BorderRadius.circular(15),
-          border: Border.all(color: Colors.white10, style: BorderStyle.solid),
+          borderRadius: BorderRadius.circular(20),
+          border: Border.all(color: Colors.white10),
         ),
         child: Column(
           children: [
             const Icon(Icons.fitness_center, size: 50, color: Colors.grey),
             const SizedBox(height: 15),
-            const Text("No tienes un plan activo", style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
+            const Text("No tienes un plan activo", style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 16)),
             const SizedBox(height: 5),
-            const Text("Crea uno o selecciona una plantilla para empezar.", textAlign: TextAlign.center, style: TextStyle(color: Colors.grey)),
+            const Text("Crea uno nuevo o selecciona una plantilla.", textAlign: TextAlign.center, style: TextStyle(color: Colors.grey)),
             const SizedBox(height: 20),
             ElevatedButton(
-              style: ElevatedButton.styleFrom(backgroundColor: AppColors.primary),
+              style: ElevatedButton.styleFrom(
+                backgroundColor: AppColors.primary,
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                padding: const EdgeInsets.symmetric(horizontal: 25, vertical: 12)
+              ),
               onPressed: () {
                 Navigator.push(context, MaterialPageRoute(builder: (c) => const MyRoutinesScreen()));
               },
