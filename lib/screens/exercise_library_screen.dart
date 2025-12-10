@@ -21,6 +21,7 @@ class _ExerciseLibraryScreenState extends State<ExerciseLibraryScreen> {
     super.dispose();
   }
 
+  // Normaliza texto para búsqueda sin tildes ni mayúsculas
   String _normalize(String text) {
     return text
         .toLowerCase()
@@ -140,7 +141,7 @@ class _ExerciseLibraryScreenState extends State<ExerciseLibraryScreen> {
   }
 
   Widget _buildExerciseCard(BuildContext context, Exercise exercise) {
-    // Intento cargar la imagen del asset basada en el ID
+    // Construcción dinámica de la ruta de imagen
     final imagePath = 'assets/exercises/${exercise.id}.png';
 
     return Card(
@@ -154,7 +155,7 @@ class _ExerciseLibraryScreenState extends State<ExerciseLibraryScreen> {
           padding: const EdgeInsets.all(12),
           child: Row(
             children: [
-              // Imagen o Placeholder
+              // --- MINIATURA DEL EJERCICIO ---
               Container(
                 width: 70,
                 height: 70,
@@ -167,9 +168,9 @@ class _ExerciseLibraryScreenState extends State<ExerciseLibraryScreen> {
                   borderRadius: BorderRadius.circular(10),
                   child: Image.asset(
                     imagePath,
-                    fit: BoxFit.cover,
+                    fit: BoxFit.cover, // Cubre el cuadro pequeño perfectamente
                     errorBuilder: (context, error, stackTrace) {
-                      // Si no existe la imagen aún, mostramos la inicial
+                      // Fallback: Si no carga, muestra la inicial
                       return Center(
                         child: Text(
                           exercise.name.substring(0, 1).toUpperCase(),
@@ -219,14 +220,13 @@ class _ExerciseLibraryScreenState extends State<ExerciseLibraryScreen> {
     );
   }
 
-  // --- AQUÍ ESTÁ EL CAMBIO CLAVE ---
   void _showExerciseDetails(BuildContext context, Exercise exercise) {
     final imagePath = 'assets/exercises/${exercise.id}.png';
 
     showModalBottomSheet(
       context: context,
-      isScrollControlled: true, // Para que pueda ocupar más pantalla
-      backgroundColor: Colors.transparent, // Fondo transparente
+      isScrollControlled: true, 
+      backgroundColor: Colors.transparent, 
       builder: (context) => DraggableScrollableSheet(
         initialChildSize: 0.85,
         minChildSize: 0.5,
@@ -240,21 +240,19 @@ class _ExerciseLibraryScreenState extends State<ExerciseLibraryScreen> {
             controller: controller,
             padding: EdgeInsets.zero,
             children: [
-              // --- IMAGEN GRANDE EN CABECERA (CORREGIDA) ---
+              // --- IMAGEN GRANDE (CORREGIDA) ---
               Stack(
                 children: [
-                  // Usamos AspectRatio para forzar un cuadrado perfecto (1:1)
-                  // Esto evita que se corte la imagen si es cuadrada.
+                  // Usamos AspectRatio 1.0 (Cuadrado) + BoxFit.contain
+                  // Esto garantiza que la imagen se vea completa sin recortar la cabeza o pies
                   AspectRatio(
                     aspectRatio: 1.0, 
                     child: Container(
                       width: double.infinity,
-                      color: Colors.grey[900],
+                      color: Colors.white10, // Fondo sutil por si la imagen tiene transparencia
                       child: Image.asset(
                         imagePath,
-                        // BoxFit.contain asegura que se vea ENTERA sin recortes
-                        // Si la imagen es cuadrada y el AspectRatio es 1, se verá perfecta.
-                        fit: BoxFit.contain, 
+                        fit: BoxFit.contain, // CLAVE: Se ajusta al contenedor sin recorte
                         errorBuilder: (c,e,s) => const Center(
                           child: Icon(Icons.image_not_supported, color: Colors.white24, size: 50)
                         ),
@@ -295,19 +293,17 @@ class _ExerciseLibraryScreenState extends State<ExerciseLibraryScreen> {
                     ),
                     const SizedBox(height: 25),
 
-                    // --- SECCIÓN: BIOMECÁNICA ---
                     _buildSectionTitle("Biomecánica y Ejecución"),
                     const SizedBox(height: 10),
                     Text(
                       exercise.description.isNotEmpty 
                         ? exercise.description 
-                        : "No hay descripción disponible para este ejercicio.",
+                        : "No hay descripción disponible.",
                       style: const TextStyle(color: Colors.white70, height: 1.5, fontSize: 15),
                     ),
                     
                     const SizedBox(height: 25),
 
-                    // --- SECCIÓN: TIPS PRO ---
                     if (exercise.tips.isNotEmpty) ...[
                       _buildSectionTitle("Consejos Pro"),
                       const SizedBox(height: 10),
@@ -315,7 +311,6 @@ class _ExerciseLibraryScreenState extends State<ExerciseLibraryScreen> {
                       const SizedBox(height: 25),
                     ],
 
-                    // --- SECCIÓN: ERRORES COMUNES ---
                     if (exercise.commonMistakes.isNotEmpty) ...[
                       _buildSectionTitle("Errores Comunes"),
                       const SizedBox(height: 10),
@@ -323,7 +318,6 @@ class _ExerciseLibraryScreenState extends State<ExerciseLibraryScreen> {
                       const SizedBox(height: 25),
                     ],
 
-                    // --- SECCIÓN: MÚSCULOS INVOLUCRADOS ---
                     _buildSectionTitle("Mapa Muscular"),
                     const SizedBox(height: 10),
                     Wrap(
@@ -333,8 +327,7 @@ class _ExerciseLibraryScreenState extends State<ExerciseLibraryScreen> {
                         ...exercise.secondaryMuscles.map((m) => _buildMuscleChip(m, false))
                       ],
                     ),
-                    
-                    const SizedBox(height: 40), // Espacio final
+                    const SizedBox(height: 40),
                   ],
                 ),
               ),

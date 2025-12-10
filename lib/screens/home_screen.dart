@@ -40,12 +40,10 @@ class _HomeScreenState extends State<HomeScreen> {
     _currentRoutine = RoutineRepository.getActiveRoutine();
 
     if (_currentUser != null && _currentRoutine != null) {
-      // Aplico la sobrecarga progresiva automática al abrir la app
       await ProgressiveOverloadService.applyProgressiveOverload(
         _currentUser!,
         _currentRoutine!,
       );
-      // Recargo la rutina por si hubo cambios
       _currentRoutine = RoutineRepository.getActiveRoutine();
     }
 
@@ -59,13 +57,13 @@ class _HomeScreenState extends State<HomeScreen> {
     return Scaffold(
       backgroundColor: AppColors.background,
       appBar: AppBar(
-        // He limpiado el AppBar para que se vea elegante
         title: Row(
           children: [
+            // --- CORRECCIÓN DE NOMBRE DE ARCHIVO AQUÍ ---
             Image.asset(
-              'assets/logo/logo_icon.png.png',
+              'assets/logo/logo_icon.png', // Antes decía .png.png
               height: 30,
-              errorBuilder: (c, e, s) => const Icon(Icons.fitness_center),
+              errorBuilder: (c, e, s) => const Icon(Icons.fitness_center, color: AppColors.primary),
             ),
             const SizedBox(width: 10),
             const Text('GYM SCIENTIFIC', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 18, letterSpacing: 1.0)),
@@ -74,7 +72,6 @@ class _HomeScreenState extends State<HomeScreen> {
         backgroundColor: AppColors.surface,
         elevation: 0,
         actions: [
-          // Solo dejo la configuración de usuario aquí arriba
           IconButton(
             icon: const Icon(Icons.person_outline, color: Colors.white),
             onPressed: () {
@@ -93,14 +90,12 @@ class _HomeScreenState extends State<HomeScreen> {
                   _buildWelcomeCard(_currentUser),
                   const SizedBox(height: 25),
                   
-                  // --- SECCIÓN 1: ACCESOS RÁPIDOS (GRID) ---
                   const Text("HERRAMIENTAS", style: TextStyle(color: Colors.grey, fontSize: 12, letterSpacing: 1.5)),
                   const SizedBox(height: 10),
                   _buildToolsGrid(context),
                   
                   const SizedBox(height: 25),
 
-                  // --- SECCIÓN 2: RUTINA ACTIVA ---
                   Row(
                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [
@@ -135,7 +130,7 @@ class _HomeScreenState extends State<HomeScreen> {
       padding: const EdgeInsets.all(20),
       decoration: BoxDecoration(
         gradient: const LinearGradient(
-          colors: [AppColors.primary, Color(0xFF2E86C1)], // Degradado azul científico
+          colors: [AppColors.primary, Color(0xFF2E86C1)],
           begin: Alignment.topLeft,
           end: Alignment.bottomRight,
         ),
@@ -160,7 +155,6 @@ class _HomeScreenState extends State<HomeScreen> {
   }
 
   Widget _buildToolsGrid(BuildContext context) {
-    // Definimos los botones del dashboard aquí para fácil edición
     final tools = [
       {'icon': Icons.menu_book, 'label': 'Ejercicios', 'route': const ExerciseLibraryScreen(), 'color': Colors.orange},
       {'icon': Icons.list_alt, 'label': 'Rutinas', 'route': const MyRoutinesScreen(), 'color': Colors.purple},
@@ -175,7 +169,7 @@ class _HomeScreenState extends State<HomeScreen> {
       physics: const NeverScrollableScrollPhysics(),
       itemCount: tools.length,
       gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-        crossAxisCount: 3, // 3 columnas
+        crossAxisCount: 3,
         crossAxisSpacing: 10,
         mainAxisSpacing: 10,
         childAspectRatio: 1.1,
@@ -189,7 +183,7 @@ class _HomeScreenState extends State<HomeScreen> {
             borderRadius: BorderRadius.circular(12),
             onTap: () {
               Navigator.push(context, MaterialPageRoute(builder: (c) => tool['route'] as Widget));
-              if (tool['label'] == 'Rutinas') _loadDataAndApplyProgression(); // Recargar si vuelve de rutinas
+              if (tool['label'] == 'Rutinas') _loadDataAndApplyProgression();
             },
             child: Column(
               mainAxisAlignment: MainAxisAlignment.center,
