@@ -241,7 +241,6 @@ class ExerciseDatabase {
       targetMuscles: ['Espalda Baja', 'Trapecios', 'Dorsales'],
       secondaryMuscles: ['Glúteos', 'Isquios'],
     ),
-    // --- NUEVO ---
     Exercise(
       id: 'deadlift_sumo',
       name: 'Peso Muerto Sumo',
@@ -255,7 +254,6 @@ class ExerciseDatabase {
       targetMuscles: ['Glúteos', 'Aductores', 'Espalda Baja'],
       secondaryMuscles: ['Cuádriceps', 'Trapecios'],
     ),
-    // --- NUEVO ---
     Exercise(
       id: 'pullover_db',
       name: 'Pullover con Mancuerna',
@@ -528,7 +526,6 @@ class ExerciseDatabase {
       targetMuscles: ['Bíceps'],
       secondaryMuscles: ['Antebrazos'],
     ),
-    // --- NUEVO ---
     Exercise(
       id: 'curl_concentration',
       name: 'Curl Concentrado',
@@ -626,7 +623,6 @@ class ExerciseDatabase {
   // TRÍCEPS
   // ===================
   static final List<Exercise> tricepsExercises = [
-    // --- NUEVO ---
     Exercise(
       id: 'tricep_pushdown_rope',
       name: 'Polea de Tríceps (Soga)',
@@ -640,7 +636,6 @@ class ExerciseDatabase {
       targetMuscles: ['Tríceps (Lateral)'],
       secondaryMuscles: [],
     ),
-    // --- NUEVO ---
     Exercise(
       id: 'dips_machine',
       name: 'Fondos en Máquina',
@@ -654,7 +649,6 @@ class ExerciseDatabase {
       targetMuscles: ['Tríceps'],
       secondaryMuscles: ['Pecho'],
     ),
-    // --- NUEVO ---
     Exercise(
       id: 'skullcrusher_ez',
       name: 'Rompecráneos (Barra Z)',
@@ -713,7 +707,6 @@ class ExerciseDatabase {
   // CUÁDRICEPS
   // ===================
   static final List<Exercise> quadExercises = [
-    // --- NUEVO ---
     Exercise(
       id: 'squat_hack',
       name: 'Sentadilla Hack',
@@ -727,7 +720,6 @@ class ExerciseDatabase {
       targetMuscles: ['Cuádriceps'],
       secondaryMuscles: ['Glúteos'],
     ),
-    // --- NUEVO ---
     Exercise(
       id: 'squat_front',
       name: 'Sentadilla Frontal',
@@ -741,7 +733,6 @@ class ExerciseDatabase {
       targetMuscles: ['Cuádriceps'],
       secondaryMuscles: ['Core'],
     ),
-    // --- NUEVO (Reemplazo solicitado) ---
     Exercise(
       id: '45_degree_leg_press',
       name: 'Prensa Inclinada 45°',
@@ -755,11 +746,10 @@ class ExerciseDatabase {
       targetMuscles: ['Cuádriceps', 'Glúteos'],
       secondaryMuscles: ['Aductores'],
     ),
-    // --- NUEVO (CORREGIDO GRUPO MUSCULAR) ---
     Exercise(
       id: 'machine_hip_adduction',
       name: 'Aducción de Cadera',
-      muscleGroup: 'Aductores', // CAMBIADO DE 'Cuádriceps' A 'Aductores'
+      muscleGroup: 'Aductores',
       equipment: 'Máquina',
       movementPattern: 'Aislamiento',
       difficulty: 'Principiante',
@@ -847,17 +837,29 @@ class ExerciseDatabase {
       targetMuscles: ['Cuádriceps', 'Glúteos'],
       secondaryMuscles: [],
     ),
+    Exercise(
+      id: 'step_up',
+      name: 'Subida al Cajón',
+      muscleGroup: 'Cuádriceps', 
+      equipment: 'Banco/Cajón',
+      movementPattern: 'Empuje Unilateral',
+      difficulty: 'Intermedio',
+      description: 'Sube a una superficie elevada usando una sola pierna.',
+      tips: ['No te impulses con la pierna de abajo', 'Controla la bajada'],
+      commonMistakes: ['Usar un cajón muy alto (peligroso)'],
+      targetMuscles: ['Glúteos', 'Cuádriceps'],
+      secondaryMuscles: [],
+    ),
   ];
 
   // ===================
   // GLÚTEOS / CADERA
   // ===================
   static final List<Exercise> gluteExercises = [
-    // --- NUEVO (CORREGIDO GRUPO MUSCULAR) ---
     Exercise(
       id: 'machine_hip_abduction',
       name: 'Abducción de Cadera',
-      muscleGroup: 'Abductores', // CAMBIADO DE 'Glúteos' A 'Abductores'
+      muscleGroup: 'Abductores', 
       equipment: 'Máquina',
       movementPattern: 'Aislamiento',
       difficulty: 'Principiante',
@@ -893,6 +895,75 @@ class ExerciseDatabase {
       targetMuscles: ['Glúteos'],
       secondaryMuscles: [],
     ),
+
+    // NOTA PARA MÍ: A continuación agrego los ejercicios enfocados en mujeres y tren inferior (Corregido).
+    
+    Exercise(
+      id: 'donkey_kick',
+      name: 'Patada de Burro',
+      muscleGroup: 'Glúteos',
+      equipment: 'Corporal',
+      movementPattern: 'Extensión de Cadera',
+      difficulty: 'Principiante',
+      description: 'En cuatro patas, patea hacia arriba manteniendo la rodilla flexionada. Excelente para aislar el glúteo mayor.',
+      tips: ['Mantén la espalda recta', 'Aprieta el glúteo arriba por 1 segundo', 'No arques la zona lumbar'],
+      commonMistakes: ['Impulsar con la espalda', 'Movimiento muy rápido'],
+      targetMuscles: ['Glúteo Mayor'],
+      secondaryMuscles: ['Isquios'],
+    ),
+    Exercise(
+      id: 'cable_glute_kickback',
+      name: 'Patada de Glúteo en Polea',
+      muscleGroup: 'Glúteos',
+      equipment: 'Polea',
+      movementPattern: 'Extensión de Cadera',
+      difficulty: 'Intermedio',
+      description: 'De pie frente a la polea, patea hacia atrás con la pierna recta.',
+      tips: ['Mantén el torso fijo', 'Contrae el glúteo en la extensión máxima', 'Regresa lento'],
+      commonMistakes: ['Arquear la espalda baja', 'Usar impulso'],
+      targetMuscles: ['Glúteo Mayor'],
+      secondaryMuscles: ['Isquios'],
+    ),
+    Exercise(
+      id: 'sumo_squat',
+      name: 'Sentadilla Sumo',
+      muscleGroup: 'Glúteos',
+      equipment: 'Mancuerna',
+      movementPattern: 'Sentadilla',
+      difficulty: 'Intermedio',
+      description: 'Sentadilla con piernas muy abiertas y puntas hacia afuera.',
+      tips: ['Rodillas siguen la punta del pie', 'Torso vertical'],
+      commonMistakes: ['Cerrar las rodillas al subir'],
+      targetMuscles: ['Aductores', 'Glúteo Mayor'],
+      secondaryMuscles: ['Cuádriceps'],
+    ),
+    Exercise(
+      id: 'clamshell',
+      name: 'Almeja (Clamshell)',
+      muscleGroup: 'Glúteos',
+      equipment: 'Banda',
+      movementPattern: 'Abducción',
+      difficulty: 'Principiante',
+      description: 'Acostada de lado, abre la rodilla manteniendo pies juntos.',
+      tips: ['Usa una banda elástica para más intensidad', 'No muevas la pelvis'],
+      commonMistakes: ['Rodar la cadera hacia atrás'],
+      targetMuscles: ['Glúteo Medio'],
+      secondaryMuscles: [],
+    ),
+    Exercise(
+      id: 'curtsy_lunge',
+      name: 'Estocada Cruzada',
+      muscleGroup: 'Glúteos',
+      equipment: 'Corporal',
+      movementPattern: 'Zancada',
+      difficulty: 'Intermedio',
+      description: 'Lleva la pierna trasera cruzando por detrás de la delantera.',
+      tips: ['Baja profundo', 'Mantén el pecho alto'],
+      commonMistakes: ['Perder el equilibrio', 'Cruzar demasiado'],
+      targetMuscles: ['Glúteo Medio', 'Glúteo Mayor'],
+      secondaryMuscles: ['Cuádriceps'],
+    ),
+    // NOTA PARA MÍ: Aquí termina la inserción de nuevos ejercicios de glúteo.
   ];
 
   // ===================
@@ -944,7 +1015,6 @@ class ExerciseDatabase {
   // CORE (ABDOMINALES)
   // ===================
   static final List<Exercise> coreExercises = [
-    // --- NUEVO ---
     Exercise(
       id: 'leg_raise_captains_chair',
       name: 'Elevación Silla Romana',
@@ -958,7 +1028,6 @@ class ExerciseDatabase {
       targetMuscles: ['Recto Abdominal', 'Flexores'],
       secondaryMuscles: [],
     ),
-    // --- NUEVO ---
     Exercise(
       id: 'woodchopper_cable',
       name: 'Leñador en Polea',

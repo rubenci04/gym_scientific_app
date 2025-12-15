@@ -3,7 +3,7 @@ import 'package:hive_flutter/hive_flutter.dart';
 import '../models/routine_model.dart';
 import '../models/exercise_model.dart';
 import '../theme/app_colors.dart';
-import '../services/routine_repository.dart'; // Importante para guardar nuevas rutinas
+import '../services/routine_repository.dart';
 import 'exercise_selection_screen.dart';
 
 class RoutineEditorScreen extends StatefulWidget {
@@ -15,7 +15,7 @@ class RoutineEditorScreen extends StatefulWidget {
   State<RoutineEditorScreen> createState() => _RoutineEditorScreenState();
 }
 
-class _RoutineEditorScreenState extends State<RoutineEditorScreen> with SingleTickerProviderStateMixin {
+class _RoutineEditorScreenState extends State<RoutineEditorScreen> with TickerProviderStateMixin {
   late TabController _tabController;
   late WeeklyRoutine _editableRoutine;
   
@@ -27,7 +27,23 @@ class _RoutineEditorScreenState extends State<RoutineEditorScreen> with SingleTi
     super.initState();
     _editableRoutine = widget.routine;
     _days = List.from(_editableRoutine.days);
-    _tabController = TabController(length: _days.length > 0 ? _days.length : 1, vsync: this);
+
+    // NOTA PARA MÍ: Si es una rutina nueva (lista vacía), inicializo el Día 1
+    // para evitar la pantalla en blanco.
+    if (_days.isEmpty) {
+      _days.add(RoutineDay(
+        id: DateTime.now().millisecondsSinceEpoch.toString(),
+        name: 'Día 1',
+        exercises: [],
+        targetMuscles: [],
+      ));
+    }
+
+    _initTabController();
+  }
+
+  void _initTabController() {
+    _tabController = TabController(length: _days.length, vsync: this);
   }
 
   @override
@@ -36,13 +52,40 @@ class _RoutineEditorScreenState extends State<RoutineEditorScreen> with SingleTi
     super.dispose();
   }
 
+  // Nota para mí: Función para agregar un nuevo día de entrenamiento (ej: Día 2, Día 3)
+  void _addNewDay() {
+    setState(() {
+      _days.add(RoutineDay(
+        id: "${DateTime.now().millisecondsSinceEpoch}_${_days.length}",
+        name: 'Día ${_days.length + 1}',
+        exercises: [],
+        targetMuscles: [],
+      ));
+      
+      // Recreamos el controlador para reflejar la nueva pestaña
+      _tabController.dispose();
+      _initTabController();
+      _tabController.animateTo(_days.length - 1); // Ir al nuevo día
+    });
+  }
+
+  // Eliminar un día entero (si te equivocaste)
+  void _removeDay(int index) {
+    if (_days.length <= 1) {
+      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text("La rutina debe tener al menos un día.")));
+      return;
+    }
+    
+    setState(() {
+      _days.removeAt(index);
+      _tabController.dispose();
+      _initTabController();
+    });
+  }
+
   void _saveChanges() async {
-    // Actualizamos la rutina con los días editados
     _editableRoutine.days = _days;
 
-    // Lógica inteligente de guardado:
-    // Si ya existe en la BD (tiene clave), la actualizamos.
-    // Si es nueva (no está en caja), la agregamos.
     if (_editableRoutine.isInBox) {
       _editableRoutine.save();
     } else {
@@ -68,11 +111,26 @@ class _RoutineEditorScreenState extends State<RoutineEditorScreen> with SingleTi
         final newRoutineExercise = RoutineExercise(
           exerciseId: selectedExercise.id,
           sets: 3,
-          reps: '10-12', // Corregido: Ahora es String
-          restTimeSeconds: 90, // Corregido: Nombre correcto del parámetro
+          reps: '10-12',
+          restTimeSeconds: 90,
         );
         
         _days[dayIndex].exercises.add(newRoutineExercise);
+      });
+    }
+  }
+
+  // Nota para mí: Nueva función para reemplazar ejercicio
+  void _replaceExercise(int dayIndex, int exerciseIndex) async {
+    final Exercise? selectedExercise = await Navigator.push(
+      context,
+      MaterialPageRoute(builder: (_) => const ExerciseSelectionScreen()),
+    );
+
+    if (selectedExercise != null) {
+      setState(() {
+        // Mantenemos las series/reps del ejercicio anterior, cambiamos solo el ID
+        _days[dayIndex].exercises[exerciseIndex].exerciseId = selectedExercise.id;
       });
     }
   }
@@ -81,6 +139,49 @@ class _RoutineEditorScreenState extends State<RoutineEditorScreen> with SingleTi
     setState(() {
       _days[dayIndex].exercises.removeAt(exerciseIndex);
     });
+  }
+
+  void _editSetsReps(int dayIndex, int exerciseIndex) {
+    final exercise = _days[dayIndex].exercises[exerciseIndex];
+    final setsCtrl = TextEditingController(text: exercise.sets.toString());
+    final repsCtrl = TextEditingController(text: exercise.reps);
+
+    showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        backgroundColor: AppColors.surface,
+        title: const Text("Editar Series y Reps", style: TextStyle(color: Colors.white)),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            TextField(
+              controller: setsCtrl,
+              keyboardType: TextInputType.number,
+              style: const TextStyle(color: Colors.white),
+              decoration: const InputDecoration(labelText: "Series", labelStyle: TextStyle(color: Colors.white70)),
+            ),
+            TextField(
+              controller: repsCtrl,
+              style: const TextStyle(color: Colors.white),
+              decoration: const InputDecoration(labelText: "Repeticiones (ej: 10-12)", labelStyle: TextStyle(color: Colors.white70)),
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(ctx), child: const Text("Cancelar")),
+          TextButton(
+            onPressed: () {
+              setState(() {
+                exercise.sets = int.tryParse(setsCtrl.text) ?? 3;
+                exercise.reps = repsCtrl.text;
+              });
+              Navigator.pop(ctx);
+            },
+            child: const Text("Guardar", style: TextStyle(color: AppColors.primary)),
+          ),
+        ],
+      ),
+    );
   }
 
   void _reorderExercises(int dayIndex, int oldIndex, int newIndex) {
@@ -93,27 +194,47 @@ class _RoutineEditorScreenState extends State<RoutineEditorScreen> with SingleTi
     });
   }
 
-  String _getExerciseName(String id) {
+  // Helper para obtener nombre e imagen del ejercicio
+  Exercise? _getExercise(String id) {
     final box = Hive.box<Exercise>('exerciseBox');
-    // Intentamos buscar por ID directo o iterando
-    final exercise = box.get(id); 
-    if (exercise != null) return exercise.name;
-    
-    try {
-      return box.values.firstWhere((e) => e.id == id).name;
-    } catch (e) {
-      return 'Ejercicio ($id)';
-    }
+    return box.get(id) ?? 
+           (box.values.any((e) => e.id == id) ? box.values.firstWhere((e) => e.id == id) : null);
+  }
+
+  // Diálogo de info del ejercicio
+  void _showExerciseInfo(Exercise exercise) {
+    showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        backgroundColor: AppColors.surface,
+        title: Text(exercise.name, style: const TextStyle(color: Colors.white)),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Container(
+              padding: const EdgeInsets.all(10),
+              color: Colors.white,
+              child: Image.asset('assets/exercises/${exercise.id}.png', height: 100, fit: BoxFit.contain, errorBuilder: (c,e,s)=>const Icon(Icons.image)),
+            ),
+            const SizedBox(height: 10),
+            Text(exercise.description, style: const TextStyle(color: Colors.white70), maxLines: 4, overflow: TextOverflow.ellipsis),
+          ],
+        ),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(ctx), child: const Text("Cerrar")),
+        ],
+      ),
+    );
   }
 
   @override
   Widget build(BuildContext context) {
-    // Si no hay días (rutina nueva vacía), mostramos mensaje o un tab por defecto
+    // Nota para mí: Ya no debería entrar aquí gracias al fix del initState, pero lo dejo por seguridad.
     if (_days.isEmpty) {
         return Scaffold(
             backgroundColor: AppColors.background,
             appBar: AppBar(title: const Text("Editar Rutina"), backgroundColor: AppColors.surface),
-            body: const Center(child: Text("La rutina no tiene días configurados.", style: TextStyle(color: Colors.white)))
+            body: const Center(child: Text("Cargando...", style: TextStyle(color: Colors.white)))
         );
     }
 
@@ -124,6 +245,12 @@ class _RoutineEditorScreenState extends State<RoutineEditorScreen> with SingleTi
         backgroundColor: AppColors.surface,
         elevation: 0,
         actions: [
+          // Botón para agregar más días (Splits)
+          TextButton.icon(
+            onPressed: _addNewDay, 
+            icon: const Icon(Icons.add, color: AppColors.primary, size: 18),
+            label: const Text("Día", style: TextStyle(color: AppColors.primary)),
+          ),
           IconButton(
             icon: const Icon(Icons.save, color: AppColors.secondary),
             onPressed: _saveChanges,
@@ -157,14 +284,27 @@ class _RoutineEditorScreenState extends State<RoutineEditorScreen> with SingleTi
                       "Ejercicios (${day.exercises.length})",
                       style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
                     ),
-                    ElevatedButton.icon(
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: AppColors.primary,
-                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-                      ),
-                      onPressed: () => _addExercise(dayIndex),
-                      icon: const Icon(Icons.add, size: 18),
-                      label: const Text("Agregar"),
+                    Row(
+                      children: [
+                        if (_days.length > 1)
+                          IconButton(
+                            icon: const Icon(Icons.delete_forever, color: Colors.red, size: 20),
+                            onPressed: () => _removeDay(dayIndex),
+                            tooltip: "Borrar este día",
+                          ),
+                        const SizedBox(width: 10),
+                        // NOTA PARA MÍ: Botón AGREGAR corregido (Texto visible)
+                        ElevatedButton.icon(
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: AppColors.primary,
+                            foregroundColor: Colors.white, // COLOR DE TEXTO BLANCO
+                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+                          ),
+                          onPressed: () => _addExercise(dayIndex),
+                          icon: const Icon(Icons.add, size: 18, color: Colors.white),
+                          label: const Text("Agregar Ejercicio"),
+                        ),
+                      ],
                     ),
                   ],
                 ),
@@ -184,24 +324,70 @@ class _RoutineEditorScreenState extends State<RoutineEditorScreen> with SingleTi
                         itemCount: day.exercises.length,
                         onReorder: (oldIndex, newIndex) => _reorderExercises(dayIndex, oldIndex, newIndex),
                         itemBuilder: (context, index) {
-                          final exercise = day.exercises[index];
-                          final exerciseName = _getExerciseName(exercise.exerciseId);
+                          final routineExercise = day.exercises[index];
+                          final exerciseData = _getExercise(routineExercise.exerciseId);
+                          final imagePath = 'assets/exercises/${routineExercise.exerciseId}.png';
 
                           return Card(
-                            key: ValueKey(exercise),
+                            key: ValueKey(routineExercise),
                             color: AppColors.surface,
                             margin: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
                             child: ListTile(
-                              leading: const Icon(Icons.drag_handle, color: Colors.grey),
-                              title: Text(exerciseName, style: const TextStyle(color: Colors.white)),
+                              contentPadding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+                              // Nota para mí: Imagen visible en la lista
+                              leading: Container(
+                                width: 50, height: 50,
+                                padding: const EdgeInsets.all(2),
+                                decoration: BoxDecoration(
+                                  color: Colors.white, 
+                                  borderRadius: BorderRadius.circular(8)
+                                ),
+                                child: ClipRRect(
+                                  borderRadius: BorderRadius.circular(6),
+                                  child: Image.asset(
+                                    imagePath,
+                                    fit: BoxFit.contain,
+                                    errorBuilder: (c,e,s) => Center(child: Text(exerciseData?.name[0] ?? "E", style: const TextStyle(fontWeight: FontWeight.bold, color: AppColors.primary))),
+                                  ),
+                                ),
+                              ),
+                              title: Text(
+                                exerciseData?.name ?? routineExercise.exerciseId,
+                                style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
+                              ),
                               subtitle: Text(
-                                "${exercise.sets} Series x ${exercise.reps} Reps",
-                                style: const TextStyle(color: Colors.white54, fontSize: 12),
+                                "${routineExercise.sets} Series x ${routineExercise.reps}",
+                                style: const TextStyle(color: AppColors.textSecondary),
                               ),
-                              trailing: IconButton(
-                                icon: const Icon(Icons.delete_outline, color: Colors.redAccent),
-                                onPressed: () => _removeExercise(dayIndex, index),
+                              // NOTA PARA MÍ: Aquí están los botones solicitados (Menú)
+                              trailing: Row(
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  // Drag handle (Mover)
+                                  ReorderableDragStartListener(
+                                    index: index,
+                                    child: const Icon(Icons.drag_handle, color: Colors.grey),
+                                  ),
+                                  // Menú de opciones
+                                  PopupMenuButton<String>(
+                                    icon: const Icon(Icons.more_vert, color: Colors.white70),
+                                    color: AppColors.surface,
+                                    onSelected: (value) {
+                                      if (value == 'edit') _editSetsReps(dayIndex, index);
+                                      if (value == 'swap') _replaceExercise(dayIndex, index);
+                                      if (value == 'info' && exerciseData != null) _showExerciseInfo(exerciseData);
+                                      if (value == 'delete') _removeExercise(dayIndex, index);
+                                    },
+                                    itemBuilder: (context) => [
+                                      const PopupMenuItem(value: 'edit', child: Row(children: [Icon(Icons.edit, size: 18), SizedBox(width: 8), Text("Editar Series/Reps")])),
+                                      const PopupMenuItem(value: 'swap', child: Row(children: [Icon(Icons.swap_horiz, size: 18), SizedBox(width: 8), Text("Cambiar Ejercicio")])),
+                                      const PopupMenuItem(value: 'info', child: Row(children: [Icon(Icons.info_outline, size: 18), SizedBox(width: 8), Text("Ver Detalles")])),
+                                      const PopupMenuItem(value: 'delete', child: Row(children: [Icon(Icons.delete, size: 18, color: Colors.red), SizedBox(width: 8), Text("Eliminar", style: TextStyle(color: Colors.red))])),
+                                    ],
+                                  ),
+                                ],
                               ),
+                              onTap: () => _editSetsReps(dayIndex, index),
                             ),
                           );
                         },

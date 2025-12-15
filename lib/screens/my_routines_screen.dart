@@ -101,7 +101,9 @@ class _MyRoutinesScreenState extends State<MyRoutinesScreen> {
           : _routines.isEmpty
           ? _buildEmptyState()
           : ListView.builder(
-              padding: const EdgeInsets.all(16),
+              // Nota para mí: Aumento el padding inferior a 80 para que el 
+              // botón flotante (FAB) no tape la última tarjeta de la lista.
+              padding: const EdgeInsets.fromLTRB(16, 16, 16, 80),
               itemCount: _routines.length,
               itemBuilder: (context, index) {
                 final routine = _routines[index];
@@ -116,52 +118,56 @@ class _MyRoutinesScreenState extends State<MyRoutinesScreen> {
             shape: const RoundedRectangleBorder(
               borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
             ),
-            builder: (context) => Padding(
-              padding: const EdgeInsets.all(20),
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  const Text(
-                    "Crear Nueva Rutina",
-                    style: TextStyle(
-                      color: Colors.white,
-                      fontSize: 20,
-                      fontWeight: FontWeight.bold,
+            builder: (context) => SafeArea(
+              // Nota para mí: Envuelvo en SafeArea para evitar que las opciones
+              // salgan pegadas a los botones de navegación de Android.
+              child: Padding(
+                padding: const EdgeInsets.all(20),
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    const Text(
+                      "Crear Nueva Rutina",
+                      style: TextStyle(
+                        color: Colors.white,
+                        fontSize: 20,
+                        fontWeight: FontWeight.bold,
+                      ),
                     ),
-                  ),
-                  const SizedBox(height: 20),
-                  ListTile(
-                    leading: const Icon(Icons.edit, color: AppColors.primary),
-                    title: const Text(
-                      "Crear desde cero",
-                      style: TextStyle(color: Colors.white),
+                    const SizedBox(height: 20),
+                    ListTile(
+                      leading: const Icon(Icons.edit, color: AppColors.primary),
+                      title: const Text(
+                        "Crear desde cero",
+                        style: TextStyle(color: Colors.white),
+                      ),
+                      onTap: () {
+                        Navigator.pop(context);
+                        _createNewRoutine();
+                      },
                     ),
-                    onTap: () {
-                      Navigator.pop(context);
-                      _createNewRoutine(); // Usamos el helper corregido
-                    },
-                  ),
-                  ListTile(
-                    leading: const Icon(Icons.copy, color: AppColors.primary),
-                    title: const Text(
-                      "Usar plantilla",
-                      style: TextStyle(color: Colors.white),
+                    ListTile(
+                      leading: const Icon(Icons.copy, color: AppColors.primary),
+                      title: const Text(
+                        "Usar plantilla",
+                        style: TextStyle(color: Colors.white),
+                      ),
+                      subtitle: const Text(
+                        "PPL, Arnold Split, Full Body...",
+                        style: TextStyle(color: AppColors.textSecondary),
+                      ),
+                      onTap: () {
+                        Navigator.pop(context);
+                        Navigator.push(
+                          context,
+                          MaterialPageRoute(
+                            builder: (context) => const RoutineTemplatesScreen(),
+                          ),
+                        ).then((_) => _loadRoutines());
+                      },
                     ),
-                    subtitle: const Text(
-                      "PPL, Arnold Split, Full Body...",
-                      style: TextStyle(color: AppColors.textSecondary),
-                    ),
-                    onTap: () {
-                      Navigator.pop(context);
-                      Navigator.push(
-                        context,
-                        MaterialPageRoute(
-                          builder: (context) => const RoutineTemplatesScreen(),
-                        ),
-                      ).then((_) => _loadRoutines());
-                    },
-                  ),
-                ],
+                  ],
+                ),
               ),
             ),
           );
@@ -186,7 +192,7 @@ class _MyRoutinesScreenState extends State<MyRoutinesScreen> {
           const SizedBox(height: 8),
           ElevatedButton(
             style: ElevatedButton.styleFrom(backgroundColor: AppColors.primary),
-            onPressed: _createNewRoutine, // Usamos el helper corregido
+            onPressed: _createNewRoutine,
             child: const Text('Crear mi primera rutina', style: TextStyle(color: Colors.white)),
           ),
         ],

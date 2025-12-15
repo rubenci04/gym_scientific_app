@@ -192,8 +192,12 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
     await Hive.box<UserProfile>('userBox').put('currentUser', newUser);
 
     if (mounted) {
-      Navigator.of(context).pushReplacement(
+      // Nota para mí: Aquí estaba el error de pantalla blanca. 
+      // Usaba pushReplacement, pero lo cambié a pushAndRemoveUntil 
+      // para borrar todo el historial anterior y evitar conflictos de navegación.
+      Navigator.of(context).pushAndRemoveUntil(
         MaterialPageRoute(builder: (_) => const GoalSelectionScreen()),
+        (Route<dynamic> route) => false,
       );
     }
   }
@@ -232,7 +236,8 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
                         ]
                       ),
                       child: Image.asset(
-                        'assets/logo/logo_icon.png.png', // Ruta corregida
+                        // Nota para mí: Corregí la ruta del logo, tenía extensión doble (.png.png).
+                        'assets/logo/logo_icon.png', 
                         height: 90, 
                         errorBuilder: (c, e, s) => const Icon(Icons.fitness_center, size: 60, color: AppColors.primary),
                       ),

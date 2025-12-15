@@ -4,6 +4,7 @@ import '../models/user_model.dart';
 import '../models/routine_model.dart';
 import '../services/progressive_overload_service.dart';
 import '../services/routine_repository.dart';
+import '../services/notification_service.dart'; 
 import '../theme/app_colors.dart';
 import 'workout_screen.dart';
 import 'body_status_screen.dart';
@@ -14,6 +15,7 @@ import 'hydration_settings_screen.dart';
 import 'routine_editor_screen.dart';
 import 'somatotype_info_screen.dart';
 import 'exercise_library_screen.dart';
+import 'onboarding_screen.dart'; 
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
@@ -31,6 +33,9 @@ class _HomeScreenState extends State<HomeScreen> {
   void initState() {
     super.initState();
     _loadDataAndApplyProgression();
+    
+    // Solicitamos permisos de notificación al inicio
+    NotificationService.requestPermissions();
   }
 
   Future<void> _loadDataAndApplyProgression() async {
@@ -51,6 +56,42 @@ class _HomeScreenState extends State<HomeScreen> {
     }
   }
 
+  void _logout() async {
+    bool confirm = await showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        backgroundColor: AppColors.surface,
+        title: const Text("¿Cerrar Sesión?", style: TextStyle(color: Colors.white)),
+        content: const Text(
+          "Se borrarán tus datos de este dispositivo para que otra persona pueda usarlo.",
+          style: TextStyle(color: Colors.white70),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, false),
+            child: const Text("Cancelar"),
+          ),
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, true),
+            child: const Text("Cerrar Sesión", style: TextStyle(color: Colors.redAccent)),
+          ),
+        ],
+      ),
+    ) ?? false;
+
+    if (confirm) {
+      final userBox = Hive.box<UserProfile>('userBox');
+      await userBox.delete('currentUser');
+
+      if (mounted) {
+        Navigator.of(context).pushAndRemoveUntil(
+          MaterialPageRoute(builder: (_) => const OnboardingScreen()),
+          (route) => false,
+        );
+      }
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -58,7 +99,13 @@ class _HomeScreenState extends State<HomeScreen> {
       appBar: AppBar(
         backgroundColor: AppColors.background,
         elevation: 0,
-        toolbarHeight: 0, 
+        actions: [
+          IconButton(
+            onPressed: _logout,
+            icon: const Icon(Icons.logout, color: Colors.redAccent),
+            tooltip: "Cerrar Sesión",
+          )
+        ],
       ),
       body: _isLoading
           ? const Center(child: CircularProgressIndicator())
@@ -69,7 +116,7 @@ class _HomeScreenState extends State<HomeScreen> {
                   crossAxisAlignment: CrossAxisAlignment.center,
                   children: [
                     // --- HEADER (LOGO + TEXTO) ---
-                    const SizedBox(height: 20),
+                    const SizedBox(height: 10), 
                     Center(
                       child: Column(
                         children: [
@@ -84,14 +131,18 @@ class _HomeScreenState extends State<HomeScreen> {
                                   blurRadius: 20,
                                   spreadRadius: 2,
                                 )
-                              ]
+                              ],
                             ),
                             child: Image.asset(
-                              // He puesto la ruta con doble extensión para que te funcione ya mismo
-                              'assets/logo/logo_icon.png.png', 
-                              height: 90, 
-                              // Si falla, mostramos un icono de fallback pero intentará cargar tu imagen
-                              errorBuilder: (c, e, s) => const Icon(Icons.fitness_center, size: 60, color: AppColors.primary),
+                              // CORRECCIÓN: Vuelvo a poner la doble extensión .png.png 
+                              // porque así se llama tu archivo real.
+                              'assets/logo/logo_icon.png.png',
+                              height: 90,
+                              errorBuilder: (c, e, s) => const Icon(
+                                Icons.fitness_center,
+                                size: 60,
+                                color: AppColors.primary,
+                              ),
                             ),
                           ),
                           const SizedBox(height: 15),
@@ -103,30 +154,39 @@ class _HomeScreenState extends State<HomeScreen> {
                               color: Colors.white,
                               letterSpacing: 2.5,
                               shadows: [
-                                Shadow(color: Colors.black, blurRadius: 10, offset: Offset(0, 4))
-                              ]
+                                Shadow(
+                                  color: Colors.black,
+                                  blurRadius: 10,
+                                  offset: Offset(0, 4),
+                                )
+                              ],
                             ),
                           ),
                         ],
                       ),
                     ),
-                    
+
                     const SizedBox(height: 35),
-                    
+
                     // Tarjeta de Bienvenida
                     _buildWelcomeCard(_currentUser),
                     const SizedBox(height: 30),
-                    
+
                     const Align(
                       alignment: Alignment.centerLeft,
                       child: Text(
-                        "HERRAMIENTAS", 
-                        style: TextStyle(color: Colors.grey, fontSize: 12, letterSpacing: 1.5, fontWeight: FontWeight.bold)
+                        "HERRAMIENTAS",
+                        style: TextStyle(
+                          color: Colors.grey,
+                          fontSize: 12,
+                          letterSpacing: 1.5,
+                          fontWeight: FontWeight.bold,
+                        ),
                       ),
                     ),
                     const SizedBox(height: 15),
                     _buildToolsGrid(context),
-                    
+
                     const SizedBox(height: 30),
 
                     // Sección Rutina Activa
@@ -134,8 +194,13 @@ class _HomeScreenState extends State<HomeScreen> {
                       mainAxisAlignment: MainAxisAlignment.spaceBetween,
                       children: [
                         const Text(
-                          "TU PLAN DE HOY", 
-                          style: TextStyle(color: Colors.grey, fontSize: 12, letterSpacing: 1.5, fontWeight: FontWeight.bold)
+                          "TU PLAN DE HOY",
+                          style: TextStyle(
+                            color: Colors.grey,
+                            fontSize: 12,
+                            letterSpacing: 1.5,
+                            fontWeight: FontWeight.bold,
+                          ),
                         ),
                         if (_currentRoutine != null)
                           TextButton.icon(
@@ -143,13 +208,23 @@ class _HomeScreenState extends State<HomeScreen> {
                               await Navigator.push(
                                 context,
                                 MaterialPageRoute(
-                                  builder: (_) => RoutineEditorScreen(routine: _currentRoutine!),
+                                  builder:
+                                      (_) => RoutineEditorScreen(
+                                        routine: _currentRoutine!,
+                                      ),
                                 ),
                               );
                               _loadDataAndApplyProgression();
                             },
-                            icon: const Icon(Icons.edit, size: 16, color: AppColors.primary),
-                            label: const Text("Editar Plan", style: TextStyle(color: AppColors.primary)),
+                            icon: const Icon(
+                              Icons.edit,
+                              size: 16,
+                              color: AppColors.primary,
+                            ),
+                            label: const Text(
+                              "Editar Plan",
+                              style: TextStyle(color: AppColors.primary),
+                            ),
                           ),
                       ],
                     ),
@@ -176,7 +251,9 @@ class _HomeScreenState extends State<HomeScreen> {
           end: Alignment.bottomRight,
         ),
         borderRadius: BorderRadius.circular(20),
-        boxShadow: const [BoxShadow(color: Colors.black45, blurRadius: 10, offset: Offset(0, 5))],
+        boxShadow: const [
+          BoxShadow(color: Colors.black45, blurRadius: 10, offset: Offset(0, 5)),
+        ],
       ),
       child: Row(
         mainAxisAlignment: MainAxisAlignment.spaceBetween,
@@ -187,7 +264,11 @@ class _HomeScreenState extends State<HomeScreen> {
               children: [
                 Text(
                   'Hola, ${user?.name ?? "Atleta"}',
-                  style: const TextStyle(fontSize: 24, color: Colors.white, fontWeight: FontWeight.bold),
+                  style: const TextStyle(
+                    fontSize: 24,
+                    color: Colors.white,
+                    fontWeight: FontWeight.bold,
+                  ),
                 ),
                 const SizedBox(height: 5),
                 const Text(
@@ -198,9 +279,16 @@ class _HomeScreenState extends State<HomeScreen> {
             ),
           ),
           Container(
-            decoration: BoxDecoration(color: Colors.white.withOpacity(0.2), borderRadius: BorderRadius.circular(12)),
+            decoration: BoxDecoration(
+              color: Colors.white.withOpacity(0.2),
+              borderRadius: BorderRadius.circular(12),
+            ),
             child: IconButton(
-              onPressed: () => Navigator.push(context, MaterialPageRoute(builder: (c) => const SomatotypeInfoScreen())),
+              onPressed:
+                  () => Navigator.push(
+                    context,
+                    MaterialPageRoute(builder: (c) => const SomatotypeInfoScreen()),
+                  ),
               icon: const Icon(Icons.person, color: Colors.white),
               tooltip: "Perfil y Somatotipo",
             ),
@@ -212,12 +300,42 @@ class _HomeScreenState extends State<HomeScreen> {
 
   Widget _buildToolsGrid(BuildContext context) {
     final tools = [
-      {'icon': Icons.menu_book, 'label': 'Ejercicios', 'route': const ExerciseLibraryScreen(), 'color': Colors.orange},
-      {'icon': Icons.list_alt, 'label': 'Rutinas', 'route': const MyRoutinesScreen(), 'color': Colors.purple},
-      {'icon': Icons.show_chart, 'label': 'Progreso', 'route': const ProgressScreen(), 'color': Colors.green},
-      {'icon': Icons.accessibility_new, 'label': 'Fatiga', 'route': const BodyStatusScreen(), 'color': Colors.redAccent},
-      {'icon': Icons.restaurant_menu, 'label': 'Nutrición', 'route': const NutritionScreen(), 'color': Colors.teal},
-      {'icon': Icons.water_drop, 'label': 'Hidratación', 'route': const HydrationSettingsScreen(), 'color': Colors.blue},
+      {
+        'icon': Icons.menu_book,
+        'label': 'Ejercicios',
+        'route': const ExerciseLibraryScreen(),
+        'color': Colors.orange,
+      },
+      {
+        'icon': Icons.list_alt,
+        'label': 'Rutinas',
+        'route': const MyRoutinesScreen(),
+        'color': Colors.purple,
+      },
+      {
+        'icon': Icons.show_chart,
+        'label': 'Progreso',
+        'route': const ProgressScreen(),
+        'color': Colors.green,
+      },
+      {
+        'icon': Icons.accessibility_new,
+        'label': 'Fatiga',
+        'route': const BodyStatusScreen(),
+        'color': Colors.redAccent,
+      },
+      {
+        'icon': Icons.restaurant_menu,
+        'label': 'Nutrición',
+        'route': const NutritionScreen(),
+        'color': Colors.teal,
+      },
+      {
+        'icon': Icons.water_drop,
+        'label': 'Hidratación',
+        'route': const HydrationSettingsScreen(),
+        'color': Colors.blue,
+      },
     ];
 
     return GridView.builder(
@@ -238,7 +356,10 @@ class _HomeScreenState extends State<HomeScreen> {
           child: InkWell(
             borderRadius: BorderRadius.circular(16),
             onTap: () {
-              Navigator.push(context, MaterialPageRoute(builder: (c) => tool['route'] as Widget));
+              Navigator.push(
+                context,
+                MaterialPageRoute(builder: (c) => tool['route'] as Widget),
+              );
               if (tool['label'] == 'Rutinas') _loadDataAndApplyProgression();
             },
             child: Column(
@@ -250,12 +371,20 @@ class _HomeScreenState extends State<HomeScreen> {
                     color: (tool['color'] as Color).withOpacity(0.1),
                     shape: BoxShape.circle,
                   ),
-                  child: Icon(tool['icon'] as IconData, color: tool['color'] as Color, size: 28),
+                  child: Icon(
+                    tool['icon'] as IconData,
+                    color: tool['color'] as Color,
+                    size: 28,
+                  ),
                 ),
                 const SizedBox(height: 8),
                 Text(
                   tool['label'] as String,
-                  style: const TextStyle(color: Colors.white, fontSize: 12, fontWeight: FontWeight.w500),
+                  style: const TextStyle(
+                    color: Colors.white,
+                    fontSize: 12,
+                    fontWeight: FontWeight.w500,
+                  ),
                   textAlign: TextAlign.center,
                 ),
               ],
@@ -282,12 +411,19 @@ class _HomeScreenState extends State<HomeScreen> {
           ),
           child: ListTile(
             contentPadding: const EdgeInsets.symmetric(horizontal: 20, vertical: 8),
-            title: Text(day.name, style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 16)),
+            title: Text(
+              day.name,
+              style: const TextStyle(
+                color: Colors.white,
+                fontWeight: FontWeight.bold,
+                fontSize: 16,
+              ),
+            ),
             subtitle: Padding(
               padding: const EdgeInsets.only(top: 4.0),
               child: Text(
-                "${day.exercises.length} Ejercicios • Enfoque: ${day.targetMuscles.join(", ")}", 
-                style: const TextStyle(color: Colors.grey, fontSize: 12)
+                "${day.exercises.length} Ejercicios • Enfoque: ${day.targetMuscles.join(", ")}",
+                style: const TextStyle(color: Colors.grey, fontSize: 12),
               ),
             ),
             trailing: Container(
@@ -296,17 +432,22 @@ class _HomeScreenState extends State<HomeScreen> {
                 color: AppColors.primary.withOpacity(0.2),
                 shape: BoxShape.circle,
               ),
-              child: const Icon(Icons.play_arrow, color: AppColors.primary, size: 24),
+              child: const Icon(
+                Icons.play_arrow,
+                color: AppColors.primary,
+                size: 24,
+              ),
             ),
             onTap: () {
               Navigator.push(
                 context,
                 MaterialPageRoute(
-                  builder: (context) => WorkoutScreen(
-                    dayName: day.name,
-                    routineExercises: day.exercises,
-                    routineDayId: day.id,
-                  ),
+                  builder:
+                      (context) => WorkoutScreen(
+                        dayName: day.name,
+                        routineExercises: day.exercises,
+                        routineDayId: day.id,
+                      ),
                 ),
               );
             },
@@ -330,20 +471,39 @@ class _HomeScreenState extends State<HomeScreen> {
           children: [
             const Icon(Icons.fitness_center, size: 50, color: Colors.grey),
             const SizedBox(height: 15),
-            const Text("No tienes un plan activo", style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 16)),
+            const Text(
+              "No tienes un plan activo",
+              style: TextStyle(
+                color: Colors.white,
+                fontWeight: FontWeight.bold,
+                fontSize: 16,
+              ),
+            ),
             const SizedBox(height: 5),
-            const Text("Crea uno nuevo o selecciona una plantilla.", textAlign: TextAlign.center, style: TextStyle(color: Colors.grey)),
+            const Text(
+              "Crea uno nuevo o selecciona una plantilla.",
+              textAlign: TextAlign.center,
+              style: TextStyle(color: Colors.grey),
+            ),
             const SizedBox(height: 20),
             ElevatedButton(
               style: ElevatedButton.styleFrom(
                 backgroundColor: AppColors.primary,
-                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
-                padding: const EdgeInsets.symmetric(horizontal: 25, vertical: 12)
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(10),
+                ),
+                padding: const EdgeInsets.symmetric(horizontal: 25, vertical: 12),
               ),
               onPressed: () {
-                Navigator.push(context, MaterialPageRoute(builder: (c) => const MyRoutinesScreen()));
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(builder: (c) => const MyRoutinesScreen()),
+                );
               },
-              child: const Text("Ir a Mis Rutinas", style: TextStyle(color: Colors.white)),
+              child: const Text(
+                "Ir a Mis Rutinas",
+                style: TextStyle(color: Colors.white),
+              ),
             )
           ],
         ),
