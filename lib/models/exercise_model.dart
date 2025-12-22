@@ -49,6 +49,10 @@ class Exercise extends HiveObject {
   @HiveField(14, defaultValue: '')
   String alternativeExercise; // Ejercicio alternativo si no hay equipo
 
+  // --- NUEVO CAMPO PARA IMÁGENES DE USUARIO ---
+  @HiveField(15, defaultValue: null)
+  String? localImagePath; // Ruta local de la imagen personalizada (si el usuario sube una)
+
   Exercise({
     required this.id,
     required this.name,
@@ -65,5 +69,6 @@ class Exercise extends HiveObject {
     this.variations = const [],
     this.isBilateral = true,
     this.alternativeExercise = '',
+    this.localImagePath, // Agregado al constructor
   });
 }

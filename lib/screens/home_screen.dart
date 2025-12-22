@@ -96,82 +96,66 @@ class _HomeScreenState extends State<HomeScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: AppColors.background,
-      appBar: AppBar(
-        backgroundColor: AppColors.background,
-        elevation: 0,
-        actions: [
-          IconButton(
-            onPressed: _logout,
-            icon: const Icon(Icons.logout, color: Colors.redAccent),
-            tooltip: "Cerrar Sesión",
-          )
-        ],
-      ),
       body: _isLoading
           ? const Center(child: CircularProgressIndicator())
           : SafeArea(
               child: SingleChildScrollView(
-                padding: const EdgeInsets.all(20),
+                padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.center,
                   children: [
-                    // --- HEADER (LOGO + TEXTO) ---
-                    const SizedBox(height: 10), 
-                    Center(
-                      child: Column(
-                        children: [
-                          Container(
-                            padding: const EdgeInsets.all(15),
-                            decoration: BoxDecoration(
-                              shape: BoxShape.circle,
-                              color: AppColors.surface,
-                              boxShadow: [
-                                BoxShadow(
-                                  color: AppColors.primary.withOpacity(0.3),
-                                  blurRadius: 20,
-                                  spreadRadius: 2,
-                                )
-                              ],
-                            ),
-                            child: Image.asset(
-                              // CORRECCIÓN: Vuelvo a poner la doble extensión .png.png 
-                              // porque así se llama tu archivo real.
-                              'assets/logo/logo_icon.png.png',
-                              height: 90,
-                              errorBuilder: (c, e, s) => const Icon(
-                                Icons.fitness_center,
-                                size: 60,
-                                color: AppColors.primary,
+                    
+                    // --- CABECERA PERSONALIZADA ---
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        // Logo pequeño y nombre de la App
+                        Row(
+                          children: [
+                            Container(
+                              padding: const EdgeInsets.all(8),
+                              decoration: BoxDecoration(
+                                color: AppColors.surface,
+                                borderRadius: BorderRadius.circular(12),
+                              ),
+                              child: Image.asset(
+                                // CORRECCIÓN: Usamos el logo principal grande (app_logo.png)
+                                // Nota: Mantengo la extensión doble .png.png si así está en tus assets,
+                                // si lo renombraste, cambia esto a 'assets/logo/app_logo.png'
+                                'assets/logo/app_logo.png.png',
+                                height: 40, // Aumentado ligeramente para que se vea bien
+                                errorBuilder: (c, e, s) => const Icon(Icons.fitness_center, color: AppColors.primary),
                               ),
                             ),
-                          ),
-                          const SizedBox(height: 15),
-                          const Text(
-                            'GYM SCIENTIFIC',
-                            style: TextStyle(
-                              fontSize: 26,
-                              fontWeight: FontWeight.w900,
-                              color: Colors.white,
-                              letterSpacing: 2.5,
-                              shadows: [
-                                Shadow(
-                                  color: Colors.black,
-                                  blurRadius: 10,
-                                  offset: Offset(0, 4),
-                                )
-                              ],
+                            const SizedBox(width: 12),
+                            const Text(
+                              'GYM SCIENTIFIC',
+                              style: TextStyle(
+                                fontSize: 18,
+                                fontWeight: FontWeight.bold,
+                                color: Colors.white,
+                                letterSpacing: 1.2,
+                              ),
                             ),
-                          ),
-                        ],
-                      ),
+                          ],
+                        ),
+                        // Botón de Logout
+                        IconButton(
+                          onPressed: _logout,
+                          icon: const Icon(Icons.logout_rounded, color: Colors.white54),
+                          tooltip: "Cerrar Sesión",
+                        ),
+                      ],
                     ),
 
-                    const SizedBox(height: 35),
+                    const SizedBox(height: 25),
 
-                    // Tarjeta de Bienvenida
+                    // --- TARJETA DE BIENVENIDA ---
                     _buildWelcomeCard(_currentUser),
+                    
                     const SizedBox(height: 30),
 
+                    // --- SECCIÓN DE HERRAMIENTAS ---
                     const Align(
                       alignment: Alignment.centerLeft,
                       child: Text(
@@ -189,7 +173,7 @@ class _HomeScreenState extends State<HomeScreen> {
 
                     const SizedBox(height: 30),
 
-                    // Sección Rutina Activa
+                    // --- SECCIÓN DE RUTINA ACTIVA ---
                     Row(
                       mainAxisAlignment: MainAxisAlignment.spaceBetween,
                       children: [
@@ -203,36 +187,37 @@ class _HomeScreenState extends State<HomeScreen> {
                           ),
                         ),
                         if (_currentRoutine != null)
-                          TextButton.icon(
-                            onPressed: () async {
+                          GestureDetector(
+                            onTap: () async {
                               await Navigator.push(
                                 context,
                                 MaterialPageRoute(
-                                  builder:
-                                      (_) => RoutineEditorScreen(
-                                        routine: _currentRoutine!,
-                                      ),
+                                  builder: (_) => RoutineEditorScreen(
+                                    routine: _currentRoutine!,
+                                  ),
                                 ),
                               );
                               _loadDataAndApplyProgression();
                             },
-                            icon: const Icon(
-                              Icons.edit,
-                              size: 16,
-                              color: AppColors.primary,
-                            ),
-                            label: const Text(
+                            child: const Text(
                               "Editar Plan",
-                              style: TextStyle(color: AppColors.primary),
+                              style: TextStyle(
+                                color: AppColors.primary, 
+                                fontWeight: FontWeight.bold,
+                                fontSize: 14
+                              ),
                             ),
                           ),
                       ],
                     ),
-                    const SizedBox(height: 10),
+                    const SizedBox(height: 15),
+                    
                     if (_currentRoutine != null)
                       _buildRoutineList(context, _currentRoutine!)
                     else
                       _buildEmptyRoutineState(context),
+                      
+                    const SizedBox(height: 20),
                   ],
                 ),
               ),
@@ -243,56 +228,65 @@ class _HomeScreenState extends State<HomeScreen> {
   Widget _buildWelcomeCard(UserProfile? user) {
     return Container(
       width: double.infinity,
-      padding: const EdgeInsets.all(20),
+      padding: const EdgeInsets.all(24),
       decoration: BoxDecoration(
         gradient: const LinearGradient(
           colors: [AppColors.primary, Color(0xFF2E86C1)],
           begin: Alignment.topLeft,
           end: Alignment.bottomRight,
         ),
-        borderRadius: BorderRadius.circular(20),
-        boxShadow: const [
-          BoxShadow(color: Colors.black45, blurRadius: 10, offset: Offset(0, 5)),
+        borderRadius: BorderRadius.circular(24),
+        boxShadow: [
+          BoxShadow(
+            color: AppColors.primary.withOpacity(0.4),
+            blurRadius: 15,
+            offset: const Offset(0, 8),
+          ),
         ],
       ),
-      child: Row(
-        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  'Hola, ${user?.name ?? "Atleta"}',
-                  style: const TextStyle(
-                    fontSize: 24,
-                    color: Colors.white,
-                    fontWeight: FontWeight.bold,
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      'Hola, ${user?.name ?? "Atleta"}',
+                      style: const TextStyle(
+                        fontSize: 26,
+                        color: Colors.white,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                    const SizedBox(height: 8),
+                    const Text(
+                      "Tu entrenamiento, respaldado por ciencia.",
+                      style: TextStyle(color: Colors.white70, fontSize: 14),
+                    ),
+                  ],
+                ),
+              ),
+              GestureDetector(
+                onTap: () => Navigator.push(
+                  context,
+                  MaterialPageRoute(builder: (c) => const SomatotypeInfoScreen()),
+                ),
+                child: Container(
+                  padding: const EdgeInsets.all(10),
+                  decoration: BoxDecoration(
+                    color: Colors.white.withOpacity(0.2),
+                    borderRadius: BorderRadius.circular(12),
                   ),
+                  child: const Icon(Icons.person, color: Colors.white),
                 ),
-                const SizedBox(height: 5),
-                const Text(
-                  "Tu entrenamiento, respaldado por ciencia.",
-                  style: TextStyle(color: Colors.white70, fontSize: 14),
-                ),
-              ],
-            ),
+              )
+            ],
           ),
-          Container(
-            decoration: BoxDecoration(
-              color: Colors.white.withOpacity(0.2),
-              borderRadius: BorderRadius.circular(12),
-            ),
-            child: IconButton(
-              onPressed:
-                  () => Navigator.push(
-                    context,
-                    MaterialPageRoute(builder: (c) => const SomatotypeInfoScreen()),
-                  ),
-              icon: const Icon(Icons.person, color: Colors.white),
-              tooltip: "Perfil y Somatotipo",
-            ),
-          )
         ],
       ),
     );
@@ -344,17 +338,17 @@ class _HomeScreenState extends State<HomeScreen> {
       itemCount: tools.length,
       gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
         crossAxisCount: 3,
-        crossAxisSpacing: 12,
-        mainAxisSpacing: 12,
-        childAspectRatio: 1.0,
+        crossAxisSpacing: 15,
+        mainAxisSpacing: 15,
+        childAspectRatio: 1.1,
       ),
       itemBuilder: (context, index) {
         final tool = tools[index];
         return Material(
           color: AppColors.surface,
-          borderRadius: BorderRadius.circular(16),
+          borderRadius: BorderRadius.circular(20),
           child: InkWell(
-            borderRadius: BorderRadius.circular(16),
+            borderRadius: BorderRadius.circular(20),
             onTap: () {
               Navigator.push(
                 context,
@@ -366,7 +360,7 @@ class _HomeScreenState extends State<HomeScreen> {
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
                 Container(
-                  padding: const EdgeInsets.all(10),
+                  padding: const EdgeInsets.all(12),
                   decoration: BoxDecoration(
                     color: (tool['color'] as Color).withOpacity(0.1),
                     shape: BoxShape.circle,
@@ -374,14 +368,14 @@ class _HomeScreenState extends State<HomeScreen> {
                   child: Icon(
                     tool['icon'] as IconData,
                     color: tool['color'] as Color,
-                    size: 28,
+                    size: 26,
                   ),
                 ),
-                const SizedBox(height: 8),
+                const SizedBox(height: 10),
                 Text(
                   tool['label'] as String,
                   style: const TextStyle(
-                    color: Colors.white,
+                    color: Colors.white70,
                     fontSize: 12,
                     fontWeight: FontWeight.w500,
                   ),
@@ -406,11 +400,11 @@ class _HomeScreenState extends State<HomeScreen> {
         return Container(
           decoration: BoxDecoration(
             color: AppColors.surface,
-            borderRadius: BorderRadius.circular(16),
-            border: Border.all(color: Colors.white.withOpacity(0.05)),
+            borderRadius: BorderRadius.circular(18),
+            border: Border.all(color: Colors.white.withOpacity(0.03)),
           ),
           child: ListTile(
-            contentPadding: const EdgeInsets.symmetric(horizontal: 20, vertical: 8),
+            contentPadding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
             title: Text(
               day.name,
               style: const TextStyle(
@@ -420,20 +414,20 @@ class _HomeScreenState extends State<HomeScreen> {
               ),
             ),
             subtitle: Padding(
-              padding: const EdgeInsets.only(top: 4.0),
+              padding: const EdgeInsets.only(top: 6.0),
               child: Text(
                 "${day.exercises.length} Ejercicios • Enfoque: ${day.targetMuscles.join(", ")}",
                 style: const TextStyle(color: Colors.grey, fontSize: 12),
               ),
             ),
             trailing: Container(
-              padding: const EdgeInsets.all(8),
+              padding: const EdgeInsets.all(10),
               decoration: BoxDecoration(
-                color: AppColors.primary.withOpacity(0.2),
+                color: AppColors.primary.withOpacity(0.15),
                 shape: BoxShape.circle,
               ),
               child: const Icon(
-                Icons.play_arrow,
+                Icons.play_arrow_rounded,
                 color: AppColors.primary,
                 size: 24,
               ),
@@ -489,8 +483,9 @@ class _HomeScreenState extends State<HomeScreen> {
             ElevatedButton(
               style: ElevatedButton.styleFrom(
                 backgroundColor: AppColors.primary,
+                elevation: 0,
                 shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(10),
+                  borderRadius: BorderRadius.circular(12),
                 ),
                 padding: const EdgeInsets.symmetric(horizontal: 25, vertical: 12),
               ),
@@ -502,7 +497,7 @@ class _HomeScreenState extends State<HomeScreen> {
               },
               child: const Text(
                 "Ir a Mis Rutinas",
-                style: TextStyle(color: Colors.white),
+                style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
               ),
             )
           ],

@@ -16,6 +16,7 @@ class ExerciseDatabase {
       ...gluteExercises,
       ...calfExercises,
       ...coreExercises,
+      ...cardioExercises, // Nueva lista de cardio
       ...accessoryExercises,
     ];
   }
@@ -225,7 +226,7 @@ class ExerciseDatabase {
   ];
 
   // ===================
-  // ESPALDA
+  // ESPALDA / TRAPECIO
   // ===================
   static final List<Exercise> backExercises = [
     Exercise(
@@ -361,7 +362,7 @@ class ExerciseDatabase {
     Exercise(
       id: 'shrug_barbell',
       name: 'Encogimientos con Barra',
-      muscleGroup: 'Espalda',
+      muscleGroup: 'Trapecio', // Actualizado para filtro específico
       equipment: 'Barra',
       movementPattern: 'Elevación',
       difficulty: 'Principiante',
@@ -370,6 +371,19 @@ class ExerciseDatabase {
       commonMistakes: ['Rotar los hombros'],
       targetMuscles: ['Trapecio Superior'],
       secondaryMuscles: [],
+    ),
+    Exercise(
+      id: 'shrug_dumbbell',
+      name: 'Encogimientos con Mancuernas',
+      muscleGroup: 'Trapecio',
+      equipment: 'Mancuernas',
+      movementPattern: 'Elevación',
+      difficulty: 'Principiante',
+      description: 'Variante unilateral o bilateral para trapecio superior.',
+      tips: ['Mantén los brazos rectos', 'Eleva los hombros verticalmente'],
+      commonMistakes: ['Usar impulso de piernas', 'Rodar los hombros adelante'],
+      targetMuscles: ['Trapecio Superior'],
+      secondaryMuscles: ['Agarre'],
     ),
     Exercise(
       id: 'face_pull',
@@ -617,6 +631,19 @@ class ExerciseDatabase {
       targetMuscles: ['Bíceps Corto'],
       secondaryMuscles: [],
     ),
+    Exercise(
+      id: 'curl_reverse_barbell',
+      name: 'Curl Invertido con Barra',
+      muscleGroup: 'Bíceps',
+      equipment: 'Barra',
+      movementPattern: 'Flexión',
+      difficulty: 'Intermedio',
+      description: 'Agarre prono (palmas abajo) para braquiorradial.',
+      tips: ['Codos pegados', 'Muñecas rectas'],
+      commonMistakes: ['Usar demasiado peso', 'Doblar muñecas'],
+      targetMuscles: ['Braquiorradial', 'Braquial'],
+      secondaryMuscles: ['Antebrazo'],
+    ),
   ];
 
   // ===================
@@ -701,10 +728,23 @@ class ExerciseDatabase {
       targetMuscles: ['Tríceps'],
       secondaryMuscles: [],
     ),
+    Exercise(
+      id: 'kickback_db',
+      name: 'Patada de Burro (Tríceps)',
+      muscleGroup: 'Tríceps',
+      equipment: 'Mancuerna',
+      movementPattern: 'Extensión',
+      difficulty: 'Principiante',
+      description: 'Extensión de codo con torso inclinado.',
+      tips: ['Brazo superior paralelo al suelo', 'Pausa en extensión'],
+      commonMistakes: ['Bajar el codo'],
+      targetMuscles: ['Tríceps'],
+      secondaryMuscles: [],
+    ),
   ];
 
   // ===================
-  // CUÁDRICEPS
+  // CUÁDRICEPS / ADUCTORES
   // ===================
   static final List<Exercise> quadExercises = [
     Exercise(
@@ -756,8 +796,21 @@ class ExerciseDatabase {
       description: 'Cerrar las piernas contra resistencia.',
       tips: ['Rango completo', 'Controla la apertura'],
       commonMistakes: ['Usar inercia'],
-      targetMuscles: ['Aductores (Interior Muslo)'],
+      targetMuscles: ['Aductores'],
       secondaryMuscles: [],
+    ),
+    Exercise(
+      id: 'copenhagen_plank',
+      name: 'Plancha Copenhagen',
+      muscleGroup: 'Aductores',
+      equipment: 'Banco',
+      movementPattern: 'Isométrico',
+      difficulty: 'Avanzado',
+      description: 'Plancha lateral con la pierna superior apoyada en un banco.',
+      tips: ['Cuerpo recto', 'Sostén la posición'],
+      commonMistakes: ['Cadera caída'],
+      targetMuscles: ['Aductores'],
+      secondaryMuscles: ['Core'],
     ),
     Exercise(
       id: 'squat_barbell',
@@ -850,10 +903,23 @@ class ExerciseDatabase {
       targetMuscles: ['Glúteos', 'Cuádriceps'],
       secondaryMuscles: [],
     ),
+    Exercise(
+      id: 'sissy_squat',
+      name: 'Sentadilla Sissy',
+      muscleGroup: 'Cuádriceps',
+      equipment: 'Corporal/Máquina',
+      movementPattern: 'Aislamiento',
+      difficulty: 'Avanzado',
+      description: 'Enfatiza el estiramiento del cuádriceps inclinando el cuerpo atrás.',
+      tips: ['Mantén cadera extendida', 'Baja rodillas al suelo'],
+      commonMistakes: ['Doblar la cadera'],
+      targetMuscles: ['Cuádriceps'],
+      secondaryMuscles: [],
+    ),
   ];
 
   // ===================
-  // GLÚTEOS / CADERA
+  // GLÚTEOS / ABDUCTORES
   // ===================
   static final List<Exercise> gluteExercises = [
     Exercise(
@@ -867,6 +933,19 @@ class ExerciseDatabase {
       tips: ['Inclínate un poco adelante', 'Pausa en apertura'],
       commonMistakes: ['Rango muy corto'],
       targetMuscles: ['Glúteo Medio', 'Glúteo Menor'],
+      secondaryMuscles: [],
+    ),
+    Exercise(
+      id: 'monster_walk',
+      name: 'Caminata Monstruo',
+      muscleGroup: 'Abductores',
+      equipment: 'Banda',
+      movementPattern: 'Desplazamiento',
+      difficulty: 'Principiante',
+      description: 'Caminar lateralmente o adelante con banda en rodillas/tobillos.',
+      tips: ['Rodillas siempre separadas', 'Mantén tensión'],
+      commonMistakes: ['Juntar rodillas'],
+      targetMuscles: ['Glúteo Medio'],
       secondaryMuscles: [],
     ),
     Exercise(
@@ -895,9 +974,6 @@ class ExerciseDatabase {
       targetMuscles: ['Glúteos'],
       secondaryMuscles: [],
     ),
-
-    // NOTA PARA MÍ: A continuación agrego los ejercicios enfocados en mujeres y tren inferior (Corregido).
-    
     Exercise(
       id: 'donkey_kick',
       name: 'Patada de Burro',
@@ -905,8 +981,8 @@ class ExerciseDatabase {
       equipment: 'Corporal',
       movementPattern: 'Extensión de Cadera',
       difficulty: 'Principiante',
-      description: 'En cuatro patas, patea hacia arriba manteniendo la rodilla flexionada. Excelente para aislar el glúteo mayor.',
-      tips: ['Mantén la espalda recta', 'Aprieta el glúteo arriba por 1 segundo', 'No arques la zona lumbar'],
+      description: 'En cuatro patas, patea hacia arriba manteniendo la rodilla flexionada.',
+      tips: ['Mantén la espalda recta', 'Aprieta el glúteo arriba por 1 segundo'],
       commonMistakes: ['Impulsar con la espalda', 'Movimiento muy rápido'],
       targetMuscles: ['Glúteo Mayor'],
       secondaryMuscles: ['Isquios'],
@@ -919,7 +995,7 @@ class ExerciseDatabase {
       movementPattern: 'Extensión de Cadera',
       difficulty: 'Intermedio',
       description: 'De pie frente a la polea, patea hacia atrás con la pierna recta.',
-      tips: ['Mantén el torso fijo', 'Contrae el glúteo en la extensión máxima', 'Regresa lento'],
+      tips: ['Mantén el torso fijo', 'Contrae el glúteo en la extensión máxima'],
       commonMistakes: ['Arquear la espalda baja', 'Usar impulso'],
       targetMuscles: ['Glúteo Mayor'],
       secondaryMuscles: ['Isquios'],
@@ -963,7 +1039,6 @@ class ExerciseDatabase {
       targetMuscles: ['Glúteo Medio', 'Glúteo Mayor'],
       secondaryMuscles: ['Cuádriceps'],
     ),
-    // NOTA PARA MÍ: Aquí termina la inserción de nuevos ejercicios de glúteo.
   ];
 
   // ===================
@@ -1008,6 +1083,19 @@ class ExerciseDatabase {
       commonMistakes: ['Doblar la cadera'],
       targetMuscles: ['Isquiotibiales'],
       secondaryMuscles: [],
+    ),
+    Exercise(
+      id: 'good_morning',
+      name: 'Buenos Días',
+      muscleGroup: 'Isquiotibiales',
+      equipment: 'Barra',
+      movementPattern: 'Bisagra',
+      difficulty: 'Avanzado',
+      description: 'Flexión de cadera con barra en la espalda.',
+      tips: ['Mantén espalda recta', 'Siente estiramiento en isquios'],
+      commonMistakes: ['Redondear espalda', 'Doblar demasiadas rodillas'],
+      targetMuscles: ['Isquiotibiales', 'Espalda Baja'],
+      secondaryMuscles: ['Glúteos'],
     ),
   ];
 
@@ -1139,6 +1227,19 @@ class ExerciseDatabase {
       secondaryMuscles: [],
     ),
     Exercise(
+      id: 'wrist_extension_db',
+      name: 'Extensión de Muñeca',
+      muscleGroup: 'Antebrazo',
+      equipment: 'Mancuerna',
+      movementPattern: 'Extensión',
+      difficulty: 'Principiante',
+      description: 'Palmas hacia abajo, eleva el dorso de la mano.',
+      tips: ['Antebrazo apoyado', 'Solo mueve muñeca'],
+      commonMistakes: ['Usar el codo'],
+      targetMuscles: ['Extensores'],
+      secondaryMuscles: [],
+    ),
+    Exercise(
       id: 'farmers_walk',
       name: 'Paseo del Granjero',
       muscleGroup: 'Antebrazo',
@@ -1150,6 +1251,19 @@ class ExerciseDatabase {
       commonMistakes: ['Hombros caídos'],
       targetMuscles: ['Agarre', 'Trapecios'],
       secondaryMuscles: ['Core'],
+    ),
+    Exercise(
+      id: 'dead_hang',
+      name: 'Colgarse de Barra',
+      muscleGroup: 'Antebrazo',
+      equipment: 'Barra',
+      movementPattern: 'Isométrico',
+      difficulty: 'Principiante',
+      description: 'Colgarse pasivamente para descomprimir y mejorar agarre.',
+      tips: ['Relaja el cuerpo', 'Mantén el agarre firme'],
+      commonMistakes: ['Soltarse antes de tiempo'],
+      targetMuscles: ['Agarre'],
+      secondaryMuscles: ['Espalda'],
     ),
   ];
 
@@ -1180,6 +1294,74 @@ class ExerciseDatabase {
       targetMuscles: ['Sóleo'],
       secondaryMuscles: [],
     ),
+    Exercise(
+      id: 'calf_raise_leg_press',
+      name: 'Gemelos en Prensa',
+      muscleGroup: 'Gemelos',
+      equipment: 'Máquina',
+      movementPattern: 'Extensión',
+      difficulty: 'Intermedio',
+      description: 'Empuje con las puntas de los pies en prensa 45.',
+      tips: ['No dobles rodillas', 'Máximo estiramiento'],
+      commonMistakes: ['Rango corto'],
+      targetMuscles: ['Gastrocnemio'],
+      secondaryMuscles: [],
+    ),
+    Exercise(
+      id: 'jump_rope',
+      name: 'Salto a la Soga',
+      muscleGroup: 'Gemelos',
+      equipment: 'Cuerda',
+      movementPattern: 'Salto',
+      difficulty: 'Principiante',
+      description: 'Cardio y resistencia de pantorrillas.',
+      tips: ['Salta sobre puntas', 'Movimiento de muñeca'],
+      commonMistakes: ['Saltar muy alto'],
+      targetMuscles: ['Gemelos', 'Cardio'],
+      secondaryMuscles: [],
+    ),
+  ];
+
+  static final List<Exercise> cardioExercises = [
+    Exercise(
+      id: 'treadmill_run',
+      name: 'Cinta de Correr',
+      muscleGroup: 'Cardio',
+      equipment: 'Máquina',
+      movementPattern: 'Carrera',
+      difficulty: 'Principiante',
+      description: 'Correr o caminar inclinado.',
+      tips: ['Respira rítmicamente', 'No te sostengas de los rieles'],
+      commonMistakes: ['Mala postura'],
+      targetMuscles: ['Corazón', 'Piernas'],
+      secondaryMuscles: [],
+    ),
+    Exercise(
+      id: 'elliptical',
+      name: 'Elíptica',
+      muscleGroup: 'Cardio',
+      equipment: 'Máquina',
+      movementPattern: 'Cíclico',
+      difficulty: 'Principiante',
+      description: 'Cardio de bajo impacto.',
+      tips: ['Usa los brazos', 'Mantén ritmo constante'],
+      commonMistakes: ['Rebotar'],
+      targetMuscles: ['Corazón'],
+      secondaryMuscles: [],
+    ),
+    Exercise(
+      id: 'cycling',
+      name: 'Bicicleta Estática',
+      muscleGroup: 'Cardio',
+      equipment: 'Máquina',
+      movementPattern: 'Pedaleo',
+      difficulty: 'Principiante',
+      description: 'Pedaleo sentado.',
+      tips: ['Ajusta el asiento a tu cadera'],
+      commonMistakes: ['Asiento muy bajo'],
+      targetMuscles: ['Cuádriceps', 'Corazón'],
+      secondaryMuscles: [],
+    ),
   ];
 
   static final List<Exercise> accessoryExercises = [
@@ -1208,6 +1390,19 @@ class ExerciseDatabase {
       commonMistakes: ['Doblar codos'],
       targetMuscles: ['Deltoides Posterior'],
       secondaryMuscles: ['Romboides'],
+    ),
+    Exercise(
+      id: 'external_rotation_cable',
+      name: 'Rotación Externa (Manguito)',
+      muscleGroup: 'Hombros',
+      equipment: 'Polea/Banda',
+      movementPattern: 'Rotación',
+      difficulty: 'Principiante',
+      description: 'Previene lesiones de hombro.',
+      tips: ['Codo pegado al cuerpo', 'Movimiento corto'],
+      commonMistakes: ['Despegar el codo'],
+      targetMuscles: ['Manguito Rotador'],
+      secondaryMuscles: [],
     ),
   ];
 }

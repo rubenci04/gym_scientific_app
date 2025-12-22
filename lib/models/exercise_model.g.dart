@@ -35,13 +35,14 @@ class ExerciseAdapter extends TypeAdapter<Exercise> {
       variations: fields[12] == null ? [] : (fields[12] as List).cast<String>(),
       isBilateral: fields[13] == null ? true : fields[13] as bool,
       alternativeExercise: fields[14] == null ? '' : fields[14] as String,
+      localImagePath: fields[15] as String?,
     );
   }
 
   @override
   void write(BinaryWriter writer, Exercise obj) {
     writer
-      ..writeByte(15)
+      ..writeByte(16)
       ..writeByte(0)
       ..write(obj.id)
       ..writeByte(1)
@@ -71,7 +72,9 @@ class ExerciseAdapter extends TypeAdapter<Exercise> {
       ..writeByte(13)
       ..write(obj.isBilateral)
       ..writeByte(14)
-      ..write(obj.alternativeExercise);
+      ..write(obj.alternativeExercise)
+      ..writeByte(15)
+      ..write(obj.localImagePath);
   }
 
   @override

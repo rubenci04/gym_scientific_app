@@ -81,7 +81,7 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
       context: context,
       barrierDismissible: false,
       builder: (ctx) => AlertDialog(
-        backgroundColor: AppColors.surface, // Adaptado a tema oscuro
+        backgroundColor: AppColors.surface,
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(15)),
         title: Center(
           child: Text(
@@ -172,7 +172,6 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
         (5 * age) +
         (_gender == 'Masculino' ? 5 : -161);
 
-    // Creamos el perfil (con valores por defecto seguros)
     final newUser = UserProfile(
       name: _nameCtrl.text,
       age: age,
@@ -183,7 +182,6 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
       ankleCircumference: double.tryParse(_ankleCtrl.text) ?? 22.0,
       somatotype: type,
       tdee: bmr * 1.2,
-      // Valores iniciales que se refinarán en siguientes pantallas
       goal: TrainingGoal.generalHealth, 
       daysPerWeek: 3, 
       experience: Experience.beginner 
@@ -192,9 +190,6 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
     await Hive.box<UserProfile>('userBox').put('currentUser', newUser);
 
     if (mounted) {
-      // Nota para mí: Aquí estaba el error de pantalla blanca. 
-      // Usaba pushReplacement, pero lo cambié a pushAndRemoveUntil 
-      // para borrar todo el historial anterior y evitar conflictos de navegación.
       Navigator.of(context).pushAndRemoveUntil(
         MaterialPageRoute(builder: (_) => const GoalSelectionScreen()),
         (Route<dynamic> route) => false,
@@ -205,101 +200,107 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: AppColors.background, // Fondo oscuro corporativo
+      backgroundColor: AppColors.background,
       appBar: AppBar(
         title: const Text('Tus Datos'),
         backgroundColor: AppColors.surface,
         elevation: 0,
       ),
-      body: Padding(
-        padding: const EdgeInsets.all(16.0),
-        child: Form(
-          key: _formKey,
-          child: ListView(
-            children: [
-              // --- HEADER CON LOGO Y TEXTO ---
-              const SizedBox(height: 20),
-              Center(
-                child: Column(
-                  children: [
-                    Container(
-                      padding: const EdgeInsets.all(15),
-                      decoration: BoxDecoration(
-                        shape: BoxShape.circle,
-                        color: AppColors.surface,
-                        boxShadow: [
-                          BoxShadow(
-                            color: AppColors.primary.withOpacity(0.3),
-                            blurRadius: 20,
-                            spreadRadius: 2,
-                          )
-                        ]
+      body: SafeArea(
+        child: Padding(
+          padding: const EdgeInsets.all(16.0),
+          child: Form(
+            key: _formKey,
+            child: ListView(
+              children: [
+                // --- HEADER CON LOGO GRANDE Y TEXTO ---
+                const SizedBox(height: 20),
+                Center(
+                  child: Column(
+                    children: [
+                      Container(
+                        padding: const EdgeInsets.all(15),
+                        decoration: BoxDecoration(
+                          shape: BoxShape.circle,
+                          color: AppColors.surface,
+                          boxShadow: [
+                            BoxShadow(
+                              color: AppColors.primary.withOpacity(0.3),
+                              blurRadius: 20,
+                              spreadRadius: 2,
+                            )
+                          ]
+                        ),
+                        child: Image.asset(
+                          // CORRECCIÓN: Usamos el logo principal grande
+                          'assets/logo/app_logo.png.png', 
+                          height: 120, // Más grande para destacar
+                          errorBuilder: (c, e, s) => const Icon(Icons.fitness_center, size: 80, color: AppColors.primary),
+                        ),
                       ),
-                      child: Image.asset(
-                        // Nota para mí: Corregí la ruta del logo, tenía extensión doble (.png.png).
-                        'assets/logo/logo_icon.png', 
-                        height: 90, 
-                        errorBuilder: (c, e, s) => const Icon(Icons.fitness_center, size: 60, color: AppColors.primary),
+                      const SizedBox(height: 20),
+                      const Text(
+                        'GYM SCIENTIFIC',
+                        style: TextStyle(
+                          fontSize: 26,
+                          fontWeight: FontWeight.w900,
+                          color: Colors.white,
+                          letterSpacing: 2.5,
+                        ),
                       ),
-                    ),
-                    const SizedBox(height: 15),
-                    const Text(
-                      'GYM SCIENTIFIC',
-                      style: TextStyle(
-                        fontSize: 24,
-                        fontWeight: FontWeight.w900,
-                        color: Colors.white,
-                        letterSpacing: 2.5,
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-              const SizedBox(height: 30),
-
-              // Inputs estilizados para fondo oscuro
-              _buildInput(_nameCtrl, 'Nombre'),
-              _buildRowInput(_ageCtrl, 'Edad', _weightCtrl, 'Peso (kg)'),
-              _buildRowInput(
-                _heightCtrl,
-                'Altura (cm)',
-                _wristCtrl,
-                'Muñeca (cm)',
-              ),
-              _buildInput(_ankleCtrl, 'Tobillo (cm)', isNumber: true),
-
-              Padding(
-                padding: const EdgeInsets.only(bottom: 20),
-                child: DropdownButtonFormField(
-                  value: _gender,
-                  dropdownColor: AppColors.surface,
-                  style: const TextStyle(color: Colors.white),
-                  items: ['Masculino', 'Femenino']
-                      .map((v) => DropdownMenuItem(value: v, child: Text(v)))
-                      .toList(),
-                  onChanged: (v) => setState(() => _gender = v.toString()),
-                  decoration: const InputDecoration(
-                    labelText: 'Sexo',
-                    labelStyle: TextStyle(color: Colors.white70),
-                    filled: true,
-                    fillColor: AppColors.surface,
-                    border: OutlineInputBorder(),
-                    enabledBorder: OutlineInputBorder(borderSide: BorderSide(color: Colors.white24)),
+                    ],
                   ),
                 ),
-              ),
-              
-              const SizedBox(height: 10),
-              ElevatedButton(
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: AppColors.primary,
-                  padding: const EdgeInsets.symmetric(vertical: 15),
-                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                const SizedBox(height: 35),
+
+                // Inputs estilizados
+                _buildInput(_nameCtrl, 'Nombre'),
+                _buildRowInput(_ageCtrl, 'Edad', _weightCtrl, 'Peso (kg)'),
+                _buildRowInput(
+                  _heightCtrl,
+                  'Altura (cm)',
+                  _wristCtrl,
+                  'Muñeca (cm)',
                 ),
-                onPressed: _processData,
-                child: const Text('CALCULAR SOMATOTIPO', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: Colors.white)),
-              ),
-            ],
+                _buildInput(_ankleCtrl, 'Tobillo (cm)', isNumber: true),
+
+                Padding(
+                  padding: const EdgeInsets.only(bottom: 20),
+                  child: DropdownButtonFormField(
+                    value: _gender,
+                    dropdownColor: AppColors.surface,
+                    style: const TextStyle(color: Colors.white),
+                    items: ['Masculino', 'Femenino']
+                        .map((v) => DropdownMenuItem(value: v, child: Text(v)))
+                        .toList(),
+                    onChanged: (v) => setState(() => _gender = v.toString()),
+                    decoration: const InputDecoration(
+                      labelText: 'Sexo',
+                      labelStyle: TextStyle(color: Colors.white70),
+                      filled: true,
+                      fillColor: AppColors.surface,
+                      border: OutlineInputBorder(),
+                      enabledBorder: OutlineInputBorder(borderSide: BorderSide(color: Colors.white24)),
+                    ),
+                  ),
+                ),
+                
+                const SizedBox(height: 15),
+                ElevatedButton(
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: AppColors.primary,
+                    padding: const EdgeInsets.symmetric(vertical: 16),
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                  ),
+                  onPressed: _processData,
+                  child: const Text(
+                    'CALCULAR SOMATOTIPO', 
+                    style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: Colors.white)
+                  ),
+                ),
+                const SizedBox(height: 20),
+              ],
+            ),
           ),
         ),
       ),

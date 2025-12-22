@@ -4,6 +4,9 @@ import '../models/exercise_model.dart';
 import '../models/routine_model.dart';
 
 class RoutineGeneratorService {
+  
+  // // NOTA PARA MÍ: Función principal que orquesta la creación y guardado.
+  // // Recibe el 'focusArea' que ahora puede ser un músculo específico.
   static Future<void> generateAndSaveRoutine(
     UserProfile user, {
     String focusArea = 'Full Body',
@@ -20,16 +23,19 @@ class RoutineGeneratorService {
     final exerciseBox = Hive.box<Exercise>('exerciseBox');
     final allExercises = exerciseBox.values.toList();
 
+    // // NOTA PARA MÍ: Primero filtro qué ejercicios tiene disponibles el usuario (Gym o Casa)
     final availableExercises = _filterExercisesByLocation(
       allExercises,
       user.location,
     );
 
-    // If a specific focus area is selected, generate a focused routine
+    // // NOTA PARA MÍ: Aquí determino la estructura. Si el usuario eligió un músculo específico
+    // // (ej: 'Bíceps'), llamo a _getFocusedStructure que contiene la nueva lógica detallada.
     List<Map<String, dynamic>> structure;
-    if (focusArea != 'Full Body') {
+    if (focusArea != 'Full Body' && focusArea != 'Upper/Lower' && focusArea != 'Push/Pull/Legs') {
       structure = _getFocusedStructure(user.daysPerWeek, focusArea);
     } else {
+      // Si es una división clásica (Full Body, Torso/Pierna, etc)
       structure = _getSplitStructure(user.daysPerWeek, user.goal);
     }
 
@@ -40,21 +46,21 @@ class RoutineGeneratorService {
       List<RoutineExercise> selectedExercises = [];
       Set<String> usedIds = {};
 
-      // Definir series y repeticiones según el objetivo
+      // // NOTA PARA MÍ: Ajusto series y reps según el objetivo científico.
       int sets;
       String reps;
 
       switch (user.goal) {
         case TrainingGoal.strength:
           sets = 4;
-          reps = "4-6";
+          reps = "3-6";
           break;
         case TrainingGoal.hypertrophy:
-          sets = 3;
+          sets = 3; // Volumen estándar para hipertrofia
           reps = "8-12";
           break;
         case TrainingGoal.endurance:
-          sets = 2;
+          sets = 3;
           reps = "15-20";
           break;
         default:
@@ -62,21 +68,43 @@ class RoutineGeneratorService {
           reps = "8-12";
       }
 
+      // // NOTA PARA MÍ: Este es el motor de selección. Itera sobre los "patrones" requeridos
+      // // para el día y busca ejercicios que coincidan en la base de datos.
       for (var pattern in dayTemplate['patterns']) {
-        var candidates = availableExercises
-            .where(
-              (ex) =>
-                  (ex.movementPattern == pattern ||
-                      dayTemplate['muscles'].contains(ex.muscleGroup)) &&
-                  !usedIds.contains(ex.id),
-            )
-            .toList();
+        var candidates = availableExercises.where((ex) {
+          // Coincidencia por patrón de movimiento (ej: 'Sentadilla') O por grupo muscular directo
+          bool matchesPattern = ex.movementPattern == pattern;
+          bool matchesMuscle = dayTemplate['muscles'].contains(ex.muscleGroup);
+          
+          // // NOTA PARA MÍ: Si el patrón es 'Aislamiento', soy más estricto con el grupo muscular
+          if (pattern.startsWith('Aislamiento') || pattern == 'Core') {
+             return matchesMuscle && !usedIds.contains(ex.id);
+          }
+          
+          return (matchesPattern || matchesMuscle) && !usedIds.contains(ex.id);
+        }).toList();
 
         if (candidates.isNotEmpty) {
+          // Barajar para dar variedad
           candidates.shuffle();
           final selected = candidates.first;
+          
+          // // NOTA PARA MÍ: Ajuste fino. Si es un ejercicio compuesto pesado (Sentadilla, Peso Muerto),
+          // // aumento los sets y bajo reps si el objetivo es fuerza/hipertrofia.
+          int currentSets = sets;
+          String currentReps = reps;
+          
+          if (['Sentadilla', 'Peso Muerto', 'Press Banca'].contains(selected.name)) {
+             currentSets = 4;
+             currentReps = (user.goal == TrainingGoal.strength) ? "3-5" : "6-8";
+          }
+
           selectedExercises.add(
-            RoutineExercise(exerciseId: selected.id, sets: sets, reps: reps),
+            RoutineExercise(
+              exerciseId: selected.id, 
+              sets: currentSets, 
+              reps: currentReps
+            ),
           );
           usedIds.add(selected.id);
         }
@@ -85,7 +113,7 @@ class RoutineGeneratorService {
       generatedDays.add(
         RoutineDay(
           id: "day_${DateTime.now().millisecondsSinceEpoch}_$i",
-          name: "Día ${i + 1}: ${dayTemplate['name']}",
+          name: dayTemplate['name'], // Nombre corregido para que se vea bien
           targetMuscles: dayTemplate['muscles'],
           exercises: selectedExercises,
         ),
@@ -94,24 +122,19 @@ class RoutineGeneratorService {
 
     return WeeklyRoutine(
       id: "routine_${DateTime.now().millisecondsSinceEpoch}",
-      name:
-          "Plan $focusArea - ${user.daysPerWeek} Días - ${_getGoalName(user.goal)}",
+      name: "Plan Científico: $focusArea",
       days: generatedDays,
       createdAt: DateTime.now(),
-      isActive: true, // Active by default for first-time users
+      isActive: true,
     );
   }
 
   static String _getGoalName(TrainingGoal goal) {
     switch (goal) {
-      case TrainingGoal.hypertrophy:
-        return "Hipertrofia";
-      case TrainingGoal.strength:
-        return "Fuerza";
-      case TrainingGoal.endurance:
-        return "Resistencia";
-      default:
-        return "General";
+      case TrainingGoal.hypertrophy: return "Hipertrofia";
+      case TrainingGoal.strength: return "Fuerza";
+      case TrainingGoal.endurance: return "Resistencia";
+      default: return "General";
     }
   }
 
@@ -123,812 +146,323 @@ class RoutineGeneratorService {
     return all.where((ex) {
       return ex.equipment == 'Corporal' ||
           ex.equipment == 'Mancuernas' ||
+          ex.equipment == 'Banda' || // Agregado Bandas
           ex.equipment == 'Banco/Silla' ||
           ex.equipment == 'Barra Dominadas';
     }).toList();
   }
 
-  static List<Map<String, dynamic>> _getSplitStructure(
-    int days,
-    TrainingGoal goal,
-  ) {
-    // Lógica principal para determinar la estructura basada en días y objetivo
-    switch (goal) {
-      case TrainingGoal.strength:
-        return _getStrengthStructure(days);
-      case TrainingGoal.hypertrophy:
-        return _getHypertrophyStructure(days);
-      case TrainingGoal.endurance:
-      default:
-        return _getGeneralStructure(days);
-    }
-  }
-
-  // NEW: Generate focused routines based on user selection
-  static List<Map<String, dynamic>> _getFocusedStructure(
-    int days,
-    String focusArea,
-  ) {
+  // // NOTA PARA MÍ: Aquí comienza la lógica nueva y masiva para los grupos musculares específicos.
+  // // He expandido los 'patterns' para asegurar entre 6 y 8 ejercicios por sesión.
+  static List<Map<String, dynamic>> _getFocusedStructure(int days, String focusArea) {
     List<Map<String, dynamic>> result = [];
 
     for (int i = 0; i < days; i++) {
+      String dayNameSuffix = days > 1 ? " (Día ${i + 1})" : "";
+
       switch (focusArea) {
-        case 'Piernas':
+        // --- TREN SUPERIOR ---
+        case 'Pectoral': // PECHO
           result.add({
-            'name': 'Piernas ${i + 1}',
-            'muscles': ['Cuádriceps', 'Isquiotibiales', 'Glúteos', 'Gemelos'],
+            'name': 'Pectoral Legendario$dayNameSuffix',
+            'muscles': ['Pecho', 'Tríceps'], // Incluyo tríceps como sinergista
             'patterns': [
-              'Sentadilla',
-              'Bisagra',
-              'Zancada',
-              'Puente',
-              'Aislamiento Cuádriceps',
-              'Aislamiento Gemelo',
+              'Empuje Horizontal', // Press Banca o similar
+              'Empuje Inclinado', // Press Inclinado (Clavicular)
+              'Empuje Horizontal', // Máquina o variante
+              'Empuje Declinado', // O Fondos (Inferior)
+              'Aislamiento', // Aperturas/Cruce
+              'Aislamiento', // Pec Deck
+              'Aislamiento Tríceps', // Un toque de tríceps al final
             ],
           });
           break;
-        case 'Pecho':
+
+        case 'Dorsal': // ESPALDA
           result.add({
-            'name': 'Pecho ${i + 1}',
-            'muscles': ['Pecho', 'Tríceps'],
+            'name': 'Espalda en V$dayNameSuffix',
+            'muscles': ['Espalda', 'Bíceps', 'Trapecio'],
             'patterns': [
-              'Empuje Horizontal',
-              'Empuje Inclinado',
-              'Aislamiento Pecho',
-              'Empuje Horizontal',
-              'Aislamiento Tríceps',
+              'Bisagra', // Peso Muerto o Rack Pull (Densidad)
+              'Tracción Vertical', // Dominadas o Jalones (Amplitud)
+              'Tracción Horizontal', // Remo con Barra (Densidad)
+              'Tracción Vertical', // Otro ángulo vertical
+              'Tracción Horizontal', // Remo unilateral o máquina
+              'Aislamiento Espalda', // Pullover o similar
+              'Elevación', // Trapecio (Shrugs)
+              'Aislamiento Bíceps', // Finalizador
             ],
           });
           break;
-        case 'Espalda':
-          result.add({
-            'name': 'Espalda ${i + 1}',
-            'muscles': ['Espalda', 'Bíceps'],
-            'patterns': [
-              'Tracción Vertical',
-              'Tracción Horizontal',
-              'Tracción Vertical',
-              'Bisagra',
-              'Aislamiento Bíceps',
-            ],
-          });
-          break;
+
         case 'Hombros':
           result.add({
-            'name': 'Hombros ${i + 1}',
-            'muscles': ['Hombros'],
+            'name': 'Hombros 3D$dayNameSuffix',
+            'muscles': ['Hombros', 'Trapecio'],
             'patterns': [
-              'Empuje Vertical',
-              'Aislamiento Hombro',
-              'Aislamiento Hombro',
-              'Empuje Vertical',
-              'Aislamiento Tríceps',
+              'Empuje Vertical', // Press Militar pesado
+              'Empuje Vertical', // Press con mancuernas o Arnold
+              'Aislamiento', // Elevaciones Laterales
+              'Aislamiento', // Pájaros (Posterior)
+              'Aislamiento', // Frontales o variantes
+              'Tracción', // Face Pull (Salud del hombro)
+              'Elevación', // Trapecio
             ],
           });
           break;
-        case 'Brazos':
+
+        case 'Bíceps':
           result.add({
-            'name': 'Brazos ${i + 1}',
-            'muscles': ['Bíceps', 'Tríceps', 'Antebrazos'],
+            'name': 'Bíceps Masivos$dayNameSuffix',
+            'muscles': ['Bíceps', 'Antebrazo', 'Espalda'], // Espalda para activar
             'patterns': [
-              'Aislamiento Bíceps',
-              'Aislamiento Tríceps',
-              'Aislamiento Bíceps',
-              'Aislamiento Tríceps',
-              'Aislamiento Antebrazos',
+              'Tracción Vertical', // Dominada Supina (Chin-up) - Gran constructor
+              'Flexión', // Curl con Barra (Pesado)
+              'Flexión', // Curl Martillo (Braquial)
+              'Aislamiento', // Curl Inclinado (Cabeza larga)
+              'Aislamiento', // Curl Predicador o Concentrado (Cabeza corta)
+              'Flexión', // Curl Invertido o Zottman
+              'Aislamiento Antebrazos', // Muñeca
             ],
           });
           break;
-        case 'Core':
+
+        case 'Tríceps':
           result.add({
-            'name': 'Core ${i + 1}',
-            'muscles': ['Abdominales', 'Oblicuos', 'Lumbares'],
-            'patterns': ['Core', 'Core', 'Core', 'Core', 'Aislamiento'],
+            'name': 'Tríceps Herradura$dayNameSuffix',
+            'muscles': ['Tríceps', 'Pecho'], // Pecho cerrado para activar
+            'patterns': [
+              'Empuje Horizontal', // Press Banca Agarre Cerrado
+              'Empuje Vertical', // Fondos (Dips)
+              'Extensión', // Rompecráneos o Francés
+              'Empuje', // Polea (Pushdown)
+              'Extensión', // Copa o Trasnuca (Cabeza larga)
+              'Empuje', // Patada o Unilateral
+            ],
           });
           break;
-        default:
-          // Full Body fallback
+          
+        case 'Trapecio':
+           result.add({
+            'name': 'Yugo de Trapecio$dayNameSuffix',
+            'muscles': ['Trapecio', 'Hombros', 'Espalda'],
+            'patterns': [
+              'Bisagra', // Peso Muerto (Isométrico brutal para trapecio)
+              'Elevación', // Encogimientos con Barra (Pesado)
+              'Elevación', // Encogimientos con Mancuerna (Rango)
+              'Tracción', // Face Pull
+              'Transporte', // Paseo del Granjero (Farmer Walk)
+              'Tracción Horizontal', // Remo al mentón (Upright Row)
+            ],
+          });
+          break;
+
+        // --- TREN INFERIOR ---
+        case 'Cuádriceps':
           result.add({
-            'name': 'Full Body ${i + 1}',
+            'name': 'Cuádriceps de Acero$dayNameSuffix',
+            'muscles': ['Cuádriceps', 'Glúteos'],
+            'patterns': [
+              'Sentadilla', // El rey
+              'Zancada', // Búlgara o Zancada
+              'Empuje', // Prensa
+              'Sentadilla', // Hack o Frontal
+              'Aislamiento', // Sillón de Cuádriceps
+              'Aislamiento', // Sillón (Altas reps)
+              'Aislamiento Gemelo', // Gemelos de pie
+            ],
+          });
+          break;
+
+        case 'Isquios': // FEMORAL
+          result.add({
+            'name': 'Isquios (Femoral)$dayNameSuffix',
+            'muscles': ['Isquiotibiales', 'Glúteos', 'Espalda Baja'],
+            'patterns': [
+              'Bisagra', // Peso Muerto Rumano (Pesado)
+              'Flexión', // Curl Femoral Tumbado
+              'Bisagra', // Buenos Días o PM Piernas Rígidas
+              'Flexión', // Curl Nórdico o Sentado
+              'Bisagra', // Hiperextensiones
+              'Aislamiento Glúteo', // Patada (Complemento)
+            ],
+          });
+          break;
+
+        case 'Glúteos':
+          result.add({
+            'name': 'Glúteos Focus$dayNameSuffix',
+            'muscles': ['Glúteos', 'Abductores', 'Isquiotibiales'],
+            'patterns': [
+              'Puente', // Hip Thrust (Pesado)
+              'Sentadilla', // Sentadilla Sumo
+              'Zancada', // Estocada Cruzada o Búlgara
+              'Bisagra', // Peso Muerto Rumano
+              'Extensión de Cadera', // Patada en Polea
+              'Abducción', // Máquina de abducción o Almeja
+              'Desplazamiento', // Monster Walk
+            ],
+          });
+          break;
+
+        case 'Gemelos':
+          result.add({
+            'name': 'Gemelos Diamante$dayNameSuffix',
+            'muscles': ['Gemelos'],
+            'patterns': [
+              'Extensión', // De pie (Pesado)
+              'Extensión', // Sentado (Sóleo)
+              'Extensión', // Prensa
+              'Salto', // Cuerda
+              'Extensión', // Unilateral
+            ],
+          });
+          break;
+          
+        case 'Aductores': // y Abductores
+           result.add({
+            'name': 'Pierna Interior/Exterior$dayNameSuffix',
+            'muscles': ['Aductores', 'Abductores', 'Glúteos'],
+            'patterns': [
+              'Sentadilla', // Sumo (Gran activación aductor)
+              'Aislamiento', // Máquina Aductora
+              'Isométrico', // Copenhagen Plank
+              'Abducción', // Máquina Abductora
+              'Desplazamiento', // Monster Walk
+              'Aislamiento', // Aductor Polea
+            ],
+          });
+          break;
+
+        // --- EXTRAS ---
+        case 'Abdominales': // CORE
+          result.add({
+            'name': 'Core de Piedra$dayNameSuffix',
+            'muscles': ['Core'],
+            'patterns': [
+              'Flexión', // Crunch o Elevación piernas
+              'Isométrico', // Plancha
+              'Rotación', // Giros Rusos o Leñador
+              'Anti-extensión', // Rueda abdominal
+              'Flexión', // Colgado
+              'Isométrico', // Vacío abdominal (si existiera) o Plancha lateral
+            ],
+          });
+          break;
+          
+        case 'Cardio':
+           result.add({
+            'name': 'Sesión Cardio$dayNameSuffix',
+            'muscles': ['Cardio', 'Core'],
+            'patterns': [
+              'Carrera', 
+              'Cíclico', 
+              'Pedaleo', 
+              'Core',
+              'Isométrico'
+            ],
+          });
+          break;
+
+        default: // FALLBACK
+          result.add({
+            'name': 'Entrenamiento General',
             'muscles': ['Todo'],
-            'patterns': [
-              'Sentadilla',
-              'Empuje Horizontal',
-              'Tracción Vertical',
-              'Bisagra',
-              'Empuje Vertical',
-              'Aislamiento',
-            ],
+            'patterns': ['Sentadilla', 'Empuje Horizontal', 'Tracción Vertical', 'Bisagra', 'Empuje Vertical', 'Aislamiento'],
           });
       }
     }
     return result;
   }
 
-  // Estructuras para Fuerza (menos volumen, más frecuencia en básicos)
+  // // NOTA PARA MÍ: Mantengo la lógica de división clásica (Full body, Torso/Pierna) 
+  // // para cuando el usuario no pide un músculo específico.
+  static List<Map<String, dynamic>> _getSplitStructure(
+    int days,
+    TrainingGoal goal,
+  ) {
+    if (goal == TrainingGoal.strength) {
+       // Rutina de fuerza (Básicos, menos volumen de accesorios)
+       return _getStrengthStructure(days);
+    } else {
+       // Rutina de hipertrofia/general (Más volumen y variedad)
+       return _getHypertrophyStructure(days);
+    }
+  }
+
+  // Estructuras para Fuerza
   static List<Map<String, dynamic>> _getStrengthStructure(int days) {
     switch (days) {
       case 1:
         return [
-          {
-            'name': 'Full Body Fuerza',
-            'muscles': ['Todo'],
-            'patterns': [
-              'Sentadilla',
-              'Empuje Horizontal',
-              'Tracción Horizontal',
-              'Bisagra',
-              'Empuje Vertical',
-            ],
-          },
+          {'name': 'Full Body Fuerza', 'muscles': ['Todo'], 'patterns': ['Sentadilla', 'Empuje Horizontal', 'Tracción Horizontal', 'Bisagra', 'Empuje Vertical']},
         ];
       case 2:
-        // Opción 1: Full Body A/B (Default)
-        // Opción 2: Torso / Pierna (Nueva variación)
-        // Simple randomizer para variedad o alternancia
-        bool useTorsoPierna = DateTime.now().millisecond % 2 == 0;
-
-        if (useTorsoPierna) {
-          return [
-            {
-              'name': 'Torso Completo',
-              'muscles': ['Pecho', 'Espalda', 'Hombros', 'Brazos'],
-              'patterns': [
-                'Empuje Horizontal',
-                'Tracción Horizontal',
-                'Empuje Vertical',
-                'Tracción Vertical',
-                'Aislamiento',
-              ],
-            },
-            {
-              'name': 'Pierna Completa',
-              'muscles': ['Cuádriceps', 'Isquios', 'Glúteo', 'Gemelo'],
-              'patterns': [
-                'Sentadilla',
-                'Bisagra',
-                'Zancada',
-                'Puente',
-                'Aislamiento',
-              ],
-            },
-          ];
-        }
-
-        return [
-          {
-            'name': 'Full Body A',
-            'muscles': ['Todo'],
-            'patterns': [
-              'Sentadilla',
-              'Empuje Horizontal',
-              'Tracción Horizontal',
-              'Empuje Vertical',
-              'Bisagra',
-            ],
-          },
-          {
-            'name': 'Full Body B',
-            'muscles': ['Todo'],
-            'patterns': [
-              'Bisagra',
-              'Empuje Vertical',
-              'Tracción Vertical',
-              'Sentadilla',
-              'Empuje Horizontal',
-            ],
-          },
+         return [
+          {'name': 'Torso Fuerza', 'muscles': ['Pecho', 'Espalda', 'Hombros'], 'patterns': ['Empuje Horizontal', 'Tracción Horizontal', 'Empuje Vertical', 'Tracción Vertical']},
+          {'name': 'Pierna Fuerza', 'muscles': ['Cuádriceps', 'Isquios'], 'patterns': ['Sentadilla', 'Bisagra', 'Zancada', 'Puente']},
         ];
       case 3:
         return [
-          {
-            'name': 'Full Body Pesado',
-            'muscles': ['Todo'],
-            'patterns': [
-              'Sentadilla',
-              'Empuje Horizontal',
-              'Tracción Horizontal',
-              'Aislamiento Opcional',
-            ],
-          },
-          {
-            'name': 'Full Body Liviano',
-            'muscles': ['Todo'],
-            'patterns': [
-              'Bisagra',
-              'Empuje Vertical',
-              'Tracción Vertical',
-              'Zancada',
-              'Aislamiento Opcional',
-            ],
-          },
-          {
-            'name': 'Full Body Pesado',
-            'muscles': ['Todo'],
-            'patterns': [
-              'Sentadilla',
-              'Empuje Horizontal',
-              'Tracción Horizontal',
-              'Aislamiento Opcional',
-            ],
-          },
+          {'name': 'Full Body A', 'muscles': ['Todo'], 'patterns': ['Sentadilla', 'Empuje Horizontal', 'Tracción Vertical', 'Aislamiento']},
+          {'name': 'Full Body B', 'muscles': ['Todo'], 'patterns': ['Bisagra', 'Empuje Vertical', 'Tracción Horizontal', 'Aislamiento']},
+          {'name': 'Full Body C', 'muscles': ['Todo'], 'patterns': ['Zancada', 'Fondos', 'Dominadas', 'Core']},
         ];
-      case 4:
-        return [
-          {
-            'name': 'Torso Superior Foco Fuerza',
-            'muscles': ['Pecho', 'Espalda'],
-            'patterns': [
-              'Empuje Horizontal',
-              'Tracción Horizontal',
-              'Empuje Vertical',
-              'Tracción Vertical',
-              'Aislamiento Biceps',
-            ],
-          },
-          {
-            'name': 'Pierna Foco Fuerza',
-            'muscles': ['Cuádriceps', 'Isquios'],
-            'patterns': [
-              'Sentadilla',
-              'Bisagra',
-              'Zancada',
-              'Puente',
-              'Aislamiento Gemelo',
-            ],
-          },
-          {
-            'name': 'Torso Superior Foco Reps',
-            'muscles': ['Hombros', 'Brazos'],
-            'patterns': [
-              'Empuje Vertical',
-              'Tracción Vertical',
-              'Empuje Horizontal',
-              'Tracción Horizontal',
-              'Aislamiento Triceps',
-            ],
-          },
-          {
-            'name': 'Pierna Foco Reps',
-            'muscles': ['Isquios', 'Glúteo'],
-            'patterns': [
-              'Bisagra',
-              'Sentadilla',
-              'Puente',
-              'Zancada',
-              'Aislamiento Femoral',
-            ],
-          },
+      case 4: // Upper/Lower x2
+         return [
+          {'name': 'Torso A', 'muscles': ['Pecho', 'Espalda'], 'patterns': ['Empuje Horizontal', 'Tracción Horizontal', 'Empuje Vertical', 'Aislamiento']},
+          {'name': 'Pierna A', 'muscles': ['Cuádriceps', 'Isquios'], 'patterns': ['Sentadilla', 'Bisagra', 'Aislamiento', 'Core']},
+          {'name': 'Torso B', 'muscles': ['Hombros', 'Brazos'], 'patterns': ['Empuje Vertical', 'Tracción Vertical', 'Aislamiento', 'Aislamiento']},
+          {'name': 'Pierna B', 'muscles': ['Glúteos', 'Gemelo'], 'patterns': ['Puente', 'Zancada', 'Aislamiento', 'Core']},
         ];
-      case 5:
-        return [
-          {
-            'name': 'Torso Superior',
-            'muscles': ['Pecho', 'Espalda'],
-            'patterns': [
-              'Empuje Horizontal',
-              'Tracción Horizontal',
-              'Empuje Vertical',
-              'Tracción Vertical',
-            ],
-          },
-          {
-            'name': 'Pierna',
-            'muscles': ['Cuádriceps', 'Isquios'],
-            'patterns': ['Sentadilla', 'Bisagra', 'Zancada', 'Puente'],
-          },
-          {
-            'name': 'Push',
-            'muscles': ['Pecho', 'Hombros', 'Tríceps'],
-            'patterns': [
-              'Empuje Horizontal',
-              'Empuje Vertical',
-              'Aislamiento Tríceps',
-            ],
-          },
-          {
-            'name': 'Pull',
-            'muscles': ['Espalda', 'Bíceps'],
-            'patterns': [
-              'Tracción Vertical',
-              'Tracción Horizontal',
-              'Aislamiento Bíceps',
-            ],
-          },
-          {
-            'name': 'Legs',
-            'muscles': ['Cuádriceps', 'Isquios'],
-            'patterns': ['Sentadilla', 'Bisagra', 'Aislamiento Gemelo'],
-          },
-        ];
-      case 6:
-        return [
-          {
-            'name': 'Push Fuerza',
-            'muscles': ['Pecho', 'Hombros', 'Tríceps'],
-            'patterns': [
-              'Empuje Horizontal',
-              'Empuje Vertical',
-              'Aislamiento Tríceps',
-            ],
-          },
-          {
-            'name': 'Pull Fuerza',
-            'muscles': ['Espalda', 'Bíceps'],
-            'patterns': [
-              'Tracción Vertical',
-              'Tracción Horizontal',
-              'Aislamiento Bíceps',
-            ],
-          },
-          {
-            'name': 'Legs Fuerza',
-            'muscles': ['Cuádriceps', 'Isquios'],
-            'patterns': ['Sentadilla', 'Bisagra', 'Aislamiento Gemelo'],
-          },
-          {
-            'name': 'Push Hipertrofia',
-            'muscles': ['Pecho', 'Hombros', 'Tríceps'],
-            'patterns': [
-              'Empuje Inclinado',
-              'Aislamiento Hombro',
-              'Aislamiento Tríceps',
-            ],
-          },
-          {
-            'name': 'Pull Hipertrofia',
-            'muscles': ['Espalda', 'Bíceps'],
-            'patterns': [
-              'Tracción Horizontal',
-              'Aislamiento Espalda',
-              'Aislamiento Bíceps',
-            ],
-          },
-          {
-            'name': 'Legs Hipertrofia',
-            'muscles': ['Cuádriceps', 'Isquios'],
-            'patterns': ['Zancada', 'Puente', 'Aislamiento Femoral'],
-          },
-        ];
-      case 7:
       default:
-        var structure = _getStrengthStructure(6);
-        structure.add({
-          'name': 'Puntos Débiles / Técnica',
-          'muscles': ['Todo'],
-          'patterns': ['Aislamiento', 'Aislamiento', 'Aislamiento', 'Core'],
-        });
-        return structure;
+        // Para 5+ días en fuerza, usar una PPL
+        return _getHypertrophyStructure(days); 
     }
   }
 
-  // Estructuras para Hipertrofia (más volumen y aislamiento)
+  // Estructuras para Hipertrofia (Standard)
   static List<Map<String, dynamic>> _getHypertrophyStructure(int days) {
     switch (days) {
       case 1:
         return [
-          {
-            'name': 'Full Body',
-            'muscles': ['Todo'],
-            'patterns': [
-              'Sentadilla',
-              'Empuje Horizontal',
-              'Tracción Vertical',
-              'Bisagra',
-              'Empuje Vertical',
-              'Aislamiento',
-            ],
-          },
-        ];
-      case 2: // Para 2 días, Full-Body es mejor
-        return [
-          {
-            'name': 'Full Body A',
-            'muscles': ['Todo'],
-            'patterns': [
-              'Sentadilla',
-              'Empuje Horizontal',
-              'Tracción Vertical',
-              'Bisagra',
-              'Aislamiento',
-              'Aislamiento',
-            ],
-          },
-          {
-            'name': 'Full Body B',
-            'muscles': ['Todo'],
-            'patterns': [
-              'Zancada',
-              'Empuje Vertical',
-              'Tracción Horizontal',
-              'Puente',
-              'Aislamiento',
-              'Aislamiento',
-            ],
-          },
-        ];
-      case 3:
-        return [
-          {
-            'name': 'Empuje (Push)',
-            'muscles': ['Pecho', 'Hombros', 'Tríceps'],
-            'patterns': [
-              'Empuje Horizontal',
-              'Empuje Vertical',
-              'Empuje Inclinado',
-              'Aislamiento Pecho',
-              'Aislamiento Hombro',
-              'Aislamiento Tríceps',
-            ],
-          },
-          {
-            'name': 'Tracción (Pull)',
-            'muscles': ['Espalda', 'Bíceps'],
-            'patterns': [
-              'Tracción Vertical',
-              'Tracción Horizontal',
-              'Tracción Vertical',
-              'Bisagra',
-              'Aislamiento Bíceps',
-              'Aislamiento Espalda',
-            ],
-          },
-          {
-            'name': 'Pierna (Leg)',
-            'muscles': ['Cuádriceps', 'Isquios'],
-            'patterns': [
-              'Sentadilla',
-              'Zancada',
-              'Bisagra',
-              'Puente',
-              'Aislamiento Cuádriceps',
-              'Aislamiento Isquios',
-            ],
-          },
-        ];
-      case 4:
-        return [
-          {
-            'name': 'Torso A (Pecho y Tríceps)',
-            'muscles': ['Pecho', 'Tríceps'],
-            'patterns': [
-              'Empuje Horizontal',
-              'Empuje Inclinado',
-              'Aislamiento Pecho',
-              'Empuje Vertical',
-              'Aislamiento Tríceps',
-              'Aislamiento Tríceps',
-            ],
-          },
-          {
-            'name': 'Pierna A (Cuádriceps y Gemelo)',
-            'muscles': ['Cuádriceps', 'Gemelo'],
-            'patterns': [
-              'Sentadilla',
-              'Zancada',
-              'Sentadilla',
-              'Aislamiento Cuádriceps',
-              'Aislamiento Gemelo',
-              'Aislamiento Gemelo',
-            ],
-          },
-          {
-            'name': 'Torso B (Espalda y Bíceps)',
-            'muscles': ['Espalda', 'Bíceps'],
-            'patterns': [
-              'Tracción Vertical',
-              'Tracción Horizontal',
-              'Tracción Horizontal',
-              'Bisagra Ligera',
-              'Aislamiento Bíceps',
-              'Aislamiento Bíceps',
-            ],
-          },
-          {
-            'name': 'Pierna B (Isquios y Glúteo)',
-            'muscles': ['Isquios', 'Glúteo'],
-            'patterns': [
-              'Bisagra',
-              'Puente',
-              'Bisagra',
-              'Zancada',
-              'Aislamiento Femoral',
-              'Aislamiento Glúteo',
-            ],
-          },
-        ];
-      case 5:
-        return [
-          {
-            'name': 'Pecho',
-            'muscles': ['Pecho'],
-            'patterns': [
-              'Empuje Horizontal',
-              'Empuje Inclinado',
-              'Aislamiento',
-              'Aislamiento',
-              'Empuje Horizontal',
-            ],
-          },
-          {
-            'name': 'Espalda',
-            'muscles': ['Espalda'],
-            'patterns': [
-              'Tracción Vertical',
-              'Tracción Horizontal',
-              'Tracción Vertical',
-              'Tracción Horizontal',
-              'Bisagra',
-            ],
-          },
-          {
-            'name': 'Hombros y Brazos',
-            'muscles': ['Hombros', 'Bíceps', 'Tríceps'],
-            'patterns': [
-              'Empuje Vertical',
-              'Aislamiento Hombro',
-              'Aislamiento Bíceps',
-              'Aislamiento Tríceps',
-              'Aislamiento Bíceps',
-              'Aislamiento Tríceps',
-            ],
-          },
-          {
-            'name': 'Pierna (Cuádriceps)',
-            'muscles': ['Cuádriceps', 'Gemelo'],
-            'patterns': [
-              'Sentadilla',
-              'Zancada',
-              'Aislamiento Cuádriceps',
-              'Aislamiento Cuádriceps',
-              'Aislamiento Gemelo',
-            ],
-          },
-          {
-            'name': 'Pierna (Isquios y Glúteo)',
-            'muscles': ['Isquios', 'Glúteo'],
-            'patterns': [
-              'Bisagra',
-              'Puente',
-              'Aislamiento Femoral',
-              'Aislamiento Glúteo',
-              'Zancada',
-            ],
-          },
-        ];
-      case 6:
-        return [
-          {
-            'name': 'Push A',
-            'muscles': ['Pecho', 'Hombros', 'Tríceps'],
-            'patterns': [
-              'Empuje Horizontal',
-              'Empuje Vertical',
-              'Aislamiento Tríceps',
-            ],
-          },
-          {
-            'name': 'Pull A',
-            'muscles': ['Espalda', 'Bíceps'],
-            'patterns': [
-              'Tracción Vertical',
-              'Tracción Horizontal',
-              'Aislamiento Bíceps',
-            ],
-          },
-          {
-            'name': 'Legs A',
-            'muscles': ['Cuádriceps', 'Isquios'],
-            'patterns': ['Sentadilla', 'Bisagra', 'Aislamiento Cuádriceps'],
-          },
-          {
-            'name': 'Push B',
-            'muscles': ['Pecho', 'Hombros', 'Tríceps'],
-            'patterns': [
-              'Empuje Inclinado',
-              'Aislamiento Hombro',
-              'Aislamiento Tríceps',
-            ],
-          },
-          {
-            'name': 'Pull B',
-            'muscles': ['Espalda', 'Bíceps'],
-            'patterns': [
-              'Tracción Horizontal',
-              'Aislamiento Espalda',
-              'Aislamiento Bíceps',
-            ],
-          },
-          {
-            'name': 'Legs B',
-            'muscles': ['Cuádriceps', 'Isquios'],
-            'patterns': ['Zancada', 'Puente', 'Aislamiento Femoral'],
-          },
-        ];
-      case 7:
-      default:
-        var structure = _getHypertrophyStructure(6);
-        structure.add({
-          'name': 'Puntos Débiles',
-          'muscles': ['Todo'],
-          'patterns': ['Aislamiento', 'Aislamiento', 'Aislamiento', 'Core'],
-        });
-        return structure;
-    }
-  }
-
-  // Estructuras Generales / Resistencia (más Full-Body y metabólico)
-  static List<Map<String, dynamic>> _getGeneralStructure(int days) {
-    switch (days) {
-      case 1:
-        return [
-          {
-            'name': 'Full Body',
-            'muscles': ['Todo'],
-            'patterns': [
-              'Sentadilla',
-              'Empuje Horizontal',
-              'Tracción Vertical',
-              'Bisagra',
-              'Empuje Vertical',
-              'Aislamiento',
-            ],
-          },
+          {'name': 'Full Body', 'muscles': ['Todo'], 'patterns': ['Sentadilla', 'Empuje Horizontal', 'Tracción Vertical', 'Bisagra', 'Empuje Vertical', 'Aislamiento']},
         ];
       case 2:
         return [
-          {
-            'name': 'Full Body A',
-            'muscles': ['Todo'],
-            'patterns': [
-              'Sentadilla',
-              'Empuje Horizontal',
-              'Tracción Vertical',
-              'Bisagra',
-              'Empuje Vertical',
-              'Aislamiento',
-            ],
-          },
-          {
-            'name': 'Full Body B',
-            'muscles': ['Todo'],
-            'patterns': [
-              'Zancada',
-              'Empuje Vertical',
-              'Tracción Horizontal',
-              'Puente',
-              'Empuje Horizontal',
-              'Aislamiento',
-            ],
-          },
+          {'name': 'Torso', 'muscles': ['Pecho', 'Espalda', 'Hombros'], 'patterns': ['Empuje Horizontal', 'Tracción Vertical', 'Empuje Vertical', 'Tracción Horizontal', 'Aislamiento', 'Aislamiento']},
+          {'name': 'Pierna', 'muscles': ['Cuádriceps', 'Isquios', 'Gemelo'], 'patterns': ['Sentadilla', 'Bisagra', 'Zancada', 'Puente', 'Aislamiento', 'Aislamiento']},
         ];
-      case 3:
+      case 3: // PPL Básico
         return [
-          {
-            'name': 'Full Body A',
-            'muscles': ['Todo'],
-            'patterns': [
-              'Sentadilla',
-              'Empuje Horizontal',
-              'Tracción Horizontal',
-              'Empuje Vertical',
-              'Bisagra',
-              'Aislamiento',
-            ],
-          },
-          {
-            'name': 'Full Body B',
-            'muscles': ['Todo'],
-            'patterns': [
-              'Bisagra',
-              'Empuje Inclinado',
-              'Tracción Vertical',
-              'Zancada',
-              'Aislamiento',
-              'Aislamiento',
-            ],
-          },
-          {
-            'name': 'Full Body C',
-            'muscles': ['Todo'],
-            'patterns': [
-              'Sentadilla',
-              'Empuje Vertical',
-              'Tracción Horizontal',
-              'Puente',
-              'Aislamiento',
-              'Aislamiento',
-            ],
-          },
+          {'name': 'Empuje (Push)', 'muscles': ['Pecho', 'Hombros', 'Tríceps'], 'patterns': ['Empuje Horizontal', 'Empuje Vertical', 'Empuje Inclinado', 'Aislamiento Hombro', 'Aislamiento Tríceps']},
+          {'name': 'Tracción (Pull)', 'muscles': ['Espalda', 'Bíceps'], 'patterns': ['Tracción Vertical', 'Tracción Horizontal', 'Bisagra', 'Aislamiento Espalda', 'Aislamiento Bíceps']},
+          {'name': 'Pierna (Legs)', 'muscles': ['Cuádriceps', 'Isquios', 'Gemelo'], 'patterns': ['Sentadilla', 'Prensa', 'Bisagra', 'Zancada', 'Aislamiento Gemelo']},
         ];
-      case 4:
+      case 4: // Torso/Pierna Frecuencia 2
         return [
-          {
-            'name': 'Torso A',
-            'muscles': ['Pecho', 'Espalda'],
-            'patterns': [
-              'Empuje Horizontal',
-              'Tracción Horizontal',
-              'Empuje Vertical',
-              'Tracción Vertical',
-              'Aislamiento',
-              'Aislamiento',
-            ],
-          },
-          {
-            'name': 'Pierna A',
-            'muscles': ['Cuádriceps', 'Gemelo'],
-            'patterns': [
-              'Sentadilla',
-              'Zancada',
-              'Sentadilla',
-              'Aislamiento',
-              'Aislamiento',
-              'Puente',
-            ],
-          },
-          {
-            'name': 'Torso B',
-            'muscles': ['Hombros', 'Brazos'],
-            'patterns': [
-              'Empuje Inclinado',
-              'Tracción Vertical',
-              'Empuje Vertical',
-              'Aislamiento',
-              'Aislamiento',
-              'Aislamiento',
-            ],
-          },
-          {
-            'name': 'Pierna B',
-            'muscles': ['Isquios', 'Glúteo'],
-            'patterns': [
-              'Bisagra',
-              'Puente',
-              'Bisagra',
-              'Zancada',
-              'Aislamiento',
-              'Aislamiento',
-            ],
-          },
+          {'name': 'Torso Hipertrofia A', 'muscles': ['Pecho', 'Espalda'], 'patterns': ['Empuje Horizontal', 'Tracción Vertical', 'Empuje Inclinado', 'Aislamiento Bíceps', 'Aislamiento Tríceps']},
+          {'name': 'Pierna Hipertrofia A', 'muscles': ['Cuádriceps', 'Gemelo'], 'patterns': ['Sentadilla', 'Prensa', 'Zancada', 'Aislamiento Cuádriceps', 'Aislamiento Gemelo']},
+          {'name': 'Torso Hipertrofia B', 'muscles': ['Hombros', 'Espalda'], 'patterns': ['Empuje Vertical', 'Tracción Horizontal', 'Elevación', 'Aislamiento Hombro', 'Aislamiento']},
+          {'name': 'Pierna Hipertrofia B', 'muscles': ['Isquios', 'Glúteo'], 'patterns': ['Bisagra', 'Puente', 'Flexión', 'Aislamiento Glúteo', 'Core']},
         ];
-      case 5:
-        final structure = _getGeneralStructure(4);
-        structure.add({
-          'name': 'Full Body Metabólico',
-          'muscles': ['Todo'],
-          'patterns': [
-            'Sentadilla',
-            'Empuje',
-            'Tracción',
-            'Bisagra',
-            'Aislamiento',
-            'Aislamiento',
-          ],
-        });
-        return structure;
-      case 6:
-        final structure6 = _getGeneralStructure(4);
-        structure6.add({
-          'name': 'Full Body A',
-          'muscles': ['Todo'],
-          'patterns': ['Sentadilla', 'Empuje', 'Tracción'],
-        });
-        structure6.add({
-          'name': 'Full Body B',
-          'muscles': ['Todo'],
-          'patterns': ['Bisagra', 'Empuje', 'Tracción'],
-        });
-        return structure6;
-      case 7:
-      default:
-        final structure7 = _getGeneralStructure(6);
-        structure7.add({
-          'name': 'Cardio + Core',
-          'muscles': ['Abdominales'],
-          'patterns': ['Core', 'Core', 'Core'],
-        });
-        return structure7;
+      case 5: // PPL + Upper/Lower híbrido (Arnold Split modificado)
+        return [
+          {'name': 'Pecho y Espalda', 'muscles': ['Pecho', 'Espalda'], 'patterns': ['Empuje Horizontal', 'Tracción Horizontal', 'Empuje Inclinado', 'Tracción Vertical', 'Aislamiento']},
+          {'name': 'Piernas', 'muscles': ['Cuádriceps', 'Isquios'], 'patterns': ['Sentadilla', 'Bisagra', 'Prensa', 'Zancada', 'Aislamiento']},
+          {'name': 'Hombros y Brazos', 'muscles': ['Hombros', 'Brazos'], 'patterns': ['Empuje Vertical', 'Aislamiento Hombro', 'Aislamiento Bíceps', 'Aislamiento Tríceps', 'Elevación']},
+          {'name': 'Torso Pump', 'muscles': ['Pecho', 'Espalda'], 'patterns': ['Empuje', 'Tracción', 'Aislamiento', 'Aislamiento']},
+          {'name': 'Pierna Pump', 'muscles': ['Pierna'], 'patterns': ['Sentadilla', 'Puente', 'Aislamiento', 'Aislamiento']},
+        ];
+      default: // 6 días PPL x2
+        return [
+          {'name': 'Push A', 'muscles': ['Pecho', 'Tríceps'], 'patterns': ['Empuje Horizontal', 'Empuje Vertical', 'Aislamiento Tríceps', 'Aislamiento Pecho']},
+          {'name': 'Pull A', 'muscles': ['Espalda', 'Bíceps'], 'patterns': ['Tracción Vertical', 'Tracción Horizontal', 'Aislamiento Bíceps', 'Aislamiento Espalda']},
+          {'name': 'Legs A', 'muscles': ['Cuádriceps'], 'patterns': ['Sentadilla', 'Zancada', 'Aislamiento Cuádriceps', 'Aislamiento Gemelo']},
+          {'name': 'Push B', 'muscles': ['Hombros', 'Pecho'], 'patterns': ['Empuje Vertical', 'Empuje Inclinado', 'Aislamiento Hombro', 'Aislamiento Tríceps']},
+          {'name': 'Pull B', 'muscles': ['Espalda', 'Trapecio'], 'patterns': ['Tracción Horizontal', 'Tracción Vertical', 'Elevación', 'Aislamiento Bíceps']},
+          {'name': 'Legs B', 'muscles': ['Isquios', 'Glúteo'], 'patterns': ['Bisagra', 'Puente', 'Flexión', 'Aislamiento Glúteo']},
+        ];
     }
   }
 }
