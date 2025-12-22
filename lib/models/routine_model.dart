@@ -11,10 +11,10 @@ class RoutineDay extends HiveObject {
   String name; // ej: "Día 1: Torso"
 
   @HiveField(2)
-  List<String> targetMuscles;
+  List<RoutineExercise> exercises; // ✅ CORREGIDO: Orden cambiado
 
   @HiveField(3)
-  List<RoutineExercise> exercises;
+  List<String> targetMuscles; // ✅ CORREGIDO: Ahora en posición 3
 
   RoutineDay({
     required this.id,

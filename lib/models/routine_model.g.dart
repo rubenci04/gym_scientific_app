@@ -8,7 +8,7 @@ part of 'routine_model.dart';
 
 class WeeklyRoutineAdapter extends TypeAdapter<WeeklyRoutine> {
   @override
-  final int typeId = 3;
+  final int typeId = 9; // ✅ CORREGIDO: Era 3, causaba conflicto con WorkoutSession
 
   @override
   WeeklyRoutine read(BinaryReader reader) {
@@ -54,7 +54,7 @@ class WeeklyRoutineAdapter extends TypeAdapter<WeeklyRoutine> {
 
 class RoutineDayAdapter extends TypeAdapter<RoutineDay> {
   @override
-  final int typeId = 4;
+  final int typeId = 8; // ✅ CORREGIDO: Era 4, causaba conflicto con WorkoutExercise
 
   @override
   RoutineDay read(BinaryReader reader) {
@@ -97,7 +97,7 @@ class RoutineDayAdapter extends TypeAdapter<RoutineDay> {
 
 class RoutineExerciseAdapter extends TypeAdapter<RoutineExercise> {
   @override
-  final int typeId = 5;
+  final int typeId = 11; // ✅ CORREGIDO: Era 5, causaba conflicto con WorkoutSession
 
   @override
   RoutineExercise read(BinaryReader reader) {
@@ -107,32 +107,29 @@ class RoutineExerciseAdapter extends TypeAdapter<RoutineExercise> {
     };
     return RoutineExercise(
       exerciseId: fields[0] as String,
-      name: fields[1] as String,
-      sets: fields[2] as int,
-      reps: fields[3] as String,
-      targetRPE: fields[4] as int,
-      restSeconds: fields[5] as int,
-      note: fields[6] as String,
+      sets: fields[1] as int,
+      reps: fields[2] as String,
+      rpe: fields[3] as String?,
+      restTimeSeconds: fields[4] as int?,
+      note: fields[5] as String?,
     );
   }
 
   @override
   void write(BinaryWriter writer, RoutineExercise obj) {
     writer
-      ..writeByte(7)
+      ..writeByte(6)
       ..writeByte(0)
       ..write(obj.exerciseId)
       ..writeByte(1)
-      ..write(obj.name)
-      ..writeByte(2)
       ..write(obj.sets)
-      ..writeByte(3)
+      ..writeByte(2)
       ..write(obj.reps)
+      ..writeByte(3)
+      ..write(obj.rpe)
       ..writeByte(4)
-      ..write(obj.targetRPE)
+      ..write(obj.restTimeSeconds)
       ..writeByte(5)
-      ..write(obj.restSeconds)
-      ..writeByte(6)
       ..write(obj.note);
   }
 

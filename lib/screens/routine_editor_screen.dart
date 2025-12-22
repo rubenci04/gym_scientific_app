@@ -57,6 +57,7 @@ class _RoutineEditorScreenState extends State<RoutineEditorScreen> {
       final newDay = RoutineDay(
         id: DateTime.now().millisecondsSinceEpoch.toString(),
         name: 'Día ${_editableRoutine.days.length + 1}',
+        targetMuscles: [], // ✅ CORREGIDO: Parámetro agregado
         exercises: [],
       );
       _editableRoutine.days.add(newDay);
@@ -97,13 +98,12 @@ class _RoutineEditorScreenState extends State<RoutineEditorScreen> {
             setState(() {
               // Convertimos el Ejercicio de la Librería a un Ejercicio de Rutina
               final routineExercise = RoutineExercise(
-                id: selectedExercise.id, // Guardamos referencia al ID original
-                name: selectedExercise.name,
-                targetSets: 3, // Valor por defecto
-                targetReps: "10-12", // Valor por defecto
-                targetRPE: 8,
-                restSeconds: 90,
-                note: "",
+                exerciseId: selectedExercise.id, // ✅ CORREGIDO: Cambió de 'id' a 'exerciseId'
+                sets: 3, // ✅ CORREGIDO: Cambió de 'targetSets' a 'sets'
+                reps: "10-12", // ✅ CORREGIDO: Cambió de 'targetReps' a 'reps'
+                rpe: "8", // ✅ CORREGIDO: Cambió de 'targetRPE' (int) a 'rpe' (String?)
+                restTimeSeconds: 90, // ✅ CORREGIDO: Cambió de 'restSeconds' a 'restTimeSeconds'
+                note: "", // ✅ Mantenido
               );
               _editableRoutine.days[dayIndex].exercises.add(routineExercise);
               
@@ -262,9 +262,8 @@ class _RoutineEditorScreenState extends State<RoutineEditorScreen> {
               },
               itemBuilder: (context, exIndex) {
                 final exercise = day.exercises[exIndex];
-                // Intentamos buscar la imagen en la caja de ejercicios para mostrarla aquí
-                // Esto es opcional pero se ve genial
-                final originalExercise = Hive.box<Exercise>('exerciseBox').get(exercise.id);
+                // ✅ CORREGIDO: Cambió exercise.id a exercise.exerciseId
+                final originalExercise = Hive.box<Exercise>('exerciseBox').get(exercise.exerciseId);
                 
                 ImageProvider? img;
                 if (originalExercise != null) {
@@ -281,6 +280,9 @@ class _RoutineEditorScreenState extends State<RoutineEditorScreen> {
                    }
                 }
 
+                // ✅ CORREGIDO: Obtenemos el nombre desde la base de datos
+                final exerciseName = originalExercise?.name ?? 'Ejercicio Desconocido';
+
                 return ListTile(
                   key: ValueKey(exercise), // Necesario para reorderable
                   contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
@@ -293,8 +295,8 @@ class _RoutineEditorScreenState extends State<RoutineEditorScreen> {
                     ),
                     child: img == null ? const Icon(Icons.fitness_center, size: 20, color: Colors.white24) : null,
                   ),
-                  title: Text(exercise.name, style: const TextStyle(color: Colors.white)),
-                  subtitle: Text("${exercise.targetSets} series x ${exercise.targetReps}", style: const TextStyle(color: Colors.grey, fontSize: 12)),
+                  title: Text(exerciseName, style: const TextStyle(color: Colors.white)), // ✅ CORREGIDO
+                  subtitle: Text("${exercise.sets} series x ${exercise.reps}", style: const TextStyle(color: Colors.grey, fontSize: 12)), // ✅ CORREGIDO
                   trailing: Row(
                     mainAxisSize: MainAxisSize.min,
                     children: [
