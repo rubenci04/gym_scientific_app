@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart'; // Importante para controlar barra de estado y navegación
 import 'package:hive_flutter/hive_flutter.dart';
+import 'package:provider/provider.dart'; // He añadido esto para manejar el estado global (Tema, Rutinas, etc.)
 
 // Modelos
 import 'models/user_model.dart';
@@ -23,13 +24,13 @@ void main() async {
   WidgetsFlutterBinding.ensureInitialized();
 
   // --- CONFIGURACIÓN DE MÁRGENES DEL SISTEMA ---
-  // Esto hace que la barra de arriba (hora/batería) sea transparente
-  // y la de abajo (botones android) tenga el color de la app.
+  // He movido la configuración de estilo dentro del ThemeProvider o del build
+  // para que cambie dinámicamente, pero mantengo esta configuración inicial segura.
   SystemChrome.setSystemUIOverlayStyle(const SystemUiOverlayStyle(
-    statusBarColor: Colors.transparent, 
-    statusBarIconBrightness: Brightness.light, // Iconos blancos
-    systemNavigationBarColor: AppColors.background, // Fondo barra inferior
-    systemNavigationBarIconBrightness: Brightness.light, // Iconos blancos
+    statusBarColor: Colors.transparent,
+    statusBarIconBrightness: Brightness.light, 
+    systemNavigationBarColor: AppColors.background,
+    systemNavigationBarIconBrightness: Brightness.light,
   ));
 
   // Bloqueamos la orientación vertical (mejor experiencia para apps de gym)
@@ -60,11 +61,24 @@ void main() async {
   await Hive.openBox<WorkoutSession>('historyBox');
   await Hive.openBox<WeeklyRoutine>('routineBox');
   await Hive.openBox<HydrationSettings>('hydrationBox');
+  
+  // He añadido esta caja para guardar configuraciones como el Tema Oscuro/Claro
+  await Hive.openBox('settingsBox'); 
 
   await SeedDataService.initializeExercises();
   await NotificationService.initialize();
 
-  runApp(const GymApp());
+  // He envuelto la app en un MultiProvider. Esto es vital para "modernizarla".
+  // Nos permite tener variables globales inteligentes que actualizan la pantalla
+  // cuando cambian (como el tema o las rutinas).
+  runApp(
+    MultiProvider(
+      providers: [
+        ChangeNotifierProvider(create: (_) => ThemeProvider()),
+      ],
+      child: const GymApp(),
+    ),
+  );
 }
 
 class GymApp extends StatelessWidget {
@@ -75,12 +89,43 @@ class GymApp extends StatelessWidget {
     final userBox = Hive.box<UserProfile>('userBox');
     final bool userExists = userBox.containsKey('currentUser');
 
+    // Aquí "escucho" al ThemeProvider. Si cambia el tema, esta parte se reconstruye sola.
+    final themeProvider = Provider.of<ThemeProvider>(context);
+
     return MaterialApp(
       debugShowCheckedModeBanner: false,
-      title: 'Gym Scientific', // <--- NOMBRE ACTUALIZADO
+      title: 'Gym Scientific',
       
-      // --- TEMA PROFESIONAL ---
+      // --- MODO DE TEMA DINÁMICO ---
+      themeMode: themeProvider.themeMode, 
+      
+      // TEMA CLARO (Definido por mí para que contraste bien)
       theme: ThemeData(
+        brightness: Brightness.light,
+        scaffoldBackgroundColor: const Color(0xFFF5F5F5), // Gris muy claro
+        primaryColor: AppColors.primary,
+        colorScheme: const ColorScheme.light(
+          primary: AppColors.primary,
+          secondary: AppColors.secondary,
+          surface: Colors.white,
+          background: Color(0xFFF5F5F5),
+        ),
+        appBarTheme: const AppBarTheme(
+          backgroundColor: Colors.white,
+          elevation: 0,
+          centerTitle: true,
+          iconTheme: IconThemeData(color: Colors.black87),
+          titleTextStyle: TextStyle(
+            color: Colors.black87,
+            fontSize: 20,
+            fontWeight: FontWeight.bold,
+          ),
+        ),
+        useMaterial3: true,
+      ),
+
+      // TEMA OSCURO (El original que ya tenías, pulido)
+      darkTheme: ThemeData(
         brightness: Brightness.dark,
         scaffoldBackgroundColor: AppColors.background,
         primaryColor: AppColors.primary,
@@ -92,11 +137,10 @@ class GymApp extends StatelessWidget {
         ),
         
         // --- ANIMACIONES GLOBALES ---
-        // Esto activa las transiciones suaves al cambiar de pantalla
         pageTransitionsTheme: const PageTransitionsTheme(
           builders: {
-            TargetPlatform.android: ZoomPageTransitionsBuilder(), // Efecto Zoom suave
-            TargetPlatform.iOS: CupertinoPageTransitionsBuilder(), // Efecto Deslizamiento iOS
+            TargetPlatform.android: ZoomPageTransitionsBuilder(),
+            TargetPlatform.iOS: CupertinoPageTransitionsBuilder(),
           },
         ),
 
@@ -114,5 +158,45 @@ class GymApp extends StatelessWidget {
       ),
       home: userExists ? const HomeScreen() : const OnboardingScreen(),
     );
+  }
+}
+
+// --- CLASE THEME PROVIDER ---
+// He puesto esta clase aquí mismo para facilitarte el copiado, pero conceptualmente
+// actúa como el "cerebro" que decide si la app se ve oscura o clara.
+class ThemeProvider with ChangeNotifier {
+  bool _isDarkMode = true; // Por defecto oscuro
+
+  ThemeProvider() {
+    // Al iniciar, leo la memoria (Hive) para ver qué prefería el usuario
+    final box = Hive.box('settingsBox');
+    _isDarkMode = box.get('isDarkMode', defaultValue: true);
+    _updateSystemUI();
+  }
+
+  bool get isDarkMode => _isDarkMode;
+
+  ThemeMode get themeMode => _isDarkMode ? ThemeMode.dark : ThemeMode.light;
+
+  void toggleTheme() {
+    _isDarkMode = !_isDarkMode;
+    
+    // Guardo la preferencia para la próxima vez
+    final box = Hive.box('settingsBox');
+    box.put('isDarkMode', _isDarkMode);
+    
+    _updateSystemUI();
+    notifyListeners(); // ¡Aviso a toda la app que repinte!
+  }
+
+  // Esto ajusta los iconos de la barra de estado (batería, hora) para que se vean
+  // blancos sobre fondo oscuro, o negros sobre fondo claro.
+  void _updateSystemUI() {
+    SystemChrome.setSystemUIOverlayStyle(SystemUiOverlayStyle(
+      statusBarColor: Colors.transparent,
+      statusBarIconBrightness: _isDarkMode ? Brightness.light : Brightness.dark,
+      systemNavigationBarColor: _isDarkMode ? AppColors.background : const Color(0xFFF5F5F5),
+      systemNavigationBarIconBrightness: _isDarkMode ? Brightness.light : Brightness.dark,
+    ));
   }
 }

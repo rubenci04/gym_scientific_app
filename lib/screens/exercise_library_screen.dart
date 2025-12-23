@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:hive_flutter/hive_flutter.dart';
 import 'package:image_picker/image_picker.dart'; // Necesario para fotos
 import 'package:path_provider/path_provider.dart'; // Necesario para guardar archivos
+import 'package:provider/provider.dart'; // Para acceder al tema si fuese necesario
 import '../models/exercise_model.dart';
 import '../theme/app_colors.dart';
 
@@ -37,49 +38,54 @@ class _ExerciseLibraryScreenState extends State<ExerciseLibraryScreen> {
 
   // --- LÓGICA DE CÁMARA / GALERÍA ---
   Future<String?> _pickImage() async {
-    final picker = ImagePicker();
-    
-    // Preguntar origen: Cámara o Galería
-    final source = await showModalBottomSheet<ImageSource>(
-      context: context,
-      backgroundColor: AppColors.surface,
-      shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(20))
-      ),
-      builder: (context) => SafeArea(
-        child: Wrap(
-          children: [
-            ListTile(
-              leading: const Icon(Icons.photo_library, color: Colors.white),
-              title: const Text('Galería', style: TextStyle(color: Colors.white)),
-              onTap: () => Navigator.pop(context, ImageSource.gallery),
-            ),
-            ListTile(
-              leading: const Icon(Icons.camera_alt, color: Colors.white),
-              title: const Text('Cámara', style: TextStyle(color: Colors.white)),
-              onTap: () => Navigator.pop(context, ImageSource.camera),
-            ),
-          ],
+    try {
+      final picker = ImagePicker();
+      
+      // Preguntar origen: Cámara o Galería
+      final source = await showModalBottomSheet<ImageSource>(
+        context: context,
+        backgroundColor: Theme.of(context).cardColor, // Adaptable al tema
+        shape: const RoundedRectangleBorder(
+          borderRadius: BorderRadius.vertical(top: Radius.circular(20))
         ),
-      ),
-    );
+        builder: (context) => SafeArea(
+          child: Wrap(
+            children: [
+              ListTile(
+                leading: Icon(Icons.photo_library, color: Theme.of(context).iconTheme.color),
+                title: Text('Galería', style: TextStyle(color: Theme.of(context).textTheme.bodyLarge?.color)),
+                onTap: () => Navigator.pop(context, ImageSource.gallery),
+              ),
+              ListTile(
+                leading: Icon(Icons.camera_alt, color: Theme.of(context).iconTheme.color),
+                title: Text('Cámara', style: TextStyle(color: Theme.of(context).textTheme.bodyLarge?.color)),
+                onTap: () => Navigator.pop(context, ImageSource.camera),
+              ),
+            ],
+          ),
+        ),
+      );
 
-    if (source == null) return null;
+      if (source == null) return null;
 
-    final XFile? image = await picker.pickImage(
-      source: source, 
-      imageQuality: 50, // Comprimimos para no llenar memoria
-      maxWidth: 800,
-    );
+      final XFile? image = await picker.pickImage(
+        source: source, 
+        imageQuality: 50, // Comprimimos para no llenar memoria
+        maxWidth: 800,
+      );
 
-    if (image == null) return null;
+      if (image == null) return null;
 
-    // Guardamos la imagen en el directorio de documentos de la app para que sea persistente
-    final directory = await getApplicationDocumentsDirectory();
-    final fileName = '${DateTime.now().millisecondsSinceEpoch}.jpg';
-    final savedImage = await File(image.path).copy('${directory.path}/$fileName');
-    
-    return savedImage.path;
+      // Guardamos la imagen en el directorio de documentos de la app para que sea persistente
+      final directory = await getApplicationDocumentsDirectory();
+      final fileName = 'custom_${DateTime.now().millisecondsSinceEpoch}.jpg';
+      final savedImage = await File(image.path).copy('${directory.path}/$fileName');
+      
+      return savedImage.path;
+    } catch (e) {
+      debugPrint("Error al seleccionar imagen: $e");
+      return null;
+    }
   }
 
   // --- DIÁLOGO DE AGREGAR / EDITAR ---
@@ -95,7 +101,6 @@ class _ExerciseLibraryScreenState extends State<ExerciseLibraryScreen> {
     final muscles = ['Pecho', 'Espalda', 'Hombros', 'Bíceps', 'Tríceps', 'Cuádriceps', 'Isquios', 'Glúteos', 'Gemelos', 'Abdominales', 'Cardio', 'Trapecio', 'Antebrazo', 'Aductores', 'Otro'];
     final equipments = ['Corporal', 'Mancuernas', 'Barra', 'Máquina', 'Polea', 'Banda', 'Kettlebell', 'Disco', 'Otro'];
 
-    // Asegurar que el valor seleccionado exista en la lista (por si acaso)
     if (!muscles.contains(selectedMuscle)) muscles.add(selectedMuscle);
     if (!equipments.contains(selectedEquipment)) equipments.add(selectedEquipment);
 
@@ -103,10 +108,16 @@ class _ExerciseLibraryScreenState extends State<ExerciseLibraryScreen> {
       context: context,
       builder: (ctx) => StatefulBuilder(
         builder: (context, setStateDialog) {
+          // Usamos colores del tema actual
+          final theme = Theme.of(context);
+          
           return AlertDialog(
-            backgroundColor: AppColors.surface,
+            backgroundColor: theme.cardColor,
             shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(15)),
-            title: Text(isEditing ? "Editar Ejercicio" : "Nuevo Ejercicio", style: const TextStyle(color: Colors.white)),
+            title: Text(
+              isEditing ? "Editar Ejercicio" : "Nuevo Ejercicio", 
+              style: theme.textTheme.titleLarge
+            ),
             content: SingleChildScrollView(
               child: Column(
                 mainAxisSize: MainAxisSize.min,
@@ -116,6 +127,7 @@ class _ExerciseLibraryScreenState extends State<ExerciseLibraryScreen> {
                     onTap: () async {
                       final path = await _pickImage();
                       if (path != null) {
+                        // Importante: Actualizamos el estado del DIÁLOGO, no de la pantalla
                         setStateDialog(() => localImagePath = path);
                       }
                     },
@@ -123,9 +135,9 @@ class _ExerciseLibraryScreenState extends State<ExerciseLibraryScreen> {
                       height: 160,
                       width: double.infinity,
                       decoration: BoxDecoration(
-                        color: Colors.black26,
+                        color: Colors.black12,
                         borderRadius: BorderRadius.circular(12),
-                        border: Border.all(color: Colors.white24),
+                        border: Border.all(color: theme.dividerColor),
                         image: localImagePath != null
                             ? DecorationImage(
                                 image: FileImage(File(localImagePath!)),
@@ -134,15 +146,15 @@ class _ExerciseLibraryScreenState extends State<ExerciseLibraryScreen> {
                             : null,
                       ),
                       child: localImagePath == null
-                          ? const Column(
+                          ? Column(
                               mainAxisAlignment: MainAxisAlignment.center,
                               children: [
-                                Icon(Icons.add_a_photo, color: AppColors.primary, size: 40),
-                                SizedBox(height: 8),
-                                Text("Toca para añadir foto", style: TextStyle(color: Colors.white54, fontSize: 12)),
+                                const Icon(Icons.add_a_photo, color: AppColors.primary, size: 40),
+                                const SizedBox(height: 8),
+                                Text("Toca para añadir foto", style: TextStyle(color: theme.textTheme.bodyMedium?.color?.withOpacity(0.6), fontSize: 12)),
                               ],
                             )
-                          : Stack(
+                          : const Stack(
                               children: [
                                 Positioned(
                                   right: 5,
@@ -150,7 +162,7 @@ class _ExerciseLibraryScreenState extends State<ExerciseLibraryScreen> {
                                   child: CircleAvatar(
                                     radius: 12,
                                     backgroundColor: Colors.black54,
-                                    child: const Icon(Icons.edit, size: 14, color: Colors.white),
+                                    child: Icon(Icons.edit, size: 14, color: Colors.white),
                                   ),
                                 )
                               ],
@@ -161,25 +173,25 @@ class _ExerciseLibraryScreenState extends State<ExerciseLibraryScreen> {
                   
                   TextField(
                     controller: nameCtrl,
-                    style: const TextStyle(color: Colors.white),
-                    decoration: const InputDecoration(
+                    style: theme.textTheme.bodyLarge,
+                    decoration: InputDecoration(
                       labelText: "Nombre del ejercicio",
-                      labelStyle: TextStyle(color: Colors.white70),
-                      enabledBorder: UnderlineInputBorder(borderSide: BorderSide(color: Colors.white24)),
-                      focusedBorder: UnderlineInputBorder(borderSide: BorderSide(color: AppColors.primary)),
+                      labelStyle: TextStyle(color: theme.textTheme.bodyMedium?.color?.withOpacity(0.7)),
+                      enabledBorder: UnderlineInputBorder(borderSide: BorderSide(color: theme.dividerColor)),
+                      focusedBorder: const UnderlineInputBorder(borderSide: BorderSide(color: AppColors.primary)),
                     ),
                   ),
                   const SizedBox(height: 20),
                   
                   DropdownButtonFormField<String>(
                     value: selectedMuscle,
-                    dropdownColor: AppColors.surface,
-                    style: const TextStyle(color: Colors.white),
-                    decoration: const InputDecoration(
+                    dropdownColor: theme.cardColor,
+                    style: theme.textTheme.bodyLarge,
+                    decoration: InputDecoration(
                       labelText: "Músculo Principal",
-                      labelStyle: TextStyle(color: Colors.white70),
-                      border: OutlineInputBorder(),
-                      enabledBorder: OutlineInputBorder(borderSide: BorderSide(color: Colors.white24)),
+                      labelStyle: TextStyle(color: theme.textTheme.bodyMedium?.color?.withOpacity(0.7)),
+                      border: const OutlineInputBorder(),
+                      enabledBorder: OutlineInputBorder(borderSide: BorderSide(color: theme.dividerColor)),
                     ),
                     items: muscles.map((m) => DropdownMenuItem(value: m, child: Text(m))).toList(),
                     onChanged: (v) => setStateDialog(() => selectedMuscle = v!),
@@ -188,13 +200,13 @@ class _ExerciseLibraryScreenState extends State<ExerciseLibraryScreen> {
                   
                   DropdownButtonFormField<String>(
                     value: selectedEquipment,
-                    dropdownColor: AppColors.surface,
-                    style: const TextStyle(color: Colors.white),
-                    decoration: const InputDecoration(
+                    dropdownColor: theme.cardColor,
+                    style: theme.textTheme.bodyLarge,
+                    decoration: InputDecoration(
                       labelText: "Equipamiento",
-                      labelStyle: TextStyle(color: Colors.white70),
-                      border: OutlineInputBorder(),
-                      enabledBorder: OutlineInputBorder(borderSide: BorderSide(color: Colors.white24)),
+                      labelStyle: TextStyle(color: theme.textTheme.bodyMedium?.color?.withOpacity(0.7)),
+                      border: const OutlineInputBorder(),
+                      enabledBorder: OutlineInputBorder(borderSide: BorderSide(color: theme.dividerColor)),
                     ),
                     items: equipments.map((e) => DropdownMenuItem(value: e, child: Text(e))).toList(),
                     onChanged: (v) => setStateDialog(() => selectedEquipment = v!),
@@ -205,11 +217,12 @@ class _ExerciseLibraryScreenState extends State<ExerciseLibraryScreen> {
             actions: [
               TextButton(
                 onPressed: () => Navigator.pop(ctx),
-                child: const Text("Cancelar"),
+                child: Text("Cancelar", style: TextStyle(color: theme.textTheme.bodyMedium?.color)),
               ),
               ElevatedButton(
                 style: ElevatedButton.styleFrom(
                   backgroundColor: AppColors.primary,
+                  foregroundColor: Colors.white,
                   shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
                 ),
                 onPressed: () {
@@ -218,16 +231,18 @@ class _ExerciseLibraryScreenState extends State<ExerciseLibraryScreen> {
                   final box = Hive.box<Exercise>('exerciseBox');
                   
                   if (isEditing) {
-                    // Actualizar existente
+                    // --- CORRECCIÓN: Guardado explícito para asegurar actualización ---
                     exerciseToEdit!.name = nameCtrl.text;
                     exerciseToEdit.muscleGroup = selectedMuscle;
                     exerciseToEdit.equipment = selectedEquipment;
                     exerciseToEdit.localImagePath = localImagePath;
-                    exerciseToEdit.save(); // Guarda cambios en Hive
+                    
+                    // Usamos put con la key original para forzar la actualización en la caja
+                    box.put(exerciseToEdit.key, exerciseToEdit); 
                   } else {
                     // Crear nuevo
                     final newExercise = Exercise(
-                      id: 'custom_${DateTime.now().millisecondsSinceEpoch}', // ID único
+                      id: 'custom_${DateTime.now().millisecondsSinceEpoch}',
                       name: nameCtrl.text,
                       muscleGroup: selectedMuscle,
                       equipment: selectedEquipment,
@@ -244,11 +259,11 @@ class _ExerciseLibraryScreenState extends State<ExerciseLibraryScreen> {
                   ScaffoldMessenger.of(context).showSnackBar(
                     SnackBar(
                       content: Text(isEditing ? "Ejercicio actualizado" : "Ejercicio creado"),
-                      behavior: SnackBarBehavior.floating, // Flotante para corregir márgenes
+                      behavior: SnackBarBehavior.floating,
                     )
                   );
                 },
-                child: const Text("Guardar", style: TextStyle(color: Colors.white)),
+                child: const Text("Guardar"),
               ),
             ],
           );
@@ -258,7 +273,6 @@ class _ExerciseLibraryScreenState extends State<ExerciseLibraryScreen> {
   }
 
   void _confirmDelete(Exercise exercise) {
-    // Protección: Solo borrar ejercicios custom
     if (!exercise.id.startsWith('custom_')) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
@@ -272,17 +286,20 @@ class _ExerciseLibraryScreenState extends State<ExerciseLibraryScreen> {
     showDialog(
       context: context,
       builder: (ctx) => AlertDialog(
-        backgroundColor: AppColors.surface,
-        title: const Text("¿Eliminar?", style: TextStyle(color: Colors.white)),
-        content: Text("¿Borrar '${exercise.name}' permanentemente?", style: const TextStyle(color: Colors.white70)),
+        backgroundColor: Theme.of(context).cardColor,
+        title: Text("¿Eliminar?", style: Theme.of(context).textTheme.titleLarge),
+        content: Text("¿Borrar '${exercise.name}' permanentemente?", style: Theme.of(context).textTheme.bodyMedium),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(ctx),
-            child: const Text("Cancelar"),
+            child: Text("Cancelar", style: TextStyle(color: Theme.of(context).textTheme.bodyMedium?.color)),
           ),
           TextButton(
             onPressed: () {
-              exercise.delete();
+              // Borrado directo de la caja
+              final box = Hive.box<Exercise>('exerciseBox');
+              box.delete(exercise.key); 
+              
               Navigator.pop(ctx);
               ScaffoldMessenger.of(context).showSnackBar(
                 const SnackBar(content: Text("Ejercicio eliminado"), behavior: SnackBarBehavior.floating)
@@ -297,13 +314,18 @@ class _ExerciseLibraryScreenState extends State<ExerciseLibraryScreen> {
 
   @override
   Widget build(BuildContext context) {
+    // Obtenemos el tema actual
+    final theme = Theme.of(context);
+    final isDark = theme.brightness == Brightness.dark;
+
     return Scaffold(
-      backgroundColor: AppColors.background,
+      backgroundColor: theme.scaffoldBackgroundColor,
       appBar: AppBar(
-        title: const Text('Biblioteca Científica'),
-        backgroundColor: AppColors.surface,
+        title: Text('Biblioteca Científica', style: theme.appBarTheme.titleTextStyle),
+        backgroundColor: theme.appBarTheme.backgroundColor,
         elevation: 0,
         centerTitle: true,
+        iconTheme: theme.iconTheme,
       ),
       floatingActionButton: FloatingActionButton(
         onPressed: () => _showExerciseDialog(),
@@ -316,7 +338,6 @@ class _ExerciseLibraryScreenState extends State<ExerciseLibraryScreen> {
         builder: (context, Box<Exercise> box, _) {
           var allExercises = box.values.toList();
           
-          // Ordenar: Custom primero, luego A-Z
           allExercises.sort((a, b) {
              final aIsCustom = a.id.startsWith('custom_');
              final bIsCustom = b.id.startsWith('custom_');
@@ -325,7 +346,6 @@ class _ExerciseLibraryScreenState extends State<ExerciseLibraryScreen> {
              return a.name.compareTo(b.name);
           });
 
-          // Filtros
           final filteredExercises = allExercises.where((exercise) {
             final matchesSearch =
                 _normalize(exercise.name).contains(_normalize(_searchQuery)) ||
@@ -342,16 +362,16 @@ class _ExerciseLibraryScreenState extends State<ExerciseLibraryScreen> {
               // --- BUSCADOR ---
               Container(
                 padding: const EdgeInsets.all(16.0),
-                color: AppColors.surface,
+                color: theme.cardColor,
                 child: TextField(
                   controller: _searchController,
-                  style: const TextStyle(color: Colors.white),
+                  style: theme.textTheme.bodyLarge,
                   decoration: InputDecoration(
                     hintText: 'Buscar...',
-                    hintStyle: TextStyle(color: Colors.white.withOpacity(0.4)),
+                    hintStyle: TextStyle(color: theme.textTheme.bodyMedium?.color?.withOpacity(0.4)),
                     prefixIcon: const Icon(Icons.search, color: AppColors.primary),
                     filled: true,
-                    fillColor: AppColors.background,
+                    fillColor: isDark ? AppColors.background : Colors.grey[200],
                     contentPadding: const EdgeInsets.symmetric(vertical: 10, horizontal: 15),
                     border: OutlineInputBorder(borderRadius: BorderRadius.circular(30), borderSide: BorderSide.none),
                     suffixIcon: _searchQuery.isNotEmpty
@@ -371,7 +391,7 @@ class _ExerciseLibraryScreenState extends State<ExerciseLibraryScreen> {
               // --- FILTROS ---
               Container(
                 height: 50,
-                color: AppColors.surface,
+                color: theme.cardColor,
                 child: ListView(
                   scrollDirection: Axis.horizontal,
                   padding: const EdgeInsets.symmetric(horizontal: 16),
@@ -387,7 +407,7 @@ class _ExerciseLibraryScreenState extends State<ExerciseLibraryScreen> {
               // --- LISTA ---
               Expanded(
                 child: filteredExercises.isEmpty 
-                  ? const Center(child: Text("No se encontraron ejercicios", style: TextStyle(color: Colors.grey)))
+                  ? Center(child: Text("No se encontraron ejercicios", style: TextStyle(color: theme.textTheme.bodyMedium?.color)))
                   : ListView.builder(
                       padding: const EdgeInsets.only(left: 16, right: 16, bottom: 80),
                       itemCount: filteredExercises.length,
@@ -405,28 +425,36 @@ class _ExerciseLibraryScreenState extends State<ExerciseLibraryScreen> {
   }
 
   Widget _buildFilterChip(String label, bool isSelected, VoidCallback onTap) {
+    final theme = Theme.of(context);
+    final isDark = theme.brightness == Brightness.dark;
+
     return Padding(
       padding: const EdgeInsets.only(right: 8, bottom: 10),
       child: FilterChip(
         label: Text(label),
         selected: isSelected,
         onSelected: (_) => onTap(),
-        backgroundColor: AppColors.background,
+        backgroundColor: isDark ? AppColors.background : Colors.grey[200],
         selectedColor: AppColors.primary,
         checkmarkColor: Colors.white,
-        labelStyle: TextStyle(color: isSelected ? Colors.white : Colors.grey, fontWeight: isSelected ? FontWeight.bold : FontWeight.normal),
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20), side: BorderSide(color: isSelected ? AppColors.primary : Colors.white10)),
+        labelStyle: TextStyle(
+          color: isSelected ? Colors.white : theme.textTheme.bodyMedium?.color, 
+          fontWeight: isSelected ? FontWeight.bold : FontWeight.normal
+        ),
+        // --- AQUÍ CORREGÍ EL ERROR ---
+        // Borré la línea 'border: ...' y dejé solo el shape con su 'side'.
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(20), 
+          side: BorderSide(color: isSelected ? AppColors.primary : Colors.transparent)
+        ),
       ),
     );
   }
 
   Widget _buildExerciseCard(BuildContext context, Exercise exercise) {
     final bool isCustom = exercise.id.startsWith('custom_');
+    final theme = Theme.of(context);
     
-    // Decidir qué imagen mostrar: 
-    // 1. Imagen local del usuario
-    // 2. Imagen de assets (usando el ID)
-    // 3. Fallback (icono)
     ImageProvider? imageProvider;
     bool isLocalImage = false;
 
@@ -448,12 +476,13 @@ class _ExerciseLibraryScreenState extends State<ExerciseLibraryScreen> {
       ),
       confirmDismiss: (direction) async {
         _confirmDelete(exercise);
-        return false; // Esperamos al diálogo
+        return false;
       },
       child: Card(
         margin: const EdgeInsets.only(bottom: 12),
-        color: AppColors.surface,
+        color: theme.cardColor, // Color adaptable
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(15)),
+        elevation: 2,
         child: InkWell(
           borderRadius: BorderRadius.circular(15),
           onTap: () => _showExerciseDetails(context, exercise, imageProvider!, isLocalImage),
@@ -467,22 +496,21 @@ class _ExerciseLibraryScreenState extends State<ExerciseLibraryScreen> {
                   width: 70,
                   height: 70,
                   decoration: BoxDecoration(
-                    color: Colors.white10,
+                    color: Colors.black12,
                     borderRadius: BorderRadius.circular(10),
-                    border: Border.all(color: Colors.white10),
+                    border: Border.all(color: Colors.black12),
                     image: imageProvider != null 
                         ? DecorationImage(
                             image: imageProvider,
-                            fit: BoxFit.cover, // Cover se ve mejor en miniaturas cuadradas
-                            onError: (e, s) {} // Captura errores de asset no encontrado
+                            fit: BoxFit.cover,
+                            onError: (e, s) {}
                           ) 
                         : null,
                   ),
-                  // Si falla la carga de imagen (ej: asset no existe), mostramos la inicial
                   child: imageProvider is AssetImage 
                       ? Image(
                           image: imageProvider, 
-                          fit: BoxFit.contain, // Contain para assets técnicos
+                          fit: BoxFit.contain,
                           errorBuilder: (c, e, s) => Center(
                             child: Text(
                               exercise.name.substring(0, 1).toUpperCase(),
@@ -504,7 +532,7 @@ class _ExerciseLibraryScreenState extends State<ExerciseLibraryScreen> {
                           Expanded(
                             child: Text(
                               exercise.name,
-                              style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 16),
+                              style: theme.textTheme.titleMedium?.copyWith(fontWeight: FontWeight.bold),
                               maxLines: 2,
                               overflow: TextOverflow.ellipsis,
                             ),
@@ -519,7 +547,7 @@ class _ExerciseLibraryScreenState extends State<ExerciseLibraryScreen> {
                       const SizedBox(height: 4),
                       Text(
                         "${exercise.muscleGroup} • ${exercise.difficulty}",
-                        style: const TextStyle(color: AppColors.textSecondary, fontSize: 12),
+                        style: theme.textTheme.bodySmall,
                       ),
                       const SizedBox(height: 4),
                       Container(
@@ -530,7 +558,7 @@ class _ExerciseLibraryScreenState extends State<ExerciseLibraryScreen> {
                     ],
                   ),
                 ),
-                const Icon(Icons.arrow_forward_ios, color: Colors.white24, size: 16),
+                Icon(Icons.arrow_forward_ios, color: theme.iconTheme.color?.withOpacity(0.3), size: 16),
               ],
             ),
           ),
@@ -544,100 +572,103 @@ class _ExerciseLibraryScreenState extends State<ExerciseLibraryScreen> {
       context: context,
       isScrollControlled: true,
       backgroundColor: Colors.transparent,
-      builder: (context) => DraggableScrollableSheet(
-        initialChildSize: 0.85,
-        minChildSize: 0.5,
-        maxChildSize: 0.95,
-        builder: (_, controller) => Container(
-          decoration: const BoxDecoration(
-            color: AppColors.background,
-            borderRadius: BorderRadius.vertical(top: Radius.circular(25)),
-          ),
-          child: ListView(
-            controller: controller,
-            padding: EdgeInsets.zero,
-            children: [
-              Stack(
-                children: [
-                  AspectRatio(
-                    aspectRatio: 1.0,
-                    child: Container(
-                      width: double.infinity,
-                      color: isLocal ? Colors.black : Colors.white,
-                      child: Image(
-                        image: imageProvider,
-                        fit: isLocal ? BoxFit.cover : BoxFit.contain, // Fotos de usuario cover, dibujos contain
-                        errorBuilder: (c, e, s) => const Center(child: Icon(Icons.image_not_supported, color: Colors.grey, size: 50)),
-                      ),
-                    ),
-                  ),
-                  Positioned(
-                    top: 15,
-                    right: 15,
-                    child: CircleAvatar(
-                      backgroundColor: Colors.black54,
-                      child: IconButton(
-                        icon: const Icon(Icons.close, color: Colors.white),
-                        onPressed: () => Navigator.pop(context),
-                      ),
-                    ),
-                  ),
-                ],
-              ),
-              Padding(
-                padding: const EdgeInsets.all(24),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
+      builder: (context) {
+        final theme = Theme.of(context);
+        return DraggableScrollableSheet(
+          initialChildSize: 0.85,
+          minChildSize: 0.5,
+          maxChildSize: 0.95,
+          builder: (_, controller) => Container(
+            decoration: BoxDecoration(
+              color: theme.scaffoldBackgroundColor,
+              borderRadius: const BorderRadius.vertical(top: Radius.circular(25)),
+            ),
+            child: ListView(
+              controller: controller,
+              padding: EdgeInsets.zero,
+              children: [
+                Stack(
                   children: [
-                    Text(exercise.name, style: const TextStyle(fontSize: 26, fontWeight: FontWeight.bold, color: Colors.white)),
-                    const SizedBox(height: 10),
-                    Row(
-                      children: [
-                        _buildTag(exercise.muscleGroup, Colors.blue),
-                        const SizedBox(width: 8),
-                        _buildTag(exercise.difficulty, Colors.orange),
-                        const SizedBox(width: 8),
-                        _buildTag(exercise.equipment, Colors.purple),
-                      ],
+                    AspectRatio(
+                      aspectRatio: 1.0,
+                      child: Container(
+                        width: double.infinity,
+                        color: isLocal ? Colors.black : Colors.white,
+                        child: Image(
+                          image: imageProvider,
+                          fit: isLocal ? BoxFit.cover : BoxFit.contain,
+                          errorBuilder: (c, e, s) => const Center(child: Icon(Icons.image_not_supported, color: Colors.grey, size: 50)),
+                        ),
+                      ),
                     ),
-                    const SizedBox(height: 25),
-                    _buildSectionTitle("Biomecánica y Ejecución"),
-                    const SizedBox(height: 10),
-                    Text(
-                      exercise.description.isNotEmpty ? exercise.description : "No hay descripción disponible.", 
-                      style: const TextStyle(color: Colors.white70, height: 1.5, fontSize: 15)
+                    Positioned(
+                      top: 15,
+                      right: 15,
+                      child: CircleAvatar(
+                        backgroundColor: Colors.black54,
+                        child: IconButton(
+                          icon: const Icon(Icons.close, color: Colors.white),
+                          onPressed: () => Navigator.pop(context),
+                        ),
+                      ),
                     ),
-                    
-                    if (exercise.tips.isNotEmpty) ...[
-                      const SizedBox(height: 25),
-                      _buildSectionTitle("Consejos Pro"),
-                      const SizedBox(height: 10),
-                      ...exercise.tips.map((tip) => _buildBulletPoint(tip, Colors.greenAccent)),
-                    ],
-                    
-                    const SizedBox(height: 40),
                   ],
                 ),
-              ),
-            ],
+                Padding(
+                  padding: const EdgeInsets.all(24),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(exercise.name, style: theme.textTheme.headlineMedium?.copyWith(fontWeight: FontWeight.bold)),
+                      const SizedBox(height: 10),
+                      Row(
+                        children: [
+                          _buildTag(exercise.muscleGroup, Colors.blue),
+                          const SizedBox(width: 8),
+                          _buildTag(exercise.difficulty, Colors.orange),
+                          const SizedBox(width: 8),
+                          _buildTag(exercise.equipment, Colors.purple),
+                        ],
+                      ),
+                      const SizedBox(height: 25),
+                      _buildSectionTitle("Biomecánica y Ejecución", theme),
+                      const SizedBox(height: 10),
+                      Text(
+                        exercise.description.isNotEmpty ? exercise.description : "No hay descripción disponible.", 
+                        style: theme.textTheme.bodyMedium?.copyWith(height: 1.5)
+                      ),
+                      
+                      if (exercise.tips.isNotEmpty) ...[
+                        const SizedBox(height: 25),
+                        _buildSectionTitle("Consejos Pro", theme),
+                        const SizedBox(height: 10),
+                        ...exercise.tips.map((tip) => _buildBulletPoint(tip, Colors.greenAccent, theme)),
+                      ],
+                      
+                      const SizedBox(height: 40),
+                    ],
+                  ),
+                ),
+              ],
+            ),
           ),
-        ),
-      ),
+        );
+      }
     );
   }
 
-  Widget _buildSectionTitle(String title) {
+  Widget _buildSectionTitle(String title, ThemeData theme) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text(title.toUpperCase(), style: const TextStyle(color: AppColors.textSecondary, fontSize: 12, letterSpacing: 1.5, fontWeight: FontWeight.bold)),
+        Text(title.toUpperCase(), style: TextStyle(color: theme.textTheme.bodySmall?.color, fontSize: 12, letterSpacing: 1.5, fontWeight: FontWeight.bold)),
         const SizedBox(height: 5),
         Container(width: 40, height: 2, color: AppColors.primary),
       ],
     );
   }
 
-  Widget _buildBulletPoint(String text, Color color) {
+  Widget _buildBulletPoint(String text, Color color, ThemeData theme) {
     return Padding(
       padding: const EdgeInsets.only(bottom: 8.0),
       child: Row(
@@ -645,7 +676,7 @@ class _ExerciseLibraryScreenState extends State<ExerciseLibraryScreen> {
         children: [
           Padding(padding: const EdgeInsets.only(top: 6), child: Icon(Icons.circle, size: 6, color: color)),
           const SizedBox(width: 10),
-          Expanded(child: Text(text, style: const TextStyle(color: Colors.white70, fontSize: 14))),
+          Expanded(child: Text(text, style: theme.textTheme.bodyMedium)),
         ],
       ),
     );

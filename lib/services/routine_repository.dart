@@ -4,9 +4,23 @@ import '../models/routine_model.dart';
 class RoutineRepository {
   static const String _boxName = 'routineBox';
 
-  // --- MÉTODO AGREGADO PARA CORREGIR EL ERROR ---
+  // --- MÉTODO CORREGIDO: GESTIÓN INTELIGENTE DE ESTADO ---
+  // Ahora este método asegura que las rutinas nuevas nazcan desactivadas
+  // a menos que sea la PRIMERA (Onboarding).
   static Future<void> addRoutine(WeeklyRoutine routine) async {
     final box = await Hive.openBox<WeeklyRoutine>(_boxName);
+    
+    if (box.isEmpty) {
+      // Caso 1: Es la primera rutina de toda la app (ej: Onboarding).
+      // Debe ser activa por defecto para que el usuario vea algo.
+      routine.isActive = true;
+    } else {
+      // Caso 2: Ya existen rutinas (ej: Usuario crea una nueva "Fuerza").
+      // Debe nacer desactivada para no superponerse a la actual.
+      // El usuario podrá activarla manualmente cuando quiera.
+      routine.isActive = false;
+    }
+
     await box.put(routine.id, routine);
   }
 
@@ -29,6 +43,7 @@ class RoutineRepository {
     final box = await Hive.openBox<WeeklyRoutine>(_boxName);
     final routines = box.values.toList();
 
+    // Recorremos todas para asegurar que SOLO UNA quede activa
     for (var routine in routines) {
       if (routine.id == id) {
         routine.isActive = true;
@@ -40,11 +55,12 @@ class RoutineRepository {
   }
 
   static WeeklyRoutine? getActiveRoutine() {
-    // Nota: Hive.box debe estar abierto antes de llamar a esto síncronamente
+    // Verificamos si la caja está abierta para evitar crash
     if (!Hive.isBoxOpen(_boxName)) return null;
 
     final box = Hive.box<WeeklyRoutine>(_boxName);
     try {
+      // Retorna la primera que encuentre activa
       return box.values.firstWhere((r) => r.isActive);
     } catch (e) {
       return null;
