@@ -6,7 +6,7 @@ import '../models/user_model.dart';
 import '../models/routine_model.dart';
 import '../services/progressive_overload_service.dart';
 import '../services/routine_repository.dart';
-import '../services/notification_service.dart'; 
+import '../services/notification_service.dart';
 import '../theme/app_colors.dart';
 import 'workout_screen.dart';
 import 'body_status_screen.dart';
@@ -17,7 +17,7 @@ import 'hydration_settings_screen.dart';
 import 'routine_editor_screen.dart';
 import 'somatotype_info_screen.dart';
 import 'exercise_library_screen.dart';
-import 'onboarding_screen.dart'; 
+import 'onboarding_screen.dart';
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
@@ -58,27 +58,35 @@ class _HomeScreenState extends State<HomeScreen> {
 
   void _logout() async {
     final theme = Theme.of(context);
-    bool confirm = await showDialog(
-      context: context,
-      builder: (ctx) => AlertDialog(
-        backgroundColor: theme.cardColor,
-        title: Text("¿Cerrar Sesión?", style: theme.textTheme.titleLarge),
-        content: Text(
-          "Se borrarán tus datos de este dispositivo para que otra persona pueda usarlo.",
-          style: theme.textTheme.bodyMedium,
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(ctx, false),
-            child: Text("Cancelar", style: TextStyle(color: theme.textTheme.bodyMedium?.color)),
+    bool confirm =
+        await showDialog(
+          context: context,
+          builder: (ctx) => AlertDialog(
+            backgroundColor: theme.cardColor,
+            title: Text("¿Cerrar Sesión?", style: theme.textTheme.titleLarge),
+            content: Text(
+              "Se borrarán tus datos de este dispositivo para que otra persona pueda usarlo.",
+              style: theme.textTheme.bodyMedium,
+            ),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.pop(ctx, false),
+                child: Text(
+                  "Cancelar",
+                  style: TextStyle(color: theme.textTheme.bodyMedium?.color),
+                ),
+              ),
+              TextButton(
+                onPressed: () => Navigator.pop(ctx, true),
+                child: const Text(
+                  "Cerrar Sesión",
+                  style: TextStyle(color: Colors.redAccent),
+                ),
+              ),
+            ],
           ),
-          TextButton(
-            onPressed: () => Navigator.pop(ctx, true),
-            child: const Text("Cerrar Sesión", style: TextStyle(color: Colors.redAccent)),
-          ),
-        ],
-      ),
-    ) ?? false;
+        ) ??
+        false;
 
     if (confirm) {
       final userBox = Hive.box<UserProfile>('userBox');
@@ -106,11 +114,13 @@ class _HomeScreenState extends State<HomeScreen> {
           ? const Center(child: CircularProgressIndicator())
           : SafeArea(
               child: SingleChildScrollView(
-                padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 20,
+                  vertical: 10,
+                ),
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.center,
                   children: [
-                    
                     // --- CABECERA MEJORADA CON TEMA ---
                     Row(
                       mainAxisAlignment: MainAxisAlignment.spaceBetween,
@@ -126,13 +136,19 @@ class _HomeScreenState extends State<HomeScreen> {
                                   borderRadius: BorderRadius.circular(12),
                                   boxShadow: [
                                     if (!isDark) // Sombra sutil en modo claro
-                                      BoxShadow(color: Colors.black.withOpacity(0.05), blurRadius: 5)
-                                  ]
+                                      BoxShadow(
+                                        color: Colors.black.withOpacity(0.05),
+                                        blurRadius: 5,
+                                      ),
+                                  ],
                                 ),
                                 child: Image.asset(
                                   'assets/logo/app_logo.png.png',
                                   height: 40,
-                                  errorBuilder: (c, e, s) => const Icon(Icons.fitness_center, color: AppColors.primary),
+                                  errorBuilder: (c, e, s) => const Icon(
+                                    Icons.fitness_center,
+                                    color: AppColors.primary,
+                                  ),
                                 ),
                               ),
                               const SizedBox(width: 12),
@@ -149,7 +165,7 @@ class _HomeScreenState extends State<HomeScreen> {
                             ],
                           ),
                         ),
-                        
+
                         // Botones de Acción (Tema + Logout)
                         Row(
                           mainAxisSize: MainAxisSize.min,
@@ -159,14 +175,19 @@ class _HomeScreenState extends State<HomeScreen> {
                               onPressed: themeProvider.toggleTheme,
                               icon: Icon(
                                 isDark ? Icons.light_mode : Icons.dark_mode,
-                                color: isDark ? Colors.orangeAccent : Colors.indigo,
+                                color: isDark
+                                    ? Colors.orangeAccent
+                                    : Colors.indigo,
                               ),
                               tooltip: "Cambiar Tema",
                             ),
                             // Botón de Logout
                             IconButton(
                               onPressed: _logout,
-                              icon: Icon(Icons.logout_rounded, color: theme.iconTheme.color?.withOpacity(0.7)),
+                              icon: Icon(
+                                Icons.logout_rounded,
+                                color: theme.iconTheme.color?.withOpacity(0.7),
+                              ),
                               tooltip: "Cerrar Sesión",
                             ),
                           ],
@@ -178,7 +199,7 @@ class _HomeScreenState extends State<HomeScreen> {
 
                     // --- TARJETA DE BIENVENIDA (Gradient branding se mantiene) ---
                     _buildWelcomeCard(_currentUser),
-                    
+
                     const SizedBox(height: 30),
 
                     // --- SECCIÓN DE HERRAMIENTAS ---
@@ -187,7 +208,9 @@ class _HomeScreenState extends State<HomeScreen> {
                       child: Text(
                         "HERRAMIENTAS",
                         style: TextStyle(
-                          color: theme.textTheme.bodySmall?.color?.withOpacity(0.6),
+                          color: theme.textTheme.bodySmall?.color?.withOpacity(
+                            0.6,
+                          ),
                           fontSize: 12,
                           letterSpacing: 1.5,
                           fontWeight: FontWeight.bold,
@@ -206,7 +229,8 @@ class _HomeScreenState extends State<HomeScreen> {
                         Text(
                           "TU PLAN DE HOY",
                           style: TextStyle(
-                            color: theme.textTheme.bodySmall?.color?.withOpacity(0.6),
+                            color: theme.textTheme.bodySmall?.color
+                                ?.withOpacity(0.6),
                             fontSize: 12,
                             letterSpacing: 1.5,
                             fontWeight: FontWeight.bold,
@@ -228,21 +252,32 @@ class _HomeScreenState extends State<HomeScreen> {
                             child: const Text(
                               "Editar Plan",
                               style: TextStyle(
-                                color: AppColors.primary, 
+                                color: AppColors.primary,
                                 fontWeight: FontWeight.bold,
-                                fontSize: 14
+                                fontSize: 14,
                               ),
                             ),
                           ),
                       ],
                     ),
                     const SizedBox(height: 15),
-                    
+
                     if (_currentRoutine != null)
                       _buildRoutineList(context, _currentRoutine!, theme)
                     else
                       _buildEmptyRoutineState(context, theme),
-                      
+
+                    const SizedBox(height: 20),
+                    Center(
+                      child: Text(
+                        "© Creado por Rubén Albarracín 2025, derechos reservados",
+                        style: theme.textTheme.bodySmall?.copyWith(
+                          color: theme.disabledColor,
+                          fontSize: 11,
+                        ),
+                        textAlign: TextAlign.center,
+                      ),
+                    ),
                     const SizedBox(height: 20),
                   ],
                 ),
@@ -300,7 +335,9 @@ class _HomeScreenState extends State<HomeScreen> {
               GestureDetector(
                 onTap: () => Navigator.push(
                   context,
-                  MaterialPageRoute(builder: (c) => const SomatotypeInfoScreen()),
+                  MaterialPageRoute(
+                    builder: (c) => const SomatotypeInfoScreen(),
+                  ),
                 ),
                 child: Container(
                   padding: const EdgeInsets.all(10),
@@ -310,7 +347,7 @@ class _HomeScreenState extends State<HomeScreen> {
                   ),
                   child: const Icon(Icons.person, color: Colors.white),
                 ),
-              )
+              ),
             ],
           ),
         ],
@@ -371,7 +408,7 @@ class _HomeScreenState extends State<HomeScreen> {
       itemBuilder: (context, index) {
         final tool = tools[index];
         final isDark = theme.brightness == Brightness.dark;
-        
+
         return Material(
           color: theme.cardColor,
           elevation: isDark ? 0 : 2, // Pequeña elevación en modo claro
@@ -418,7 +455,11 @@ class _HomeScreenState extends State<HomeScreen> {
     );
   }
 
-  Widget _buildRoutineList(BuildContext context, WeeklyRoutine routine, ThemeData theme) {
+  Widget _buildRoutineList(
+    BuildContext context,
+    WeeklyRoutine routine,
+    ThemeData theme,
+  ) {
     final isDark = theme.brightness == Brightness.dark;
 
     return ListView.separated(
@@ -433,11 +474,24 @@ class _HomeScreenState extends State<HomeScreen> {
             color: theme.cardColor,
             borderRadius: BorderRadius.circular(18),
             // Borde sutil solo en dark mode para separación
-            border: isDark ? Border.all(color: Colors.white.withOpacity(0.05)) : null,
-            boxShadow: isDark ? [] : [BoxShadow(color: Colors.grey.withOpacity(0.1), blurRadius: 4, offset: const Offset(0, 2))],
+            border: isDark
+                ? Border.all(color: Colors.white.withOpacity(0.05))
+                : null,
+            boxShadow: isDark
+                ? []
+                : [
+                    BoxShadow(
+                      color: Colors.grey.withOpacity(0.1),
+                      blurRadius: 4,
+                      offset: const Offset(0, 2),
+                    ),
+                  ],
           ),
           child: ListTile(
-            contentPadding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
+            contentPadding: const EdgeInsets.symmetric(
+              horizontal: 20,
+              vertical: 12,
+            ),
             title: Text(
               day.name,
               style: theme.textTheme.titleMedium?.copyWith(
@@ -468,12 +522,11 @@ class _HomeScreenState extends State<HomeScreen> {
               Navigator.push(
                 context,
                 MaterialPageRoute(
-                  builder:
-                      (context) => WorkoutScreen(
-                        dayName: day.name,
-                        routineExercises: day.exercises,
-                        routineDayId: day.id,
-                      ),
+                  builder: (context) => WorkoutScreen(
+                    dayName: day.name,
+                    routineExercises: day.exercises,
+                    routineDayId: day.id,
+                  ),
                 ),
               );
             },
@@ -499,7 +552,9 @@ class _HomeScreenState extends State<HomeScreen> {
             const SizedBox(height: 15),
             Text(
               "No tienes un plan activo",
-              style: theme.textTheme.titleMedium?.copyWith(fontWeight: FontWeight.bold),
+              style: theme.textTheme.titleMedium?.copyWith(
+                fontWeight: FontWeight.bold,
+              ),
             ),
             const SizedBox(height: 5),
             Text(
@@ -515,7 +570,10 @@ class _HomeScreenState extends State<HomeScreen> {
                 shape: RoundedRectangleBorder(
                   borderRadius: BorderRadius.circular(12),
                 ),
-                padding: const EdgeInsets.symmetric(horizontal: 25, vertical: 12),
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 25,
+                  vertical: 12,
+                ),
               ),
               onPressed: () {
                 Navigator.push(
@@ -525,9 +583,12 @@ class _HomeScreenState extends State<HomeScreen> {
               },
               child: const Text(
                 "Ir a Mis Rutinas",
-                style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
+                style: TextStyle(
+                  color: Colors.white,
+                  fontWeight: FontWeight.bold,
+                ),
               ),
-            )
+            ),
           ],
         ),
       ),
