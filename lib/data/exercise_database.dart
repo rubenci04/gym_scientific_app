@@ -16,7 +16,7 @@ class ExerciseDatabase {
       ...gluteExercises,
       ...calfExercises,
       ...coreExercises,
-      ...cardioExercises, // Nueva lista de cardio
+      ...cardioExercises, 
       ...accessoryExercises,
     ];
   }
@@ -936,19 +936,6 @@ class ExerciseDatabase {
       secondaryMuscles: [],
     ),
     Exercise(
-      id: 'monster_walk',
-      name: 'Caminata Monstruo',
-      muscleGroup: 'Abductores',
-      equipment: 'Banda',
-      movementPattern: 'Desplazamiento',
-      difficulty: 'Principiante',
-      description: 'Caminar lateralmente o adelante con banda en rodillas/tobillos.',
-      tips: ['Rodillas siempre separadas', 'Mantén tensión'],
-      commonMistakes: ['Juntar rodillas'],
-      targetMuscles: ['Glúteo Medio'],
-      secondaryMuscles: [],
-    ),
-    Exercise(
       id: 'hip_thrust_barbell',
       name: 'Hip Thrust',
       muscleGroup: 'Glúteos',
@@ -1252,19 +1239,6 @@ class ExerciseDatabase {
       targetMuscles: ['Agarre', 'Trapecios'],
       secondaryMuscles: ['Core'],
     ),
-    Exercise(
-      id: 'dead_hang',
-      name: 'Colgarse de Barra',
-      muscleGroup: 'Antebrazo',
-      equipment: 'Barra',
-      movementPattern: 'Isométrico',
-      difficulty: 'Principiante',
-      description: 'Colgarse pasivamente para descomprimir y mejorar agarre.',
-      tips: ['Relaja el cuerpo', 'Mantén el agarre firme'],
-      commonMistakes: ['Soltarse antes de tiempo'],
-      targetMuscles: ['Agarre'],
-      secondaryMuscles: ['Espalda'],
-    ),
   ];
 
   static final List<Exercise> calfExercises = [
@@ -1305,19 +1279,6 @@ class ExerciseDatabase {
       tips: ['No dobles rodillas', 'Máximo estiramiento'],
       commonMistakes: ['Rango corto'],
       targetMuscles: ['Gastrocnemio'],
-      secondaryMuscles: [],
-    ),
-    Exercise(
-      id: 'jump_rope',
-      name: 'Salto a la Soga',
-      muscleGroup: 'Gemelos',
-      equipment: 'Cuerda',
-      movementPattern: 'Salto',
-      difficulty: 'Principiante',
-      description: 'Cardio y resistencia de pantorrillas.',
-      tips: ['Salta sobre puntas', 'Movimiento de muñeca'],
-      commonMistakes: ['Saltar muy alto'],
-      targetMuscles: ['Gemelos', 'Cardio'],
       secondaryMuscles: [],
     ),
   ];

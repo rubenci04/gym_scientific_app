@@ -4,8 +4,8 @@ import 'package:flutter/material.dart';
 import 'package:hive_flutter/hive_flutter.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:path_provider/path_provider.dart';
-import 'package:provider/provider.dart'; // Necesario para el ThemeProvider
-import '../main.dart'; // Para acceder al ThemeProvider
+import 'package:provider/provider.dart';
+import '../main.dart'; // Para el ThemeProvider
 import '../models/exercise_model.dart';
 import '../theme/app_colors.dart';
 
@@ -27,6 +27,7 @@ class _ExerciseLibraryScreenState extends State<ExerciseLibraryScreen> {
     super.dispose();
   }
 
+  // Normaliza texto: minúsculas y sin tildes para búsqueda flexible
   String _normalize(String text) {
     return text
         .toLowerCase()
@@ -37,11 +38,60 @@ class _ExerciseLibraryScreenState extends State<ExerciseLibraryScreen> {
         .replaceAll(RegExp(r'[úùüû]'), 'u');
   }
 
+  // --- MOTOR DE BÚSQUEDA INTELIGENTE ---
+  bool _matchesSearch(Exercise exercise) {
+    // 1. Si no hay búsqueda ni filtro, pasa todo
+    if (_searchQuery.isEmpty && _selectedMuscleGroup == null) return true;
+
+    bool textMatch = true;
+    bool chipMatch = true;
+
+    // 2. Lógica de Texto (Buscador)
+    if (_searchQuery.isNotEmpty) {
+      final q = _normalize(_searchQuery);
+      final name = _normalize(exercise.name);
+      final group = _normalize(exercise.muscleGroup);
+      
+      // Grupos musculares agrupados (Lógica "Piernas", "Brazos")
+      final isLegs = ['cuadriceps', 'isquiotibiales', 'gemelos', 'gluteos', 'aductores', 'abductores'].contains(group);
+      final isArms = ['biceps', 'triceps', 'antebrazo'].contains(group);
+      final isTorso = ['pecho', 'espalda', 'hombros', 'core', 'trapecio', 'cuello'].contains(group);
+
+      if (q == 'piernas' || q == 'pierna') {
+        textMatch = isLegs;
+      } else if (q == 'brazos' || q == 'brazo') {
+        textMatch = isArms;
+      } else if (q == 'torso' || q == 'tronco') {
+        textMatch = isTorso;
+      } else {
+        // Búsqueda estándar: Nombre, Grupo o Músculos implicados (Primarios y Secundarios)
+        textMatch = name.contains(q) || 
+                    group.contains(q) ||
+                    exercise.targetMuscles.any((t) => _normalize(t).contains(q)) ||
+                    exercise.secondaryMuscles.any((s) => _normalize(s).contains(q));
+      }
+    }
+
+    // 3. Lógica de Chips (Filtros de arriba)
+    if (_selectedMuscleGroup != null) {
+      // El ejercicio pasa si es del grupo seleccionado O si ese grupo es un músculo secundario
+      // Ej: Si filtro "Tríceps", me saldrá "Press Banca" (que es de Pecho) porque trabaja tríceps.
+      bool isPrimary = exercise.muscleGroup == _selectedMuscleGroup;
+      bool isSecondary = exercise.secondaryMuscles.contains(_selectedMuscleGroup) || 
+                         exercise.targetMuscles.contains(_selectedMuscleGroup);
+      
+      chipMatch = isPrimary || isSecondary;
+    }
+
+    return textMatch && chipMatch;
+  }
+
+  // --- LÓGICA DE CÁMARA / GALERÍA ---
   Future<String?> _pickImage() async {
     try {
       if (kIsWeb) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text("La carga de imágenes no está soportada en la versión Web demo.")),
+          const SnackBar(content: Text("La carga de imágenes no está soportada en Web demo.")),
         );
         return null;
       }
@@ -311,7 +361,7 @@ class _ExerciseLibraryScreenState extends State<ExerciseLibraryScreen> {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    final themeProvider = Provider.of<ThemeProvider>(context); // Provider para el botón
+    final themeProvider = Provider.of<ThemeProvider>(context);
     final isDark = themeProvider.isDarkMode;
 
     return Scaffold(
@@ -323,7 +373,6 @@ class _ExerciseLibraryScreenState extends State<ExerciseLibraryScreen> {
         centerTitle: true,
         iconTheme: theme.iconTheme,
         actions: [
-          // --- BOTÓN DE TEMA AÑADIDO ---
           IconButton(
             icon: Icon(
               isDark ? Icons.light_mode : Icons.dark_mode,
@@ -345,6 +394,7 @@ class _ExerciseLibraryScreenState extends State<ExerciseLibraryScreen> {
         builder: (context, Box<Exercise> box, _) {
           var allExercises = box.values.toList();
           
+          // Orden alfabético (Customs primero)
           allExercises.sort((a, b) {
              final aIsCustom = a.id.startsWith('custom_');
              final bIsCustom = b.id.startsWith('custom_');
@@ -353,19 +403,14 @@ class _ExerciseLibraryScreenState extends State<ExerciseLibraryScreen> {
              return a.name.compareTo(b.name);
           });
 
-          final filteredExercises = allExercises.where((exercise) {
-            final matchesSearch =
-                _normalize(exercise.name).contains(_normalize(_searchQuery)) ||
-                _normalize(exercise.muscleGroup).contains(_normalize(_searchQuery));
-            final matchesMuscle =
-                _selectedMuscleGroup == null || exercise.muscleGroup == _selectedMuscleGroup;
-            return matchesSearch && matchesMuscle;
-          }).toList();
+          // Filtro Inteligente aplicado aquí
+          final filteredExercises = allExercises.where((exercise) => _matchesSearch(exercise)).toList();
 
           final muscleGroups = allExercises.map((e) => e.muscleGroup).toSet().toList()..sort();
 
           return Column(
             children: [
+              // --- BUSCADOR ---
               Container(
                 padding: const EdgeInsets.all(16.0),
                 color: theme.cardColor,
@@ -373,7 +418,7 @@ class _ExerciseLibraryScreenState extends State<ExerciseLibraryScreen> {
                   controller: _searchController,
                   style: theme.textTheme.bodyLarge,
                   decoration: InputDecoration(
-                    hintText: 'Buscar...',
+                    hintText: 'Buscar (ej: "Piernas", "Pecho", "Curl")',
                     hintStyle: TextStyle(color: theme.textTheme.bodyMedium?.color?.withOpacity(0.4)),
                     prefixIcon: const Icon(Icons.search, color: AppColors.primary),
                     filled: true,
@@ -394,6 +439,7 @@ class _ExerciseLibraryScreenState extends State<ExerciseLibraryScreen> {
                 ),
               ),
 
+              // --- FILTROS (CHIPS) ---
               Container(
                 height: 50,
                 color: theme.cardColor,
@@ -409,9 +455,19 @@ class _ExerciseLibraryScreenState extends State<ExerciseLibraryScreen> {
 
               const SizedBox(height: 10),
 
+              // --- LISTA ---
               Expanded(
                 child: filteredExercises.isEmpty 
-                  ? Center(child: Text("No se encontraron ejercicios", style: TextStyle(color: theme.textTheme.bodyMedium?.color)))
+                  ? Center(
+                      child: Column(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          Icon(Icons.fitness_center, size: 60, color: theme.disabledColor),
+                          const SizedBox(height: 10),
+                          Text("No se encontraron ejercicios", style: TextStyle(color: theme.textTheme.bodyMedium?.color)),
+                        ],
+                      ),
+                    )
                   : ListView.builder(
                       padding: const EdgeInsets.only(left: 16, right: 16, bottom: 80),
                       itemCount: filteredExercises.length,
@@ -634,12 +690,11 @@ class _ExerciseLibraryScreenState extends State<ExerciseLibraryScreen> {
                     children: [
                       Text(exercise.name, style: theme.textTheme.headlineMedium?.copyWith(fontWeight: FontWeight.bold)),
                       const SizedBox(height: 10),
-                      Row(
+                      Wrap(
+                        spacing: 8,
                         children: [
                           _buildTag(exercise.muscleGroup, Colors.blue),
-                          const SizedBox(width: 8),
                           _buildTag(exercise.difficulty, Colors.orange),
-                          const SizedBox(width: 8),
                           _buildTag(exercise.equipment, Colors.purple),
                         ],
                       ),
