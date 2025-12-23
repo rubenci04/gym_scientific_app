@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:hive_flutter/hive_flutter.dart';
+import 'package:provider/provider.dart'; // Necesario para el ThemeProvider
+import '../main.dart'; // Para acceder al ThemeProvider
 import '../models/hydration_settings_model.dart';
 import '../services/notification_service.dart';
 import '../theme/app_colors.dart';
@@ -33,6 +35,7 @@ class _HydrationSettingsScreenState extends State<HydrationSettingsScreen> {
           ScaffoldMessenger.of(context).showSnackBar(
             const SnackBar(
               content: Text('Recordatorios de hidratación activados'),
+              behavior: SnackBarBehavior.floating,
             ),
           );
         }
@@ -41,7 +44,7 @@ class _HydrationSettingsScreenState extends State<HydrationSettingsScreen> {
       await NotificationService.cancelAllNotifications();
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Recordatorios desactivados')),
+          const SnackBar(content: Text('Recordatorios desactivados'), behavior: SnackBarBehavior.floating),
         );
       }
     }
@@ -49,28 +52,46 @@ class _HydrationSettingsScreenState extends State<HydrationSettingsScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final themeProvider = Provider.of<ThemeProvider>(context);
+    final isDark = themeProvider.isDarkMode;
+
     return Scaffold(
-      backgroundColor: AppColors.background,
+      backgroundColor: theme.scaffoldBackgroundColor,
       appBar: AppBar(
-        title: const Text('Recordatorios de Hidratación'),
-        backgroundColor: AppColors.surface,
+        title: Text('Recordatorios de Hidratación', style: theme.appBarTheme.titleTextStyle),
+        backgroundColor: theme.appBarTheme.backgroundColor,
+        elevation: 0,
+        iconTheme: theme.iconTheme,
+        actions: [
+          // Botón de Tema
+          IconButton(
+            icon: Icon(
+              isDark ? Icons.light_mode : Icons.dark_mode,
+              color: isDark ? Colors.orangeAccent : Colors.indigo,
+            ),
+            tooltip: "Cambiar Tema",
+            onPressed: themeProvider.toggleTheme,
+          ),
+        ],
       ),
       body: ListView(
         padding: const EdgeInsets.all(16),
         children: [
           Card(
-            color: AppColors.surface,
+            color: theme.cardColor,
+            elevation: 2,
+            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
             child: SwitchListTile(
-              title: const Text(
+              title: Text(
                 'Activar recordatorios',
-                style: TextStyle(
-                  color: Colors.white,
+                style: theme.textTheme.titleMedium?.copyWith(
                   fontWeight: FontWeight.bold,
                 ),
               ),
-              subtitle: const Text(
+              subtitle: Text(
                 'Recibe notificaciones para mantenerte hidratado',
-                style: TextStyle(color: Colors.white70),
+                style: theme.textTheme.bodyMedium?.copyWith(color: Colors.grey),
               ),
               value: _settings.enabled,
               activeColor: AppColors.primary,
@@ -87,7 +108,9 @@ class _HydrationSettingsScreenState extends State<HydrationSettingsScreen> {
             const SizedBox(height: 20),
 
             Card(
-              color: AppColors.surface,
+              color: theme.cardColor,
+              elevation: 2,
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
               child: Padding(
                 padding: const EdgeInsets.all(16),
                 child: Column(
@@ -95,9 +118,7 @@ class _HydrationSettingsScreenState extends State<HydrationSettingsScreen> {
                   children: [
                     Text(
                       'Intervalo: ${_settings.intervalMinutes} minutos',
-                      style: const TextStyle(
-                        color: Colors.white,
-                        fontSize: 16,
+                      style: theme.textTheme.titleMedium?.copyWith(
                         fontWeight: FontWeight.bold,
                       ),
                     ),
@@ -107,6 +128,7 @@ class _HydrationSettingsScreenState extends State<HydrationSettingsScreen> {
                       max: 180,
                       divisions: 11,
                       activeColor: AppColors.primary,
+                      inactiveColor: theme.dividerColor,
                       label: '${_settings.intervalMinutes} min',
                       onChanged: (value) {
                         setState(() {
@@ -115,9 +137,9 @@ class _HydrationSettingsScreenState extends State<HydrationSettingsScreen> {
                       },
                       onChangeEnd: (value) => _saveSettings(),
                     ),
-                    const Text(
+                    Text(
                       'Cada cuánto tiempo recibirás un recordatorio',
-                      style: TextStyle(color: Colors.white54, fontSize: 12),
+                      style: theme.textTheme.bodySmall?.copyWith(color: Colors.grey),
                     ),
                   ],
                 ),
@@ -126,72 +148,85 @@ class _HydrationSettingsScreenState extends State<HydrationSettingsScreen> {
 
             const SizedBox(height: 16),
 
+            // Tarjeta de Horarios
             Card(
-              color: AppColors.surface,
-              child: ListTile(
-                title: const Text(
-                  'Hora de inicio',
-                  style: TextStyle(color: Colors.white),
-                ),
-                subtitle: Text(
-                  '${_settings.startHour.toString().padLeft(2, '0')}:00',
-                  style: const TextStyle(
-                    color: AppColors.primary,
-                    fontSize: 20,
-                  ),
-                ),
-                trailing: const Icon(Icons.access_time, color: Colors.white54),
-                onTap: () async {
-                  final picked = await showTimePicker(
-                    context: context,
-                    initialTime: TimeOfDay(
-                      hour: _settings.startHour,
-                      minute: 0,
+              color: theme.cardColor,
+              elevation: 2,
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+              child: Column(
+                children: [
+                  ListTile(
+                    title: Text(
+                      'Hora de inicio',
+                      style: theme.textTheme.bodyLarge,
                     ),
-                    builder: (context, child) {
-                      return Theme(data: ThemeData.dark(), child: child!);
+                    subtitle: Text(
+                      '${_settings.startHour.toString().padLeft(2, '0')}:00',
+                      style: const TextStyle(
+                        color: AppColors.primary,
+                        fontSize: 20,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                    trailing: Icon(Icons.access_time, color: theme.iconTheme.color?.withOpacity(0.5)),
+                    onTap: () async {
+                      final picked = await showTimePicker(
+                        context: context,
+                        initialTime: TimeOfDay(
+                          hour: _settings.startHour,
+                          minute: 0,
+                        ),
+                        builder: (context, child) {
+                          // Adaptar el picker al tema actual
+                          return Theme(
+                            data: isDark ? ThemeData.dark() : ThemeData.light().copyWith(colorScheme: const ColorScheme.light(primary: AppColors.primary)), 
+                            child: child!
+                          );
+                        },
+                      );
+                      if (picked != null) {
+                        setState(() {
+                          _settings.startHour = picked.hour;
+                        });
+                        _saveSettings();
+                      }
                     },
-                  );
-                  if (picked != null) {
-                    setState(() {
-                      _settings.startHour = picked.hour;
-                    });
-                    _saveSettings();
-                  }
-                },
-              ),
-            ),
-
-            Card(
-              color: AppColors.surface,
-              child: ListTile(
-                title: const Text(
-                  'Hora de fin',
-                  style: TextStyle(color: Colors.white),
-                ),
-                subtitle: Text(
-                  '${_settings.endHour.toString().padLeft(2, '0')}:00',
-                  style: const TextStyle(
-                    color: AppColors.primary,
-                    fontSize: 20,
                   ),
-                ),
-                trailing: const Icon(Icons.access_time, color: Colors.white54),
-                onTap: () async {
-                  final picked = await showTimePicker(
-                    context: context,
-                    initialTime: TimeOfDay(hour: _settings.endHour, minute: 0),
-                    builder: (context, child) {
-                      return Theme(data: ThemeData.dark(), child: child!);
+                  Divider(height: 1, color: theme.dividerColor),
+                  ListTile(
+                    title: Text(
+                      'Hora de fin',
+                      style: theme.textTheme.bodyLarge,
+                    ),
+                    subtitle: Text(
+                      '${_settings.endHour.toString().padLeft(2, '0')}:00',
+                      style: const TextStyle(
+                        color: AppColors.primary,
+                        fontSize: 20,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                    trailing: Icon(Icons.access_time, color: theme.iconTheme.color?.withOpacity(0.5)),
+                    onTap: () async {
+                      final picked = await showTimePicker(
+                        context: context,
+                        initialTime: TimeOfDay(hour: _settings.endHour, minute: 0),
+                        builder: (context, child) {
+                          return Theme(
+                            data: isDark ? ThemeData.dark() : ThemeData.light().copyWith(colorScheme: const ColorScheme.light(primary: AppColors.primary)), 
+                            child: child!
+                          );
+                        },
+                      );
+                      if (picked != null) {
+                        setState(() {
+                          _settings.endHour = picked.hour;
+                        });
+                        _saveSettings();
+                      }
                     },
-                  );
-                  if (picked != null) {
-                    setState(() {
-                      _settings.endHour = picked.hour;
-                    });
-                    _saveSettings();
-                  }
-                },
+                  ),
+                ],
               ),
             ),
 
@@ -206,15 +241,15 @@ class _HydrationSettingsScreenState extends State<HydrationSettingsScreen> {
               ),
               child: Column(
                 children: [
-                  const Row(
+                  Row(
                     children: [
-                      Icon(Icons.info_outline, color: Colors.blue),
-                      SizedBox(width: 10),
+                      const Icon(Icons.info_outline, color: Colors.blue),
+                      const SizedBox(width: 10),
                       Expanded(
                         child: Text(
                           'Consejos de hidratación',
-                          style: TextStyle(
-                            color: Colors.white,
+                          style: theme.textTheme.titleMedium?.copyWith(
+                            color: isDark ? Colors.white : Colors.blue[800],
                             fontWeight: FontWeight.bold,
                           ),
                         ),
@@ -222,12 +257,14 @@ class _HydrationSettingsScreenState extends State<HydrationSettingsScreen> {
                     ],
                   ),
                   const SizedBox(height: 10),
-                  const Text(
+                  Text(
                     '• Bebe 2-3 litros de agua al día\n'
                     '• Más agua durante entrenamientos\n'
                     '• Hidrata antes de sentir sed\n'
                     '• Agua fresca, no helada',
-                    style: TextStyle(color: Colors.white70),
+                    style: theme.textTheme.bodyMedium?.copyWith(
+                      color: isDark ? Colors.white70 : Colors.blueGrey[800]
+                    ),
                   ),
                 ],
               ),

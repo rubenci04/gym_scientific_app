@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:hive_flutter/hive_flutter.dart';
+import 'package:provider/provider.dart'; // Necesario para el botón de tema
+import '../main.dart'; // Para acceder al ThemeProvider
 import '../models/user_model.dart';
 import '../models/routine_model.dart';
 import '../services/progressive_overload_service.dart';
@@ -33,8 +35,6 @@ class _HomeScreenState extends State<HomeScreen> {
   void initState() {
     super.initState();
     _loadDataAndApplyProgression();
-    
-    // Solicitamos permisos de notificación al inicio
     NotificationService.requestPermissions();
   }
 
@@ -57,19 +57,20 @@ class _HomeScreenState extends State<HomeScreen> {
   }
 
   void _logout() async {
+    final theme = Theme.of(context);
     bool confirm = await showDialog(
       context: context,
       builder: (ctx) => AlertDialog(
-        backgroundColor: AppColors.surface,
-        title: const Text("¿Cerrar Sesión?", style: TextStyle(color: Colors.white)),
-        content: const Text(
+        backgroundColor: theme.cardColor,
+        title: Text("¿Cerrar Sesión?", style: theme.textTheme.titleLarge),
+        content: Text(
           "Se borrarán tus datos de este dispositivo para que otra persona pueda usarlo.",
-          style: TextStyle(color: Colors.white70),
+          style: theme.textTheme.bodyMedium,
         ),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(ctx, false),
-            child: const Text("Cancelar"),
+            child: Text("Cancelar", style: TextStyle(color: theme.textTheme.bodyMedium?.color)),
           ),
           TextButton(
             onPressed: () => Navigator.pop(ctx, true),
@@ -94,8 +95,13 @@ class _HomeScreenState extends State<HomeScreen> {
 
   @override
   Widget build(BuildContext context) {
+    // Obtenemos el tema y el proveedor para cambios dinámicos
+    final theme = Theme.of(context);
+    final themeProvider = Provider.of<ThemeProvider>(context);
+    final isDark = themeProvider.isDarkMode;
+
     return Scaffold(
-      backgroundColor: AppColors.background,
+      backgroundColor: theme.scaffoldBackgroundColor,
       body: _isLoading
           ? const Center(child: CircularProgressIndicator())
           : SafeArea(
@@ -105,63 +111,83 @@ class _HomeScreenState extends State<HomeScreen> {
                   crossAxisAlignment: CrossAxisAlignment.center,
                   children: [
                     
-                    // --- CABECERA PERSONALIZADA ---
+                    // --- CABECERA MEJORADA CON TEMA ---
                     Row(
                       mainAxisAlignment: MainAxisAlignment.spaceBetween,
                       children: [
-                        // Logo pequeño y nombre de la App
+                        // Logo y Nombre
+                        Expanded(
+                          child: Row(
+                            children: [
+                              Container(
+                                padding: const EdgeInsets.all(8),
+                                decoration: BoxDecoration(
+                                  color: theme.cardColor,
+                                  borderRadius: BorderRadius.circular(12),
+                                  boxShadow: [
+                                    if (!isDark) // Sombra sutil en modo claro
+                                      BoxShadow(color: Colors.black.withOpacity(0.05), blurRadius: 5)
+                                  ]
+                                ),
+                                child: Image.asset(
+                                  'assets/logo/app_logo.png.png',
+                                  height: 40,
+                                  errorBuilder: (c, e, s) => const Icon(Icons.fitness_center, color: AppColors.primary),
+                                ),
+                              ),
+                              const SizedBox(width: 12),
+                              Flexible(
+                                child: Text(
+                                  'GYM SCIENTIFIC',
+                                  style: theme.textTheme.titleLarge?.copyWith(
+                                    fontWeight: FontWeight.bold,
+                                    letterSpacing: 1.2,
+                                  ),
+                                  overflow: TextOverflow.ellipsis,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                        
+                        // Botones de Acción (Tema + Logout)
                         Row(
+                          mainAxisSize: MainAxisSize.min,
                           children: [
-                            Container(
-                              padding: const EdgeInsets.all(8),
-                              decoration: BoxDecoration(
-                                color: AppColors.surface,
-                                borderRadius: BorderRadius.circular(12),
+                            // NUEVO: BOTÓN DE TEMA
+                            IconButton(
+                              onPressed: themeProvider.toggleTheme,
+                              icon: Icon(
+                                isDark ? Icons.light_mode : Icons.dark_mode,
+                                color: isDark ? Colors.orangeAccent : Colors.indigo,
                               ),
-                              child: Image.asset(
-                                // CORRECCIÓN: Usamos el logo principal grande (app_logo.png)
-                                // Nota: Mantengo la extensión doble .png.png si así está en tus assets,
-                                // si lo renombraste, cambia esto a 'assets/logo/app_logo.png'
-                                'assets/logo/app_logo.png.png',
-                                height: 40, // Aumentado ligeramente para que se vea bien
-                                errorBuilder: (c, e, s) => const Icon(Icons.fitness_center, color: AppColors.primary),
-                              ),
+                              tooltip: "Cambiar Tema",
                             ),
-                            const SizedBox(width: 12),
-                            const Text(
-                              'GYM SCIENTIFIC',
-                              style: TextStyle(
-                                fontSize: 18,
-                                fontWeight: FontWeight.bold,
-                                color: Colors.white,
-                                letterSpacing: 1.2,
-                              ),
+                            // Botón de Logout
+                            IconButton(
+                              onPressed: _logout,
+                              icon: Icon(Icons.logout_rounded, color: theme.iconTheme.color?.withOpacity(0.7)),
+                              tooltip: "Cerrar Sesión",
                             ),
                           ],
-                        ),
-                        // Botón de Logout
-                        IconButton(
-                          onPressed: _logout,
-                          icon: const Icon(Icons.logout_rounded, color: Colors.white54),
-                          tooltip: "Cerrar Sesión",
                         ),
                       ],
                     ),
 
                     const SizedBox(height: 25),
 
-                    // --- TARJETA DE BIENVENIDA ---
+                    // --- TARJETA DE BIENVENIDA (Gradient branding se mantiene) ---
                     _buildWelcomeCard(_currentUser),
                     
                     const SizedBox(height: 30),
 
                     // --- SECCIÓN DE HERRAMIENTAS ---
-                    const Align(
+                    Align(
                       alignment: Alignment.centerLeft,
                       child: Text(
                         "HERRAMIENTAS",
                         style: TextStyle(
-                          color: Colors.grey,
+                          color: theme.textTheme.bodySmall?.color?.withOpacity(0.6),
                           fontSize: 12,
                           letterSpacing: 1.5,
                           fontWeight: FontWeight.bold,
@@ -169,7 +195,7 @@ class _HomeScreenState extends State<HomeScreen> {
                       ),
                     ),
                     const SizedBox(height: 15),
-                    _buildToolsGrid(context),
+                    _buildToolsGrid(context, theme),
 
                     const SizedBox(height: 30),
 
@@ -177,10 +203,10 @@ class _HomeScreenState extends State<HomeScreen> {
                     Row(
                       mainAxisAlignment: MainAxisAlignment.spaceBetween,
                       children: [
-                        const Text(
+                        Text(
                           "TU PLAN DE HOY",
                           style: TextStyle(
-                            color: Colors.grey,
+                            color: theme.textTheme.bodySmall?.color?.withOpacity(0.6),
                             fontSize: 12,
                             letterSpacing: 1.5,
                             fontWeight: FontWeight.bold,
@@ -213,9 +239,9 @@ class _HomeScreenState extends State<HomeScreen> {
                     const SizedBox(height: 15),
                     
                     if (_currentRoutine != null)
-                      _buildRoutineList(context, _currentRoutine!)
+                      _buildRoutineList(context, _currentRoutine!, theme)
                     else
-                      _buildEmptyRoutineState(context),
+                      _buildEmptyRoutineState(context, theme),
                       
                     const SizedBox(height: 20),
                   ],
@@ -292,7 +318,7 @@ class _HomeScreenState extends State<HomeScreen> {
     );
   }
 
-  Widget _buildToolsGrid(BuildContext context) {
+  Widget _buildToolsGrid(BuildContext context, ThemeData theme) {
     final tools = [
       {
         'icon': Icons.menu_book,
@@ -344,8 +370,12 @@ class _HomeScreenState extends State<HomeScreen> {
       ),
       itemBuilder: (context, index) {
         final tool = tools[index];
+        final isDark = theme.brightness == Brightness.dark;
+        
         return Material(
-          color: AppColors.surface,
+          color: theme.cardColor,
+          elevation: isDark ? 0 : 2, // Pequeña elevación en modo claro
+          shadowColor: Colors.black12,
           borderRadius: BorderRadius.circular(20),
           child: InkWell(
             borderRadius: BorderRadius.circular(20),
@@ -374,10 +404,9 @@ class _HomeScreenState extends State<HomeScreen> {
                 const SizedBox(height: 10),
                 Text(
                   tool['label'] as String,
-                  style: const TextStyle(
-                    color: Colors.white70,
-                    fontSize: 12,
+                  style: theme.textTheme.bodyMedium?.copyWith(
                     fontWeight: FontWeight.w500,
+                    fontSize: 12,
                   ),
                   textAlign: TextAlign.center,
                 ),
@@ -389,7 +418,9 @@ class _HomeScreenState extends State<HomeScreen> {
     );
   }
 
-  Widget _buildRoutineList(BuildContext context, WeeklyRoutine routine) {
+  Widget _buildRoutineList(BuildContext context, WeeklyRoutine routine, ThemeData theme) {
+    final isDark = theme.brightness == Brightness.dark;
+
     return ListView.separated(
       shrinkWrap: true,
       physics: const NeverScrollableScrollPhysics(),
@@ -399,16 +430,17 @@ class _HomeScreenState extends State<HomeScreen> {
         final day = routine.days[index];
         return Container(
           decoration: BoxDecoration(
-            color: AppColors.surface,
+            color: theme.cardColor,
             borderRadius: BorderRadius.circular(18),
-            border: Border.all(color: Colors.white.withOpacity(0.03)),
+            // Borde sutil solo en dark mode para separación
+            border: isDark ? Border.all(color: Colors.white.withOpacity(0.05)) : null,
+            boxShadow: isDark ? [] : [BoxShadow(color: Colors.grey.withOpacity(0.1), blurRadius: 4, offset: const Offset(0, 2))],
           ),
           child: ListTile(
             contentPadding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
             title: Text(
               day.name,
-              style: const TextStyle(
-                color: Colors.white,
+              style: theme.textTheme.titleMedium?.copyWith(
                 fontWeight: FontWeight.bold,
                 fontSize: 16,
               ),
@@ -417,7 +449,7 @@ class _HomeScreenState extends State<HomeScreen> {
               padding: const EdgeInsets.only(top: 6.0),
               child: Text(
                 "${day.exercises.length} Ejercicios • Enfoque: ${day.targetMuscles.join(", ")}",
-                style: const TextStyle(color: Colors.grey, fontSize: 12),
+                style: theme.textTheme.bodySmall,
               ),
             ),
             trailing: Container(
@@ -451,33 +483,29 @@ class _HomeScreenState extends State<HomeScreen> {
     );
   }
 
-  Widget _buildEmptyRoutineState(BuildContext context) {
+  Widget _buildEmptyRoutineState(BuildContext context, ThemeData theme) {
     return Center(
       child: Container(
         margin: const EdgeInsets.only(top: 20),
         padding: const EdgeInsets.all(30),
         decoration: BoxDecoration(
-          color: AppColors.surface.withOpacity(0.5),
+          color: theme.cardColor,
           borderRadius: BorderRadius.circular(20),
-          border: Border.all(color: Colors.white10),
+          border: Border.all(color: theme.dividerColor.withOpacity(0.1)),
         ),
         child: Column(
           children: [
-            const Icon(Icons.fitness_center, size: 50, color: Colors.grey),
+            Icon(Icons.fitness_center, size: 50, color: theme.disabledColor),
             const SizedBox(height: 15),
-            const Text(
+            Text(
               "No tienes un plan activo",
-              style: TextStyle(
-                color: Colors.white,
-                fontWeight: FontWeight.bold,
-                fontSize: 16,
-              ),
+              style: theme.textTheme.titleMedium?.copyWith(fontWeight: FontWeight.bold),
             ),
             const SizedBox(height: 5),
-            const Text(
+            Text(
               "Crea uno nuevo o selecciona una plantilla.",
               textAlign: TextAlign.center,
-              style: TextStyle(color: Colors.grey),
+              style: theme.textTheme.bodyMedium?.copyWith(color: Colors.grey),
             ),
             const SizedBox(height: 20),
             ElevatedButton(

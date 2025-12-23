@@ -2,6 +2,8 @@ import 'dart:io';
 import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/material.dart';
 import 'package:hive_flutter/hive_flutter.dart';
+import 'package:image_picker/image_picker.dart'; // NECESARIO PARA FOTOS
+import 'package:path_provider/path_provider.dart'; // NECESARIO PARA GUARDAR
 import '../models/routine_model.dart';
 import '../models/exercise_model.dart';
 import '../services/routine_repository.dart';
@@ -19,12 +21,16 @@ class RoutineEditorScreen extends StatefulWidget {
 class _RoutineEditorScreenState extends State<RoutineEditorScreen> {
   late TextEditingController _nameController;
   late WeeklyRoutine _editableRoutine;
+  bool _isNewRoutine = false;
 
   @override
   void initState() {
     super.initState();
     _editableRoutine = widget.routine;
     _nameController = TextEditingController(text: _editableRoutine.name);
+    
+    final box = Hive.box<WeeklyRoutine>('routineBox');
+    _isNewRoutine = !box.containsKey(_editableRoutine.id);
   }
 
   @override
@@ -42,10 +48,15 @@ class _RoutineEditorScreenState extends State<RoutineEditorScreen> {
     }
 
     _editableRoutine.name = _nameController.text;
-    await RoutineRepository.saveRoutine(_editableRoutine);
+
+    if (_isNewRoutine) {
+      await RoutineRepository.addRoutine(_editableRoutine);
+    } else {
+      await RoutineRepository.saveRoutine(_editableRoutine);
+    }
 
     if (mounted) {
-      Navigator.pop(context); // Volver a Mis Rutinas
+      Navigator.pop(context);
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text("Rutina guardada correctamente")),
       );
@@ -57,7 +68,7 @@ class _RoutineEditorScreenState extends State<RoutineEditorScreen> {
       final newDay = RoutineDay(
         id: DateTime.now().millisecondsSinceEpoch.toString(),
         name: 'Día ${_editableRoutine.days.length + 1}',
-        targetMuscles: [], // ✅ CORREGIDO: Parámetro agregado
+        targetMuscles: [],
         exercises: [],
       );
       _editableRoutine.days.add(newDay);
@@ -82,7 +93,6 @@ class _RoutineEditorScreenState extends State<RoutineEditorScreen> {
     });
   }
 
-  // --- SELECTOR DE EJERCICIOS (Mini Librería) ---
   void _showExercisePicker(int dayIndex) {
     showModalBottomSheet(
       context: context,
@@ -96,18 +106,16 @@ class _RoutineEditorScreenState extends State<RoutineEditorScreen> {
           scrollController: controller,
           onExerciseSelected: (Exercise selectedExercise) {
             setState(() {
-              // Convertimos el Ejercicio de la Librería a un Ejercicio de Rutina
               final routineExercise = RoutineExercise(
-                exerciseId: selectedExercise.id, // ✅ CORREGIDO: Cambió de 'id' a 'exerciseId'
-                sets: 3, // ✅ CORREGIDO: Cambió de 'targetSets' a 'sets'
-                reps: "10-12", // ✅ CORREGIDO: Cambió de 'targetReps' a 'reps'
-                rpe: "8", // ✅ CORREGIDO: Cambió de 'targetRPE' (int) a 'rpe' (String?)
-                restTimeSeconds: 90, // ✅ CORREGIDO: Cambió de 'restSeconds' a 'restTimeSeconds'
-                note: "", // ✅ Mantenido
+                exerciseId: selectedExercise.id,
+                sets: 3,
+                reps: "10-12",
+                rpe: "8",
+                restTimeSeconds: 90,
+                note: "",
               );
               _editableRoutine.days[dayIndex].exercises.add(routineExercise);
               
-              // Actualizamos los músculos objetivo del día automáticamente
               if (!_editableRoutine.days[dayIndex].targetMuscles.contains(selectedExercise.muscleGroup)) {
                  _editableRoutine.days[dayIndex].targetMuscles.add(selectedExercise.muscleGroup);
               }
@@ -121,11 +129,14 @@ class _RoutineEditorScreenState extends State<RoutineEditorScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    
     return Scaffold(
-      backgroundColor: AppColors.background,
+      backgroundColor: theme.scaffoldBackgroundColor,
       appBar: AppBar(
-        backgroundColor: AppColors.surface,
-        title: const Text("Editar Rutina"),
+        backgroundColor: theme.appBarTheme.backgroundColor,
+        title: Text("Editar Rutina", style: theme.appBarTheme.titleTextStyle),
+        iconTheme: theme.iconTheme,
         actions: [
           IconButton(
             onPressed: _saveRoutine,
@@ -135,46 +146,45 @@ class _RoutineEditorScreenState extends State<RoutineEditorScreen> {
       ),
       body: Column(
         children: [
-          // --- HEADER: NOMBRE ---
           Container(
             padding: const EdgeInsets.all(20),
-            color: AppColors.surface,
+            color: theme.cardColor,
             child: TextField(
               controller: _nameController,
-              style: const TextStyle(color: Colors.white, fontSize: 18),
-              decoration: const InputDecoration(
+              style: theme.textTheme.bodyLarge,
+              decoration: InputDecoration(
                 labelText: "Nombre de la Rutina",
-                labelStyle: TextStyle(color: Colors.white70),
-                border: OutlineInputBorder(),
-                enabledBorder: OutlineInputBorder(borderSide: BorderSide(color: Colors.white24)),
+                labelStyle: TextStyle(color: theme.textTheme.bodyMedium?.color?.withOpacity(0.7)),
+                border: const OutlineInputBorder(),
+                enabledBorder: OutlineInputBorder(borderSide: BorderSide(color: theme.dividerColor)),
+                focusedBorder: const OutlineInputBorder(borderSide: BorderSide(color: AppColors.primary)),
               ),
             ),
           ),
           
-          // --- LISTA DE DÍAS ---
           Expanded(
             child: _editableRoutine.days.isEmpty
-                ? _buildEmptyDaysState()
+                ? _buildEmptyDaysState(theme)
                 : ListView.builder(
                     padding: const EdgeInsets.all(16),
                     itemCount: _editableRoutine.days.length,
                     itemBuilder: (context, index) {
-                      return _buildDayCard(index);
+                      return _buildDayCard(index, theme);
                     },
                   ),
           ),
           
-          // --- BOTÓN AGREGAR DÍA ---
           Container(
             width: double.infinity,
             padding: const EdgeInsets.all(16),
-            color: AppColors.surface,
+            color: theme.cardColor,
             child: ElevatedButton.icon(
               style: ElevatedButton.styleFrom(
-                backgroundColor: AppColors.surface,
+                backgroundColor: theme.cardColor,
                 foregroundColor: AppColors.primary,
                 side: const BorderSide(color: AppColors.primary),
                 padding: const EdgeInsets.symmetric(vertical: 15),
+                elevation: 0,
               ),
               onPressed: _addDay,
               icon: const Icon(Icons.calendar_today),
@@ -186,34 +196,35 @@ class _RoutineEditorScreenState extends State<RoutineEditorScreen> {
     );
   }
 
-  Widget _buildEmptyDaysState() {
+  Widget _buildEmptyDaysState(ThemeData theme) {
     return Center(
       child: Column(
         mainAxisAlignment: MainAxisAlignment.center,
-        children: const [
-          Icon(Icons.calendar_view_week, size: 60, color: Colors.white24),
-          SizedBox(height: 10),
-          Text("No hay días configurados", style: TextStyle(color: Colors.white54)),
+        children: [
+          Icon(Icons.calendar_view_week, size: 60, color: theme.disabledColor),
+          const SizedBox(height: 10),
+          Text("No hay días configurados", style: TextStyle(color: theme.textTheme.bodyMedium?.color?.withOpacity(0.5))),
         ],
       ),
     );
   }
 
-  Widget _buildDayCard(int index) {
+  Widget _buildDayCard(int index, ThemeData theme) {
     final day = _editableRoutine.days[index];
     final nameCtrl = TextEditingController(text: day.name);
+    final isDark = theme.brightness == Brightness.dark;
 
     return Card(
-      color: AppColors.surface,
+      color: theme.cardColor,
       margin: const EdgeInsets.only(bottom: 20),
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(15)),
+      elevation: isDark ? 1 : 2,
       child: Column(
         children: [
-          // CABECERA DEL DÍA
           Container(
             padding: const EdgeInsets.symmetric(horizontal: 15, vertical: 8),
             decoration: BoxDecoration(
-              color: Colors.white.withOpacity(0.05),
+              color: isDark ? Colors.white.withOpacity(0.05) : Colors.grey[100],
               borderRadius: const BorderRadius.vertical(top: Radius.circular(15)),
             ),
             child: Row(
@@ -222,10 +233,10 @@ class _RoutineEditorScreenState extends State<RoutineEditorScreen> {
                   child: TextField(
                     controller: nameCtrl,
                     style: const TextStyle(color: AppColors.primary, fontWeight: FontWeight.bold),
-                    decoration: const InputDecoration(
+                    decoration: InputDecoration(
                       border: InputBorder.none,
                       hintText: "Nombre del día (ej: Pierna)",
-                      hintStyle: TextStyle(color: Colors.white24),
+                      hintStyle: TextStyle(color: theme.disabledColor),
                     ),
                     onSubmitted: (val) => _updateDayName(index, val),
                   ),
@@ -238,14 +249,13 @@ class _RoutineEditorScreenState extends State<RoutineEditorScreen> {
             ),
           ),
 
-          // LISTA DE EJERCICIOS DEL DÍA
           if (day.exercises.isEmpty)
             Padding(
               padding: const EdgeInsets.all(20),
               child: TextButton.icon(
                 onPressed: () => _showExercisePicker(index),
-                icon: const Icon(Icons.add_circle_outline, color: Colors.white54),
-                label: const Text("Agregar primer ejercicio", style: TextStyle(color: Colors.white54)),
+                icon: Icon(Icons.add_circle_outline, color: theme.disabledColor),
+                label: Text("Agregar primer ejercicio", style: TextStyle(color: theme.disabledColor)),
               ),
             )
           else
@@ -262,7 +272,6 @@ class _RoutineEditorScreenState extends State<RoutineEditorScreen> {
               },
               itemBuilder: (context, exIndex) {
                 final exercise = day.exercises[exIndex];
-                // ✅ CORREGIDO: Cambió exercise.id a exercise.exerciseId
                 final originalExercise = Hive.box<Exercise>('exerciseBox').get(exercise.exerciseId);
                 
                 ImageProvider? img;
@@ -280,27 +289,26 @@ class _RoutineEditorScreenState extends State<RoutineEditorScreen> {
                    }
                 }
 
-                // ✅ CORREGIDO: Obtenemos el nombre desde la base de datos
                 final exerciseName = originalExercise?.name ?? 'Ejercicio Desconocido';
 
                 return ListTile(
-                  key: ValueKey(exercise), // Necesario para reorderable
+                  key: ValueKey(exercise),
                   contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
                   leading: Container(
                     width: 40, height: 40,
                     decoration: BoxDecoration(
-                      color: Colors.black26,
+                      color: isDark ? Colors.black26 : Colors.grey[200],
                       borderRadius: BorderRadius.circular(5),
                       image: img != null ? DecorationImage(image: img, fit: BoxFit.cover) : null,
                     ),
-                    child: img == null ? const Icon(Icons.fitness_center, size: 20, color: Colors.white24) : null,
+                    child: img == null ? Icon(Icons.fitness_center, size: 20, color: theme.disabledColor) : null,
                   ),
-                  title: Text(exerciseName, style: const TextStyle(color: Colors.white)), // ✅ CORREGIDO
-                  subtitle: Text("${exercise.sets} series x ${exercise.reps}", style: const TextStyle(color: Colors.grey, fontSize: 12)), // ✅ CORREGIDO
+                  title: Text(exerciseName, style: theme.textTheme.bodyMedium?.copyWith(fontWeight: FontWeight.bold)),
+                  subtitle: Text("${exercise.sets} series x ${exercise.reps}", style: theme.textTheme.bodySmall),
                   trailing: Row(
                     mainAxisSize: MainAxisSize.min,
                     children: [
-                      const Icon(Icons.drag_handle, color: Colors.white24),
+                      Icon(Icons.drag_handle, color: theme.disabledColor),
                       const SizedBox(width: 10),
                       IconButton(
                         icon: const Icon(Icons.close, size: 18, color: Colors.redAccent),
@@ -328,8 +336,6 @@ class _RoutineEditorScreenState extends State<RoutineEditorScreen> {
   }
 }
 
-// --- WIDGET HELPER: SELECTOR DE EJERCICIOS ---
-// Este widget encapsula la lógica de búsqueda y visualización para no ensuciar el editor
 class _ExercisePickerSheet extends StatefulWidget {
   final ScrollController scrollController;
   final Function(Exercise) onExerciseSelected;
@@ -342,18 +348,121 @@ class _ExercisePickerSheet extends StatefulWidget {
 
 class _ExercisePickerSheetState extends State<_ExercisePickerSheet> {
   String _query = "";
-  String? _filterMuscle;
+
+  // --- NUEVA FUNCIONALIDAD: CREAR EJERCICIO ---
+  Future<void> _showCreateExerciseDialog() async {
+    final nameCtrl = TextEditingController();
+    String selectedMuscle = 'Pecho';
+    String selectedEquipment = 'Mancuernas';
+    String? localImagePath;
+
+    final muscles = ['Pecho', 'Espalda', 'Hombros', 'Bíceps', 'Tríceps', 'Cuádriceps', 'Isquios', 'Glúteos', 'Gemelos', 'Abdominales', 'Cardio', 'Trapecio', 'Antebrazo', 'Aductores', 'Otro'];
+    final equipments = ['Corporal', 'Mancuernas', 'Barra', 'Máquina', 'Polea', 'Banda', 'Kettlebell', 'Disco', 'Otro'];
+
+    await showDialog(
+      context: context,
+      builder: (ctx) => StatefulBuilder(
+        builder: (context, setStateDialog) {
+          final theme = Theme.of(context);
+          return AlertDialog(
+            backgroundColor: theme.cardColor,
+            title: Text("Crear Nuevo Ejercicio", style: theme.textTheme.titleLarge),
+            content: SingleChildScrollView(
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  GestureDetector(
+                    onTap: () async {
+                      try {
+                        final picker = ImagePicker();
+                        final XFile? image = await picker.pickImage(source: ImageSource.gallery, imageQuality: 50);
+                        if (image != null) {
+                          if (!kIsWeb) {
+                            final directory = await getApplicationDocumentsDirectory();
+                            final fileName = 'custom_${DateTime.now().millisecondsSinceEpoch}.jpg';
+                            final savedImage = await File(image.path).copy('${directory.path}/$fileName');
+                            setStateDialog(() => localImagePath = savedImage.path);
+                          }
+                        }
+                      } catch (e) {
+                        debugPrint("Error imagen: $e");
+                      }
+                    },
+                    child: Container(
+                      height: 120, width: 120,
+                      decoration: BoxDecoration(
+                        color: Colors.black12,
+                        borderRadius: BorderRadius.circular(10),
+                        image: localImagePath != null ? DecorationImage(image: FileImage(File(localImagePath!)), fit: BoxFit.cover) : null
+                      ),
+                      child: localImagePath == null ? const Icon(Icons.add_a_photo, color: AppColors.primary, size: 40) : null,
+                    ),
+                  ),
+                  const SizedBox(height: 15),
+                  TextField(
+                    controller: nameCtrl,
+                    style: theme.textTheme.bodyLarge,
+                    decoration: const InputDecoration(labelText: "Nombre", border: OutlineInputBorder()),
+                  ),
+                  const SizedBox(height: 10),
+                  DropdownButtonFormField<String>(
+                    value: selectedMuscle,
+                    items: muscles.map((m) => DropdownMenuItem(value: m, child: Text(m))).toList(),
+                    onChanged: (v) => setStateDialog(() => selectedMuscle = v!),
+                    decoration: const InputDecoration(labelText: "Músculo"),
+                  ),
+                  const SizedBox(height: 10),
+                  DropdownButtonFormField<String>(
+                    value: selectedEquipment,
+                    items: equipments.map((e) => DropdownMenuItem(value: e, child: Text(e))).toList(),
+                    onChanged: (v) => setStateDialog(() => selectedEquipment = v!),
+                    decoration: const InputDecoration(labelText: "Equipo"),
+                  ),
+                ],
+              ),
+            ),
+            actions: [
+              TextButton(onPressed: () => Navigator.pop(ctx), child: const Text("Cancelar")),
+              ElevatedButton(
+                onPressed: () {
+                  if (nameCtrl.text.isEmpty) return;
+                  final newEx = Exercise(
+                    id: 'custom_${DateTime.now().millisecondsSinceEpoch}',
+                    name: nameCtrl.text,
+                    muscleGroup: selectedMuscle,
+                    equipment: selectedEquipment,
+                    movementPattern: 'Personalizado',
+                    difficulty: 'General',
+                    description: '',
+                    targetMuscles: [selectedMuscle],
+                    localImagePath: localImagePath,
+                  );
+                  Hive.box<Exercise>('exerciseBox').put(newEx.id, newEx);
+                  Navigator.pop(ctx);
+                  // Seleccionamos automáticamente el ejercicio creado
+                  widget.onExerciseSelected(newEx);
+                },
+                child: const Text("Crear y Añadir"),
+              )
+            ],
+          );
+        }
+      ),
+    );
+  }
 
   @override
   Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final isDark = theme.brightness == Brightness.dark;
+
     return Container(
-      decoration: const BoxDecoration(
-        color: AppColors.background,
-        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      decoration: BoxDecoration(
+        color: theme.scaffoldBackgroundColor,
+        borderRadius: const BorderRadius.vertical(top: Radius.circular(20)),
       ),
       child: Column(
         children: [
-          // Barra superior
           Padding(
             padding: const EdgeInsets.all(16),
             child: Row(
@@ -362,32 +471,36 @@ class _ExercisePickerSheetState extends State<_ExercisePickerSheet> {
                 const SizedBox(width: 10),
                 Expanded(
                   child: TextField(
-                    style: const TextStyle(color: Colors.white),
-                    decoration: const InputDecoration(
-                      hintText: "Buscar ejercicio...",
-                      hintStyle: TextStyle(color: Colors.white38),
+                    style: theme.textTheme.bodyLarge,
+                    decoration: InputDecoration(
+                      hintText: "Buscar o crear...",
+                      hintStyle: TextStyle(color: theme.textTheme.bodyMedium?.color?.withOpacity(0.5)),
                       border: InputBorder.none,
                     ),
                     onChanged: (val) => setState(() => _query = val),
                   ),
                 ),
+                // --- BOTÓN DE CREAR NUEVO ---
                 IconButton(
-                  icon: const Icon(Icons.close, color: Colors.white),
+                  icon: const Icon(Icons.add, color: AppColors.primary),
+                  tooltip: "Crear nuevo ejercicio",
+                  onPressed: _showCreateExerciseDialog,
+                ),
+                IconButton(
+                  icon: Icon(Icons.close, color: theme.iconTheme.color),
                   onPressed: () => Navigator.pop(context),
                 )
               ],
             ),
           ),
-          const Divider(color: Colors.white10),
+          Divider(color: theme.dividerColor),
           
-          // Lista de ejercicios
           Expanded(
             child: ValueListenableBuilder(
               valueListenable: Hive.box<Exercise>('exerciseBox').listenable(),
               builder: (context, Box<Exercise> box, _) {
                 var exercises = box.values.toList();
                 
-                // Filtros
                 if (_query.isNotEmpty) {
                   exercises = exercises.where((e) => 
                     e.name.toLowerCase().contains(_query.toLowerCase()) || 
@@ -395,7 +508,6 @@ class _ExercisePickerSheetState extends State<_ExercisePickerSheet> {
                   ).toList();
                 }
 
-                // Ordenar: Custom primero
                 exercises.sort((a, b) {
                    final aC = a.id.startsWith('custom_');
                    final bC = b.id.startsWith('custom_');
@@ -410,7 +522,6 @@ class _ExercisePickerSheetState extends State<_ExercisePickerSheet> {
                   itemBuilder: (context, index) {
                     final ex = exercises[index];
                     
-                    // Imagen pequeña
                     ImageProvider? img;
                     if (ex.localImagePath != null && ex.localImagePath!.isNotEmpty) {
                       if (kIsWeb) {
@@ -426,13 +537,13 @@ class _ExercisePickerSheetState extends State<_ExercisePickerSheet> {
                       leading: Container(
                         width: 50, height: 50,
                         decoration: BoxDecoration(
-                          color: Colors.white10,
+                          color: isDark ? Colors.white10 : Colors.grey[300],
                           borderRadius: BorderRadius.circular(8),
                           image: DecorationImage(image: img!, fit: BoxFit.cover, onError: (e,s){}),
                         ),
                       ),
-                      title: Text(ex.name, style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
-                      subtitle: Text(ex.muscleGroup, style: const TextStyle(color: Colors.grey)),
+                      title: Text(ex.name, style: theme.textTheme.bodyMedium?.copyWith(fontWeight: FontWeight.bold)),
+                      subtitle: Text(ex.muscleGroup, style: theme.textTheme.bodySmall),
                       trailing: const Icon(Icons.add_circle, color: AppColors.primary),
                       onTap: () => widget.onExerciseSelected(ex),
                     );

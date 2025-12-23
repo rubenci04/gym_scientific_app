@@ -1,9 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:fl_chart/fl_chart.dart';
 import 'package:hive_flutter/hive_flutter.dart';
-import 'package:intl/intl.dart';
+import 'package:provider/provider.dart'; // Necesario para el botón de tema
+import '../main.dart'; // Para acceder al ThemeProvider
 import '../models/history_model.dart';
-import '../models/exercise_model.dart'; // Necesitamos saber los nombres de los ejercicios
+import '../models/exercise_model.dart'; 
 import '../theme/app_colors.dart';
 
 class ProgressScreen extends StatefulWidget {
@@ -14,10 +15,10 @@ class ProgressScreen extends StatefulWidget {
 }
 
 class _ProgressScreenState extends State<ProgressScreen> {
-  String _selectedMetric = '1RM Estimado'; // Métrica científica por defecto
-  String? _selectedExerciseId; // ID del ejercicio a analizar
+  String _selectedMetric = '1RM Estimado'; 
+  String? _selectedExerciseId; 
   List<WorkoutSession> _history = [];
-  Map<String, String> _availableExercises = {}; // Mapa ID -> Nombre para el selector
+  Map<String, String> _availableExercises = {}; 
 
   @override
   void initState() {
@@ -29,17 +30,14 @@ class _ProgressScreenState extends State<ProgressScreen> {
     final historyBox = Hive.box<WorkoutSession>('historyBox');
     final exerciseBox = Hive.box<Exercise>('exerciseBox');
 
-    // 1. Cargo el historial ordenado por fecha
     final rawHistory = historyBox.values.toList()
       ..sort((a, b) => a.date.compareTo(b.date));
 
-    // 2. Extraigo qué ejercicios se han realizado alguna vez para llenar el filtro
     final Map<String, String> foundExercises = {};
     
     for (var session in rawHistory) {
       for (var ex in session.exercises) {
         if (!foundExercises.containsKey(ex.exerciseId)) {
-          // Busco el nombre real en la caja de ejercicios, o uso el guardado en el historial
           final realName = exerciseBox.get(ex.exerciseId)?.name ?? ex.exerciseName;
           foundExercises[ex.exerciseId] = realName;
         }
@@ -50,7 +48,6 @@ class _ProgressScreenState extends State<ProgressScreen> {
       _history = rawHistory;
       _availableExercises = foundExercises;
       
-      // Selecciono el primer ejercicio encontrado por defecto para no mostrar vacío
       if (_selectedExerciseId == null && _availableExercises.isNotEmpty) {
         _selectedExerciseId = _availableExercises.keys.first;
       }
@@ -62,11 +59,9 @@ class _ProgressScreenState extends State<ProgressScreen> {
     if (_selectedExerciseId == null) return [];
 
     List<FlSpot> spots = [];
-    int indexCounter = 0; // Usamos un contador secuencial para el eje X
+    int indexCounter = 0; 
 
     for (var session in _history) {
-      // Buscamos si esta sesión contiene el ejercicio seleccionado
-      // .firstWhereOrNull (pero sin importar librerias extra, lo hacemos manual)
       WorkoutExercise? targetExercise;
       try {
         targetExercise = session.exercises.firstWhere((e) => e.exerciseId == _selectedExerciseId);
@@ -78,23 +73,20 @@ class _ProgressScreenState extends State<ProgressScreen> {
         double yValue = 0;
 
         if (_selectedMetric == 'Volumen Total') {
-          // Volumen = Series * Reps * Peso
           for (var set in targetExercise.sets) {
             yValue += set.weight * set.reps;
           }
         } else if (_selectedMetric == '1RM Estimado') {
-          // Buscamos el MEJOR set de la sesión para estimar el 1RM
           double max1RM = 0;
           for (var set in targetExercise.sets) {
             if (set.weight > 0 && set.reps > 0) {
-              // Fórmula de Epley: Peso * (1 + Reps/30)
+              // Fórmula de Epley
               double estimated = set.weight * (1 + set.reps / 30);
               if (estimated > max1RM) max1RM = estimated;
             }
           }
           yValue = max1RM;
         } else if (_selectedMetric == 'Peso Máximo') {
-           // Solo el peso más alto movido (sin importar reps)
            double maxWeight = 0;
            for (var set in targetExercise.sets) {
              if (set.weight > maxWeight) maxWeight = set.weight;
@@ -102,14 +94,10 @@ class _ProgressScreenState extends State<ProgressScreen> {
            yValue = maxWeight;
         }
 
-        // Solo añadimos el punto si hubo actividad real (>0)
         if (yValue > 0) {
           spots.add(FlSpot(indexCounter.toDouble(), yValue));
         }
       }
-      // Incrementamos el contador de "tiempo" (sesiones) incluso si no hizo el ejercicio
-      // para mantener la escala temporal, o solo cuando lo hace? 
-      // Para gráficos de progreso, mejor comprimir:
       if (targetExercise != null) indexCounter++;
     }
     return spots;
@@ -117,14 +105,31 @@ class _ProgressScreenState extends State<ProgressScreen> {
 
   @override
   Widget build(BuildContext context) {
+    // --- TEMA DINÁMICO ---
+    final theme = Theme.of(context);
+    final themeProvider = Provider.of<ThemeProvider>(context);
+    final isDark = themeProvider.isDarkMode;
+    
     final spots = _getSpots();
 
     return Scaffold(
-      backgroundColor: AppColors.background,
+      backgroundColor: theme.scaffoldBackgroundColor,
       appBar: AppBar(
-        title: const Text('Análisis de Progreso'),
-        backgroundColor: AppColors.surface,
+        title: Text('Análisis de Progreso', style: theme.appBarTheme.titleTextStyle),
+        backgroundColor: theme.appBarTheme.backgroundColor,
         elevation: 0,
+        iconTheme: theme.iconTheme,
+        actions: [
+          // Botón de Tema
+          IconButton(
+            icon: Icon(
+              isDark ? Icons.light_mode : Icons.dark_mode,
+              color: isDark ? Colors.orangeAccent : Colors.indigo,
+            ),
+            tooltip: "Cambiar Tema",
+            onPressed: themeProvider.toggleTheme,
+          ),
+        ],
       ),
       body: Padding(
         padding: const EdgeInsets.all(16.0),
@@ -135,19 +140,24 @@ class _ProgressScreenState extends State<ProgressScreen> {
             Container(
               padding: const EdgeInsets.all(15),
               decoration: BoxDecoration(
-                color: AppColors.surface,
+                color: theme.cardColor,
                 borderRadius: BorderRadius.circular(12),
+                boxShadow: isDark ? [] : [BoxShadow(color: Colors.grey.withOpacity(0.1), blurRadius: 5, offset: const Offset(0, 3))],
               ),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  const Text("EJERCICIO", style: TextStyle(color: Colors.grey, fontSize: 12)),
+                  Text("EJERCICIO", style: TextStyle(color: theme.textTheme.bodySmall?.color?.withOpacity(0.6), fontSize: 12)),
                   const SizedBox(height: 5),
                   DropdownButtonFormField<String>(
                     value: _selectedExerciseId,
-                    isExpanded: true, // Para que nombres largos no rompan
-                    dropdownColor: AppColors.surface,
-                    style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
+                    isExpanded: true,
+                    dropdownColor: theme.cardColor,
+                    style: TextStyle(
+                      color: isDark ? Colors.white : Colors.black87, 
+                      fontWeight: FontWeight.bold,
+                      fontSize: 16
+                    ),
                     items: _availableExercises.entries.map((entry) {
                       return DropdownMenuItem(
                         value: entry.key,
@@ -160,12 +170,12 @@ class _ProgressScreenState extends State<ProgressScreen> {
                       contentPadding: EdgeInsets.zero,
                     ),
                   ),
-                  const Divider(color: Colors.white24),
-                  const Text("MÉTRICA CIENTÍFICA", style: TextStyle(color: Colors.grey, fontSize: 12)),
+                  Divider(color: theme.dividerColor),
+                  Text("MÉTRICA CIENTÍFICA", style: TextStyle(color: theme.textTheme.bodySmall?.color?.withOpacity(0.6), fontSize: 12)),
                   DropdownButtonFormField<String>(
                     value: _selectedMetric,
-                    dropdownColor: AppColors.surface,
-                    style: const TextStyle(color: AppColors.secondary, fontWeight: FontWeight.bold),
+                    dropdownColor: theme.cardColor,
+                    style: const TextStyle(color: AppColors.secondary, fontWeight: FontWeight.bold, fontSize: 16),
                     items: [
                       '1RM Estimado',
                       'Volumen Total',
@@ -190,13 +200,13 @@ class _ProgressScreenState extends State<ProgressScreen> {
                       child: Column(
                         mainAxisAlignment: MainAxisAlignment.center,
                         children: [
-                          const Icon(Icons.show_chart, size: 60, color: Colors.white10),
+                          Icon(Icons.show_chart, size: 60, color: theme.disabledColor),
                           const SizedBox(height: 10),
                           Text(
                             _availableExercises.isEmpty 
                               ? 'Registra tu primer entrenamiento.' 
                               : 'No hay datos para este ejercicio.',
-                            style: const TextStyle(color: AppColors.textSecondary),
+                            style: TextStyle(color: theme.textTheme.bodyMedium?.color?.withOpacity(0.5)),
                           ),
                         ],
                       ),
@@ -206,9 +216,9 @@ class _ProgressScreenState extends State<ProgressScreen> {
                         gridData: FlGridData(
                           show: true,
                           drawVerticalLine: false,
-                          horizontalInterval: _selectedMetric == '1RM Estimado' ? 5 : null, // Líneas cada 5kg si es fuerza
+                          horizontalInterval: _selectedMetric == '1RM Estimado' ? 5 : null, 
                           getDrawingHorizontalLine: (value) => FlLine(
-                            color: Colors.white10,
+                            color: isDark ? Colors.white10 : Colors.black12, // Líneas dinámicas
                             strokeWidth: 1,
                           ),
                         ),
@@ -220,13 +230,13 @@ class _ProgressScreenState extends State<ProgressScreen> {
                               getTitlesWidget: (value, meta) {
                                 return Text(
                                   value.toInt().toString(),
-                                  style: const TextStyle(color: Colors.grey, fontSize: 10),
+                                  style: TextStyle(color: theme.textTheme.bodySmall?.color, fontSize: 10), // Texto dinámico
                                 );
                               },
                             ),
                           ),
                           bottomTitles: const AxisTitles(
-                            sideTitles: SideTitles(showTitles: false), // Ocultamos fechas para limpieza visual
+                            sideTitles: SideTitles(showTitles: false), 
                           ),
                           topTitles: const AxisTitles(sideTitles: SideTitles(showTitles: false)),
                           rightTitles: const AxisTitles(sideTitles: SideTitles(showTitles: false)),
@@ -235,7 +245,7 @@ class _ProgressScreenState extends State<ProgressScreen> {
                         lineBarsData: [
                           LineChartBarData(
                             spots: spots,
-                            isCurved: true, // Curva suave para estética moderna
+                            isCurved: true, 
                             curveSmoothness: 0.2,
                             color: AppColors.primary,
                             barWidth: 4,
@@ -245,7 +255,7 @@ class _ProgressScreenState extends State<ProgressScreen> {
                               getDotPainter: (spot, percent, barData, index) {
                                 return FlDotCirclePainter(
                                   radius: 4,
-                                  color: AppColors.surface,
+                                  color: theme.cardColor, // El centro del punto del color de fondo
                                   strokeWidth: 2,
                                   strokeColor: AppColors.primary,
                                 );
@@ -266,6 +276,9 @@ class _ProgressScreenState extends State<ProgressScreen> {
                         ],
                         lineTouchData: LineTouchData(
                           touchTooltipData: LineTouchTooltipData(
+                            // --- CORRECCIÓN AQUÍ ---
+                            // Usamos un color seguro (negro semi-transparente) que siempre queda bien en tooltips
+                            tooltipBgColor: Colors.black.withOpacity(0.8), 
                             getTooltipItems: (touchedSpots) {
                               return touchedSpots.map((LineBarSpot touchedSpot) {
                                 return LineTooltipItem(
@@ -276,18 +289,16 @@ class _ProgressScreenState extends State<ProgressScreen> {
                             },
                             tooltipRoundedRadius: 8,
                             tooltipPadding: const EdgeInsets.all(8),
-                            // El color de fondo del tooltip lo maneja la librería, a veces necesita configuración extra
-                            // pero el default suele ser oscuro en modo oscuro.
                           ),
                         ),
                       ),
                     ),
             ),
             const SizedBox(height: 10),
-            const Center(
+            Center(
               child: Text(
                 "Historial de Sesiones →",
-                style: TextStyle(color: Colors.white24, fontSize: 10),
+                style: TextStyle(color: theme.textTheme.bodySmall?.color?.withOpacity(0.3), fontSize: 10),
               ),
             ),
           ],

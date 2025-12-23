@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart'; // Necesario para HapticFeedback y Sonidos de sistema
 import 'package:hive_flutter/hive_flutter.dart';
 import '../models/exercise_model.dart';
 import '../models/history_model.dart';
@@ -8,7 +9,7 @@ import '../theme/app_colors.dart';
 import '../services/current_workout_service.dart';
 import 'plate_calculator_screen.dart';
 import 'home_screen.dart';
-import 'exercise_selection_screen.dart'; // Importante para agregar/reemplazar
+import 'exercise_selection_screen.dart';
 
 class WorkoutScreen extends StatefulWidget {
   final String dayName;
@@ -26,8 +27,7 @@ class WorkoutScreen extends StatefulWidget {
   State<WorkoutScreen> createState() => _WorkoutScreenState();
 }
 
-class _WorkoutScreenState extends State<WorkoutScreen>
-    with WidgetsBindingObserver {
+class _WorkoutScreenState extends State<WorkoutScreen> with WidgetsBindingObserver {
   late Box<Exercise> exerciseBox;
   late List<RoutineExercise> currentExercises;
 
@@ -50,7 +50,6 @@ class _WorkoutScreenState extends State<WorkoutScreen>
     WidgetsBinding.instance.addObserver(this);
     exerciseBox = Hive.box<Exercise>('exerciseBox');
     
-    // Creamos una copia local modificable de los ejercicios
     currentExercises = List.from(widget.routineExercises);
 
     _initializeDataStructures();
@@ -63,7 +62,6 @@ class _WorkoutScreenState extends State<WorkoutScreen>
     }
   }
 
-  // Helper para inicializar datos de un solo ejercicio
   void _initSingleExerciseData(RoutineExercise routineExercise) {
     final id = routineExercise.exerciseId;
     if (!_sessionData.containsKey(id)) {
@@ -92,10 +90,8 @@ class _WorkoutScreenState extends State<WorkoutScreen>
           (widget.routineDayId.isEmpty &&
               savedSession['dayName'] == widget.dayName)) {
         setState(() {
-          final Map<String, List<WorkoutSet>> data =
-              savedSession['sessionData'];
+          final Map<String, List<WorkoutSet>> data = savedSession['sessionData'];
           
-          // Restaurar datos existentes
           data.forEach((exId, sets) {
             if (_sessionData.containsKey(exId)) {
               _sessionData[exId] = sets;
@@ -132,11 +128,16 @@ class _WorkoutScreenState extends State<WorkoutScreen>
       dayName: widget.dayName,
       sessionData: _sessionData,
     );
+    
+    // Feedback táctil al guardar
+    HapticFeedback.mediumImpact();
+    
     ScaffoldMessenger.of(context).showSnackBar(
       const SnackBar(
         content: Text('✅ Progreso guardado correctamente'),
         backgroundColor: Colors.green,
         duration: Duration(milliseconds: 1500),
+        behavior: SnackBarBehavior.floating,
       ),
     );
   }
@@ -162,8 +163,6 @@ class _WorkoutScreenState extends State<WorkoutScreen>
       );
     }
   }
-
-  // --- GESTIÓN DE EJERCICIOS (NUEVO) ---
 
   void _addNewExercise() async {
     final Exercise? selected = await Navigator.push(
@@ -195,16 +194,7 @@ class _WorkoutScreenState extends State<WorkoutScreen>
 
     if (selected != null) {
       setState(() {
-        final oldId = currentExercises[index].exerciseId;
-        // Limpiamos controladores viejos si ya no se usan en otro lado
-        if (currentExercises.where((e) => e.exerciseId == oldId).length == 1) {
-           // Podríamos limpiar, pero mejor dejarlo por si el usuario vuelve a agregarlo
-        }
-
-        // Actualizamos la referencia
         currentExercises[index].exerciseId = selected.id;
-        
-        // Inicializamos datos para el nuevo
         _initSingleExerciseData(currentExercises[index]);
       });
       _autoSave();
@@ -215,9 +205,9 @@ class _WorkoutScreenState extends State<WorkoutScreen>
     showDialog(
       context: context,
       builder: (ctx) => AlertDialog(
-        backgroundColor: AppColors.surface,
-        title: const Text("Eliminar ejercicio", style: TextStyle(color: Colors.white)),
-        content: const Text("¿Quitar este ejercicio de la sesión actual?", style: TextStyle(color: Colors.white70)),
+        backgroundColor: Theme.of(context).cardColor,
+        title: Text("Eliminar ejercicio", style: Theme.of(context).textTheme.titleLarge),
+        content: Text("¿Quitar este ejercicio de la sesión actual?", style: Theme.of(context).textTheme.bodyMedium),
         actions: [
           TextButton(onPressed: () => Navigator.pop(ctx), child: const Text("Cancelar")),
           TextButton(
@@ -235,10 +225,15 @@ class _WorkoutScreenState extends State<WorkoutScreen>
     );
   }
 
-  // --- TEMPORIZADOR Y LÓGICA DE SERIES ---
+  // --- TEMPORIZADOR CON SONIDO Y HAPTICS ---
 
   void _startRestTimer(double rpe, String exerciseId) {
     _timer?.cancel();
+    
+    // Feedback táctil al iniciar descanso
+    HapticFeedback.lightImpact();
+    SystemSound.play(SystemSoundType.click);
+
     final ex = _exerciseDefs[exerciseId];
     int baseRest = 90; 
 
@@ -263,16 +258,24 @@ class _WorkoutScreenState extends State<WorkoutScreen>
       setState(() {
         _secondsRest++;
         _timerProgress = (_secondsRest / _suggestedRest).clamp(0.0, 1.0);
+        
+        // Alerta al terminar
+        if (_secondsRest == _suggestedRest) {
+          HapticFeedback.heavyImpact(); // Vibración fuerte
+          SystemSound.play(SystemSoundType.alert); // Sonido de sistema
+        }
       });
     });
   }
 
   void _stopRestTimer() {
     _timer?.cancel();
+    HapticFeedback.selectionClick();
     setState(() => _isResting = false);
   }
 
   void _addTime(int seconds) {
+    HapticFeedback.lightImpact();
     setState(() {
       _suggestedRest += seconds;
       _timerProgress = (_secondsRest / _suggestedRest).clamp(0.0, 1.0);
@@ -290,9 +293,9 @@ class _WorkoutScreenState extends State<WorkoutScreen>
     showDialog(
       context: context,
       builder: (context) => AlertDialog(
-        backgroundColor: AppColors.surface,
-        title: Text(title, style: const TextStyle(color: Colors.white)),
-        content: Text(content, style: const TextStyle(color: AppColors.textSecondary)),
+        backgroundColor: Theme.of(context).cardColor,
+        title: Text(title, style: Theme.of(context).textTheme.titleLarge),
+        content: Text(content, style: Theme.of(context).textTheme.bodyMedium),
         actions: [
           TextButton(onPressed: () => Navigator.pop(context), child: const Text('Entendido')),
         ],
@@ -313,50 +316,54 @@ class _WorkoutScreenState extends State<WorkoutScreen>
   void _showExerciseInfo(Exercise exercise) {
     showDialog(
       context: context,
-      builder: (context) => AlertDialog(
-        backgroundColor: AppColors.surface,
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(15)),
-        title: Text(exercise.name, style: const TextStyle(color: Colors.white)),
-        content: SingleChildScrollView(
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Container(
-                height: 200,
-                width: double.infinity,
-                padding: const EdgeInsets.all(10),
-                decoration: BoxDecoration(
-                  color: Colors.white, // Fondo blanco para ver bien la imagen
-                  borderRadius: BorderRadius.circular(10)
+      builder: (context) {
+        final theme = Theme.of(context);
+        return AlertDialog(
+          backgroundColor: theme.cardColor,
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(15)),
+          title: Text(exercise.name, style: theme.textTheme.titleLarge),
+          content: SingleChildScrollView(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Container(
+                  height: 200,
+                  width: double.infinity,
+                  padding: const EdgeInsets.all(10),
+                  decoration: BoxDecoration(
+                    color: Colors.white, // Siempre blanco para ver bien la imagen
+                    borderRadius: BorderRadius.circular(10),
+                    border: Border.all(color: Colors.black12)
+                  ),
+                  child: Image.asset(
+                    'assets/exercises/${exercise.id}.png',
+                    fit: BoxFit.contain,
+                    errorBuilder: (c,e,s) => const Center(child: Icon(Icons.fitness_center, color: Colors.grey, size: 50)),
+                  ),
                 ),
-                child: Image.asset(
-                  'assets/exercises/${exercise.id}.png',
-                  fit: BoxFit.contain,
-                  errorBuilder: (c,e,s) => const Center(child: Icon(Icons.fitness_center, color: Colors.grey, size: 50)),
-                ),
-              ),
-              const SizedBox(height: 15),
-              if (exercise.description.isNotEmpty) ...[
-                const Text("Biomecánica:", style: TextStyle(color: AppColors.primary, fontWeight: FontWeight.bold)),
-                const SizedBox(height: 5),
-                Text(exercise.description, style: const TextStyle(color: Colors.white70)),
                 const SizedBox(height: 15),
-              ],
-              Wrap(
-                spacing: 8,
-                children: [
-                  Chip(label: Text(exercise.muscleGroup), backgroundColor: AppColors.primary.withOpacity(0.2)),
-                  Chip(label: Text(exercise.equipment), backgroundColor: Colors.white10),
+                if (exercise.description.isNotEmpty) ...[
+                  const Text("Biomecánica:", style: TextStyle(color: AppColors.primary, fontWeight: FontWeight.bold)),
+                  const SizedBox(height: 5),
+                  Text(exercise.description, style: theme.textTheme.bodyMedium),
+                  const SizedBox(height: 15),
                 ],
-              )
-            ],
+                Wrap(
+                  spacing: 8,
+                  children: [
+                    Chip(label: Text(exercise.muscleGroup), backgroundColor: AppColors.primary.withOpacity(0.2)),
+                    Chip(label: Text(exercise.equipment), backgroundColor: theme.dividerColor.withOpacity(0.1)),
+                  ],
+                )
+              ],
+            ),
           ),
-        ),
-        actions: [
-          TextButton(onPressed: () => Navigator.pop(context), child: const Text('Cerrar')),
-        ],
-      ),
+          actions: [
+            TextButton(onPressed: () => Navigator.pop(context), child: const Text('Cerrar')),
+          ],
+        );
+      }
     );
   }
 
@@ -364,12 +371,13 @@ class _WorkoutScreenState extends State<WorkoutScreen>
     bool hasData = _sessionData.values.any((sets) => sets.isNotEmpty);
     if (!hasData) return true;
 
+    final theme = Theme.of(context);
     return (await showDialog(
           context: context,
           builder: (context) => AlertDialog(
-            backgroundColor: AppColors.surface,
-            title: const Text('¿Pausar entrenamiento?', style: TextStyle(color: Colors.white)),
-            content: const Text('Tu progreso se guardará automáticamente.', style: TextStyle(color: AppColors.textSecondary)),
+            backgroundColor: theme.cardColor,
+            title: Text('¿Pausar entrenamiento?', style: theme.textTheme.titleLarge),
+            content: Text('Tu progreso se guardará automáticamente.', style: theme.textTheme.bodyMedium),
             actions: [
               TextButton(onPressed: () => Navigator.of(context).pop(false), child: const Text('Cancelar')),
               TextButton(
@@ -390,6 +398,9 @@ class _WorkoutScreenState extends State<WorkoutScreen>
   }
 
   void _finishWorkout() async {
+    // Vibración de éxito
+    HapticFeedback.mediumImpact();
+
     List<WorkoutExercise> exercisesDone = [];
     double totalVolume = 0;
     int totalSets = 0;
@@ -419,18 +430,19 @@ class _WorkoutScreenState extends State<WorkoutScreen>
       return;
     }
 
+    final theme = Theme.of(context);
     final confirm = await showDialog<bool>(
       context: context,
       builder: (context) => AlertDialog(
-        backgroundColor: AppColors.surface,
-        title: const Text('Resumen Científico', style: TextStyle(color: Colors.white)),
+        backgroundColor: theme.cardColor,
+        title: Text('Resumen Científico', style: theme.textTheme.titleLarge),
         content: Column(
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Text('Ejercicios: ${exercisesDone.length}', style: const TextStyle(color: AppColors.textSecondary)),
-            Text('Series Totales: $totalSets', style: const TextStyle(color: AppColors.textSecondary)),
-            Text('Tonelaje: ${totalVolume.toStringAsFixed(0)} kg', style: const TextStyle(color: AppColors.textSecondary)),
+            Text('Ejercicios: ${exercisesDone.length}', style: theme.textTheme.bodyMedium),
+            Text('Series Totales: $totalSets', style: theme.textTheme.bodyMedium),
+            Text('Tonelaje: ${totalVolume.toStringAsFixed(0)} kg', style: theme.textTheme.bodyMedium),
             const SizedBox(height: 10),
             
             Container(
@@ -440,20 +452,20 @@ class _WorkoutScreenState extends State<WorkoutScreen>
                 children: [
                   Icon(Icons.accessibility_new, color: Colors.blue, size: 20),
                   SizedBox(width: 10),
-                  Expanded(child: Text("¡No olvides estirar! Dedica 5 min a relajar los músculos trabajados.", style: TextStyle(color: Colors.white, fontSize: 12))),
+                  Expanded(child: Text("¡No olvides estirar! Dedica 5 min a relajar los músculos trabajados.", style: TextStyle(color: Colors.blue, fontSize: 12, fontWeight: FontWeight.bold))),
                 ],
               ),
             ),
             const SizedBox(height: 10),
-            const Text('¿Finalizar sesión?', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
+            Text('¿Finalizar sesión?', style: theme.textTheme.titleMedium?.copyWith(fontWeight: FontWeight.bold)),
           ],
         ),
         actions: [
           TextButton(onPressed: () => Navigator.pop(context, false), child: const Text('Seguir')),
           ElevatedButton(
-            style: ElevatedButton.styleFrom(backgroundColor: AppColors.primary),
+            style: ElevatedButton.styleFrom(backgroundColor: AppColors.primary, foregroundColor: Colors.white),
             onPressed: () => Navigator.pop(context, true),
-            child: const Text('Finalizar', style: TextStyle(color: Colors.white)),
+            child: const Text('Finalizar'),
           ),
         ],
       ),
@@ -482,6 +494,7 @@ class _WorkoutScreenState extends State<WorkoutScreen>
   }
 
   void _addSet(String exId) {
+    HapticFeedback.lightImpact();
     setState(() {
       double lastWeight = 0;
       int lastReps = 0;
@@ -522,17 +535,21 @@ class _WorkoutScreenState extends State<WorkoutScreen>
 
   @override
   Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final isDark = theme.brightness == Brightness.dark;
+
     return WillPopScope(
       onWillPop: _onWillPop,
       child: Scaffold(
-        backgroundColor: AppColors.background,
+        backgroundColor: theme.scaffoldBackgroundColor,
         appBar: AppBar(
           leading: IconButton(
-            icon: const Icon(Icons.arrow_back, color: Colors.white),
+            icon: Icon(Icons.arrow_back, color: theme.iconTheme.color),
             onPressed: () async { if (await _onWillPop()) if (mounted) Navigator.of(context).pop(); },
           ),
-          title: Text(widget.dayName),
-          backgroundColor: AppColors.surface,
+          title: Text(widget.dayName, style: theme.appBarTheme.titleTextStyle),
+          backgroundColor: theme.appBarTheme.backgroundColor,
+          elevation: 0,
           actions: [
             IconButton(
               icon: const Icon(Icons.save, color: AppColors.secondary),
@@ -550,14 +567,14 @@ class _WorkoutScreenState extends State<WorkoutScreen>
               child: GestureDetector(
                 onTap: _showWarmupGuide,
                 child: Container(
-                  color: Colors.orangeAccent.withOpacity(0.2),
+                  color: Colors.orangeAccent.withOpacity(0.15),
                   padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 16),
                   child: const Row(
                     mainAxisAlignment: MainAxisAlignment.center,
                     children: [
-                      Icon(Icons.local_fire_department, color: Colors.orangeAccent, size: 18),
+                      Icon(Icons.local_fire_department, color: Colors.orange, size: 18),
                       SizedBox(width: 8),
-                      Text("Ver Calentamiento Sugerido", style: TextStyle(color: Colors.orangeAccent, fontWeight: FontWeight.bold)),
+                      Text("Ver Calentamiento Sugerido", style: TextStyle(color: Colors.orange, fontWeight: FontWeight.bold)),
                     ],
                   ),
                 ),
@@ -568,17 +585,16 @@ class _WorkoutScreenState extends State<WorkoutScreen>
               padding: const EdgeInsets.only(top: 40), 
               child: ListView.builder(
                 padding: const EdgeInsets.only(bottom: 120),
-                itemCount: currentExercises.length + 1, // +1 para el botón de agregar
+                itemCount: currentExercises.length + 1,
                 itemBuilder: (context, index) {
                   // --- BOTÓN AGREGAR EJERCICIO (Al final) ---
                   if (index == currentExercises.length) {
                     return Padding(
                       padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 20),
-                      // Nota para mí: Uso ElevatedButton con texto BLANCO para asegurar visibilidad
                       child: ElevatedButton.icon(
                         style: ElevatedButton.styleFrom(
                           backgroundColor: AppColors.primary,
-                          foregroundColor: Colors.white, // TEXTO BLANCO
+                          foregroundColor: Colors.white,
                           padding: const EdgeInsets.symmetric(vertical: 15),
                           shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10))
                         ),
@@ -598,8 +614,9 @@ class _WorkoutScreenState extends State<WorkoutScreen>
                   final imagePath = 'assets/exercises/${exercise.id}.png';
 
                   return Card(
-                    color: AppColors.surface,
+                    color: theme.cardColor,
                     margin: const EdgeInsets.all(8),
+                    elevation: isDark ? 1 : 2,
                     shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
                     child: Padding(
                       padding: const EdgeInsets.all(12),
@@ -616,9 +633,9 @@ class _WorkoutScreenState extends State<WorkoutScreen>
                                   margin: const EdgeInsets.only(right: 12),
                                   padding: const EdgeInsets.all(4),
                                   decoration: BoxDecoration(
-                                    color: Colors.white, // Fondo blanco para la imagen
+                                    color: Colors.white, // Fondo blanco para la imagen siempre
                                     borderRadius: BorderRadius.circular(8),
-                                    border: Border.all(color: Colors.white12)
+                                    border: Border.all(color: Colors.black12)
                                   ),
                                   child: ClipRRect(
                                     borderRadius: BorderRadius.circular(6),
@@ -635,33 +652,33 @@ class _WorkoutScreenState extends State<WorkoutScreen>
                                   crossAxisAlignment: CrossAxisAlignment.start,
                                   children: [
                                     GestureDetector(
-                                        onTap: () => _showExerciseInfo(exercise),
-                                        child: Text(
-                                          exercise.name,
-                                          style: const TextStyle(color: Colors.white, fontSize: 16, fontWeight: FontWeight.bold),
-                                          maxLines: 2,
-                                        ),
+                                      onTap: () => _showExerciseInfo(exercise),
+                                      child: Text(
+                                        exercise.name,
+                                        style: theme.textTheme.titleMedium?.copyWith(fontWeight: FontWeight.bold),
+                                        maxLines: 2,
+                                      ),
                                     ),
                                     Text(
                                       "${exercise.muscleGroup} • ${exercise.equipment}",
-                                      style: const TextStyle(color: Colors.white54, fontSize: 11),
+                                      style: theme.textTheme.bodySmall,
                                     ),
                                   ],
                                 ),
                               ),
-                              // MENÚ DE OPCIONES (Editar, Reemplazar, Eliminar)
+                              // MENÚ DE OPCIONES
                               PopupMenuButton<String>(
-                                icon: const Icon(Icons.more_vert, color: Colors.grey),
-                                color: AppColors.surface,
+                                icon: Icon(Icons.more_vert, color: theme.iconTheme.color),
+                                color: theme.cardColor,
                                 onSelected: (value) {
                                   if (value == 'info') _showExerciseInfo(exercise);
                                   if (value == 'swap') _replaceExercise(index);
                                   if (value == 'delete') _removeExerciseFromSession(index);
                                 },
                                 itemBuilder: (context) => [
-                                  const PopupMenuItem(value: 'info', child: Row(children: [Icon(Icons.info_outline, size: 18), SizedBox(width: 8), Text("Ver Detalles")])),
-                                  const PopupMenuItem(value: 'swap', child: Row(children: [Icon(Icons.swap_horiz, size: 18), SizedBox(width: 8), Text("Reemplazar")])),
-                                  const PopupMenuItem(value: 'delete', child: Row(children: [Icon(Icons.delete_outline, size: 18, color: Colors.red), SizedBox(width: 8), Text("Eliminar", style: TextStyle(color: Colors.red))])),
+                                  PopupMenuItem(value: 'info', child: Row(children: [Icon(Icons.info_outline, size: 18, color: theme.iconTheme.color), const SizedBox(width: 8), Text("Ver Detalles", style: theme.textTheme.bodyMedium)])),
+                                  PopupMenuItem(value: 'swap', child: Row(children: [Icon(Icons.swap_horiz, size: 18, color: theme.iconTheme.color), const SizedBox(width: 8), Text("Reemplazar", style: theme.textTheme.bodyMedium)])),
+                                  PopupMenuItem(value: 'delete', child: Row(children: [const Icon(Icons.delete_outline, size: 18, color: Colors.red), const SizedBox(width: 8), const Text("Eliminar", style: TextStyle(color: Colors.red))])),
                                 ],
                               )
                             ],
@@ -674,14 +691,14 @@ class _WorkoutScreenState extends State<WorkoutScreen>
                               padding: const EdgeInsets.only(bottom: 8.0),
                               child: Row(
                                 children: [
-                                  const SizedBox(width: 30, child: Text("#", style: TextStyle(color: Colors.grey))),
-                                  const Expanded(child: Text("KG", style: TextStyle(color: Colors.grey), textAlign: TextAlign.center)),
+                                  SizedBox(width: 30, child: Text("#", style: TextStyle(color: theme.textTheme.bodySmall?.color))),
+                                  Expanded(child: Text("KG", style: TextStyle(color: theme.textTheme.bodySmall?.color), textAlign: TextAlign.center)),
                                   const SizedBox(width: 8),
-                                  Expanded(child: _buildHeaderWithHelp("Reps", "Repeticiones: Cantidad de veces que levantas el peso en una serie.")),
+                                  Expanded(child: _buildHeaderWithHelp("Reps", "Repeticiones: Cantidad de veces que levantas el peso en una serie.", color: theme.textTheme.bodySmall?.color ?? Colors.grey)),
                                   const SizedBox(width: 8),
                                   Expanded(child: _buildHeaderWithHelp("RPE", "Índice de Esfuerzo Percibido (1-10):\n\n10: Fallo (no puedes más).\n9: Te queda 1 repetición.\n8: Te quedan 2 reps (Ideal).", color: AppColors.secondary)),
                                   const SizedBox(width: 8),
-                                  SizedBox(width: 35, child: _buildHeaderWithHelp("1RM", "1 Repetición Máxima Estimada: Cuánto peso podrías levantar teóricamente una sola vez basado en esta serie.", isSmall: true)),
+                                  SizedBox(width: 35, child: _buildHeaderWithHelp("1RM", "1 Repetición Máxima Estimada: Cuánto peso podrías levantar teóricamente una sola vez basado en esta serie.", isSmall: true, color: theme.textTheme.bodySmall?.color ?? Colors.grey)),
                                   const SizedBox(width: 30), 
                                 ],
                               ),
@@ -695,12 +712,12 @@ class _WorkoutScreenState extends State<WorkoutScreen>
                               padding: const EdgeInsets.symmetric(vertical: 4.0),
                               child: Row(
                                 children: [
-                                  SizedBox(width: 30, child: Text("${setIdx + 1}", style: const TextStyle(color: Colors.white))),
-                                  Expanded(child: _buildCompactInput(controller: _weightControllers[exId]![setIdx], onChanged: (v) { set.weight = double.tryParse(v) ?? 0; _autoSave(); })),
+                                  SizedBox(width: 30, child: Text("${setIdx + 1}", style: TextStyle(color: theme.textTheme.bodyMedium?.color))),
+                                  Expanded(child: _buildCompactInput(controller: _weightControllers[exId]![setIdx], theme: theme, onChanged: (v) { set.weight = double.tryParse(v) ?? 0; _autoSave(); })),
                                   const SizedBox(width: 4),
-                                  Expanded(child: _buildCompactInput(controller: _repsControllers[exId]![setIdx], onChanged: (v) { set.reps = int.tryParse(v) ?? 0; _autoSave(); })),
+                                  Expanded(child: _buildCompactInput(controller: _repsControllers[exId]![setIdx], theme: theme, onChanged: (v) { set.reps = int.tryParse(v) ?? 0; _autoSave(); })),
                                   const SizedBox(width: 4),
-                                  Expanded(child: _buildCompactInput(controller: _rpeControllers[exId]![setIdx], isRpe: true, onChanged: (v) { set.rpe = double.tryParse(v) ?? 0; _autoSave(); })),
+                                  Expanded(child: _buildCompactInput(controller: _rpeControllers[exId]![setIdx], theme: theme, isRpe: true, onChanged: (v) { set.rpe = double.tryParse(v) ?? 0; _autoSave(); })),
                                   const SizedBox(width: 8),
                                   SizedBox(width: 35, child: Text(_calculate1RM(set.weight, set.reps), style: const TextStyle(color: Colors.orange, fontSize: 12))),
                                   IconButton(icon: const Icon(Icons.close, color: Colors.redAccent, size: 18), onPressed: () => _removeSet(exId, setIdx)),
@@ -729,15 +746,39 @@ class _WorkoutScreenState extends State<WorkoutScreen>
               Positioned(
                 bottom: 80, left: 20, right: 20,
                 child: Card(
-                  color: Colors.black87,
+                  color: const Color(0xFF1E1E1E), // Panel oscuro siempre para que destaque
+                  elevation: 5,
                   shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(15)),
                   child: Padding(
                     padding: const EdgeInsets.all(16),
                     child: Row(
                       children: [
-                        SizedBox(width: 60, height: 60, child: Stack(alignment: Alignment.center, children: [CircularProgressIndicator(value: _timerProgress, backgroundColor: Colors.grey[800], valueColor: const AlwaysStoppedAnimation<Color>(AppColors.primary), strokeWidth: 6), Text("${_suggestedRest - _secondsRest}", style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold))])),
+                        SizedBox(
+                          width: 60, height: 60, 
+                          child: Stack(
+                            alignment: Alignment.center, 
+                            children: [
+                              CircularProgressIndicator(
+                                value: _timerProgress, 
+                                backgroundColor: Colors.grey[800], 
+                                // Color dinámico: Verde al inicio, Rojo al final
+                                valueColor: AlwaysStoppedAnimation<Color>(_timerProgress > 0.9 ? Colors.redAccent : AppColors.primary), 
+                                strokeWidth: 6
+                              ), 
+                              Text("${_suggestedRest - _secondsRest}", style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 18))
+                            ]
+                          )
+                        ),
                         const SizedBox(width: 15),
-                        Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [const Text("Descanso Inteligente", style: TextStyle(color: AppColors.secondary, fontWeight: FontWeight.bold)), Text("Adaptado a tu RPE. Meta: $_suggestedRest s", style: const TextStyle(color: Colors.grey, fontSize: 12))])),
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start, 
+                            children: [
+                              const Text("Descanso Inteligente", style: TextStyle(color: AppColors.secondary, fontWeight: FontWeight.bold)), 
+                              Text("Recupérate bien...", style: TextStyle(color: Colors.grey[400], fontSize: 12))
+                            ]
+                          )
+                        ),
                         IconButton(icon: const Icon(Icons.add_circle_outline, color: Colors.blue), onPressed: () => _addTime(30)),
                         IconButton(icon: const Icon(Icons.skip_next, color: Colors.white), onPressed: _stopRestTimer),
                       ],
@@ -771,19 +812,28 @@ class _WorkoutScreenState extends State<WorkoutScreen>
     );
   }
 
-  Widget _buildCompactInput({required TextEditingController controller, required Function(String) onChanged, bool isRpe = false}) {
+  Widget _buildCompactInput({required TextEditingController controller, required Function(String) onChanged, required ThemeData theme, bool isRpe = false}) {
+    final isDark = theme.brightness == Brightness.dark;
+    
     return TextField(
       controller: controller,
       keyboardType: const TextInputType.numberWithOptions(decimal: true),
       textAlign: TextAlign.center,
-      style: TextStyle(color: isRpe ? AppColors.secondary : Colors.white, fontWeight: isRpe ? FontWeight.bold : FontWeight.normal),
+      // Texto: blanco en Dark Mode, negro en Light Mode (a menos que sea RPE)
+      style: TextStyle(
+        color: isRpe ? AppColors.secondary : (isDark ? Colors.white : Colors.black87), 
+        fontWeight: isRpe ? FontWeight.bold : FontWeight.normal
+      ),
       decoration: InputDecoration(
         isDense: true,
         contentPadding: const EdgeInsets.symmetric(vertical: 8),
         filled: true,
-        fillColor: isRpe ? AppColors.secondary.withOpacity(0.1) : AppColors.inputBackground,
-        border: OutlineInputBorder(borderSide: BorderSide(color: isRpe ? AppColors.secondary : AppColors.inputBorder), borderRadius: BorderRadius.circular(4)),
-        enabledBorder: OutlineInputBorder(borderSide: BorderSide(color: isRpe ? AppColors.secondary.withOpacity(0.5) : AppColors.inputBorder), borderRadius: BorderRadius.circular(4)),
+        // Fondo: oscuro en Dark Mode, gris claro en Light Mode
+        fillColor: isRpe 
+            ? AppColors.secondary.withOpacity(0.1) 
+            : (isDark ? AppColors.inputBackground : Colors.grey[200]),
+        border: OutlineInputBorder(borderSide: BorderSide(color: isRpe ? AppColors.secondary : theme.dividerColor), borderRadius: BorderRadius.circular(4)),
+        enabledBorder: OutlineInputBorder(borderSide: BorderSide(color: isRpe ? AppColors.secondary.withOpacity(0.5) : theme.dividerColor), borderRadius: BorderRadius.circular(4)),
         focusedBorder: OutlineInputBorder(borderSide: BorderSide(color: isRpe ? AppColors.secondary : AppColors.primary, width: 2), borderRadius: BorderRadius.circular(4)),
       ),
       onChanged: onChanged,

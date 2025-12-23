@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:hive_flutter/hive_flutter.dart';
+import 'package:provider/provider.dart'; // Necesario para el ThemeProvider
+import '../main.dart'; // Para acceder al ThemeProvider
 import '../models/user_model.dart';
 import '../theme/app_colors.dart';
 
@@ -11,54 +13,47 @@ class NutritionScreen extends StatefulWidget {
 }
 
 class _NutritionScreenState extends State<NutritionScreen> {
-  UserProfile? _user;
   double _waterIntake = 0;
   final double _waterGoal = 3.0; // Litros por defecto
 
-  @override
-  void initState() {
-    super.initState();
-    final box = Hive.box<UserProfile>('userBox');
-    _user = box.get('currentUser');
-    _calculateNutrition();
-  }
-
-  void _calculateNutrition() {
-    if (_user == null) return;
-
+  // Calculamos la nutrición al vuelo basándonos en el usuario actualizado
+  UserProfile _calculateNutrition(UserProfile user) {
     double bmr;
-    if (_user!.gender == 'Masculino') {
-      bmr = (10 * _user!.weight) + (6.25 * _user!.height) - (5 * _user!.age) + 5;
+    if (user.gender == 'Masculino') {
+      bmr = (10 * user.weight) + (6.25 * user.height) - (5 * user.age) + 5;
     } else {
-      bmr = (10 * _user!.weight) + (6.25 * _user!.height) - (5 * _user!.age) - 161;
+      bmr = (10 * user.weight) + (6.25 * user.height) - (5 * user.age) - 161;
     }
 
     double activityFactor = 1.375;
-    if (_user!.daysPerWeek >= 5) activityFactor = 1.55;
+    if (user.daysPerWeek >= 5) activityFactor = 1.55;
 
     double tdee = bmr * activityFactor;
 
-    if (_user!.goal == TrainingGoal.weightLoss || _user!.goal == TrainingGoal.generalHealth) {
-      if (_user!.goal == TrainingGoal.weightLoss) tdee -= 500;
-    } else if (_user!.goal == TrainingGoal.hypertrophy || _user!.goal == TrainingGoal.strength) {
+    if (user.goal == TrainingGoal.weightLoss || user.goal == TrainingGoal.generalHealth) {
+      if (user.goal == TrainingGoal.weightLoss) tdee -= 500;
+    } else if (user.goal == TrainingGoal.hypertrophy || user.goal == TrainingGoal.strength) {
       tdee += 300;
     }
 
-    _user!.tdee = tdee;
-    _user!.save();
+    // Actualizamos el objeto en memoria (y guardamos si cambió significativamente)
+    if ((user.tdee - tdee).abs() > 1) {
+      user.tdee = tdee;
+      user.save();
+    }
+    
+    return user;
   }
 
-  Map<String, double> _getMacros() {
-    if (_user == null) return {'P': 0, 'C': 0, 'G': 0};
-
-    double tdee = _user!.tdee;
+  Map<String, double> _getMacros(UserProfile user) {
+    double tdee = user.tdee;
     double protein, carbs, fats;
 
-    if (_user!.somatotype == Somatotype.ectomorph) {
+    if (user.somatotype == Somatotype.ectomorph) {
       protein = tdee * 0.25 / 4;
       carbs = tdee * 0.55 / 4;
       fats = tdee * 0.20 / 9;
-    } else if (_user!.somatotype == Somatotype.endomorph) {
+    } else if (user.somatotype == Somatotype.endomorph) {
       protein = tdee * 0.35 / 4;
       carbs = tdee * 0.25 / 4;
       fats = tdee * 0.40 / 9;
@@ -73,43 +68,72 @@ class _NutritionScreenState extends State<NutritionScreen> {
 
   @override
   Widget build(BuildContext context) {
-    if (_user == null) {
-      return const Scaffold(body: Center(child: CircularProgressIndicator()));
-    }
-
-    final macros = _getMacros();
+    final theme = Theme.of(context);
+    final themeProvider = Provider.of<ThemeProvider>(context);
+    final isDark = themeProvider.isDarkMode;
 
     return Scaffold(
-      backgroundColor: AppColors.background,
+      backgroundColor: theme.scaffoldBackgroundColor,
       appBar: AppBar(
-        title: const Text('Nutrición Científica'),
-        backgroundColor: AppColors.surface,
+        title: Text('Nutrición Científica', style: theme.appBarTheme.titleTextStyle),
+        backgroundColor: theme.appBarTheme.backgroundColor,
+        elevation: 0,
+        iconTheme: theme.iconTheme,
+        actions: [
+          // Botón de Tema
+          IconButton(
+            icon: Icon(
+              isDark ? Icons.light_mode : Icons.dark_mode,
+              color: isDark ? Colors.orangeAccent : Colors.indigo,
+            ),
+            tooltip: "Cambiar Tema",
+            onPressed: themeProvider.toggleTheme,
+          ),
+        ],
       ),
-      body: SingleChildScrollView(
-        padding: const EdgeInsets.all(16),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            _buildCalorieCard(),
-            const SizedBox(height: 20),
-            _buildMacroCard(macros),
-            const SizedBox(height: 20),
-            
-            _buildMenuTucumano(), 
-            
-            const SizedBox(height: 20),
-            _buildHydrationCard(),
-            const SizedBox(height: 20),
-            _buildSupplementsCard(),
-          ],
-        ),
+      // Usamos ValueListenableBuilder para escuchar cambios en el perfil (peso, edad, etc)
+      // y recalcular la dieta automáticamente.
+      body: ValueListenableBuilder(
+        valueListenable: Hive.box<UserProfile>('userBox').listenable(),
+        builder: (context, Box<UserProfile> box, _) {
+          final user = box.get('currentUser');
+          
+          if (user == null) {
+            return const Center(child: CircularProgressIndicator());
+          }
+
+          final updatedUser = _calculateNutrition(user);
+          final macros = _getMacros(updatedUser);
+
+          return SingleChildScrollView(
+            padding: const EdgeInsets.all(16),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                _buildCalorieCard(updatedUser, theme),
+                const SizedBox(height: 20),
+                _buildMacroCard(macros, theme),
+                const SizedBox(height: 20),
+                
+                _buildMenuTucumano(theme), 
+                
+                const SizedBox(height: 20),
+                _buildHydrationCard(theme),
+                const SizedBox(height: 20),
+                _buildSupplementsCard(theme),
+              ],
+            ),
+          );
+        }
       ),
     );
   }
 
-  Widget _buildMenuTucumano() {
+  Widget _buildMenuTucumano(ThemeData theme) {
     return Card(
-      color: AppColors.surface,
+      color: theme.cardColor,
+      elevation: 2,
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
       child: Padding(
         padding: const EdgeInsets.all(8.0),
         child: Column(
@@ -117,17 +141,13 @@ class _NutritionScreenState extends State<NutritionScreen> {
             Padding(
               padding: const EdgeInsets.all(8.0),
               child: Row(
-                children: const [
-                  Icon(Icons.restaurant, color: Colors.orange),
-                  SizedBox(width: 10),
+                children: [
+                  const Icon(Icons.restaurant, color: Colors.orange),
+                  const SizedBox(width: 10),
                   Expanded(
                     child: Text(
                       "Recetario",
-                      style: TextStyle(
-                        color: Colors.white,
-                        fontSize: 18,
-                        fontWeight: FontWeight.bold,
-                      ),
+                      style: theme.textTheme.titleLarge?.copyWith(fontWeight: FontWeight.bold),
                     ),
                   ),
                 ],
@@ -149,9 +169,10 @@ class _NutritionScreenState extends State<NutritionScreen> {
                 "Yogur griego natural con mix de semillas y miel. (~280 kcal, 15g prot)",
                 "Sandwich de queso tybo y tomate en pan árabe tostado. (~300 kcal, 12g prot)",
                 "Licuado de proteínas (whey) con fruta y agua/leche. (~250 kcal, 25g prot)",
-              ]
+              ],
+              theme
             ),
-            const Divider(color: Colors.white12),
+            Divider(color: theme.dividerColor),
             // Almuerzo
             _buildRecipeExpansionTile(
               "Almuerzo (Energía)", 
@@ -172,9 +193,10 @@ class _NutritionScreenState extends State<NutritionScreen> {
                 "Ensalada César con pollo (aderezo ligero). (~380 kcal, 28g prot)",
                 "Wrap o Fajitas de pollo con verduras salteadas. (~450 kcal, 25g prot)",
                 "Lentejas guisadas con verduras. (~400 kcal, 18g prot)",
-              ]
+              ],
+              theme
             ),
-            const Divider(color: Colors.white12),
+            Divider(color: theme.dividerColor),
             // Cena
             _buildRecipeExpansionTile(
               "Cena (Ligera)", 
@@ -195,7 +217,8 @@ class _NutritionScreenState extends State<NutritionScreen> {
                 "Ensalada de lentejas frías, tomate y huevo duro. (~320 kcal, 18g prot)",
                 "Calabaza rellena con queso y choclo. (~300 kcal)",
                 "Hamburguesa de lentejas o carne magra al plato con ensalada. (~350 kcal, 22g prot)",
-              ]
+              ],
+              theme
             ),
           ],
         ),
@@ -203,72 +226,86 @@ class _NutritionScreenState extends State<NutritionScreen> {
     );
   }
 
-  Widget _buildRecipeExpansionTile(String title, IconData icon, List<String> items) {
+  Widget _buildRecipeExpansionTile(String title, IconData icon, List<String> items, ThemeData theme) {
     return ExpansionTile(
       leading: Icon(icon, color: AppColors.secondary),
-      title: Text(title, style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
+      title: Text(title, style: theme.textTheme.titleMedium?.copyWith(fontWeight: FontWeight.bold)),
       iconColor: AppColors.primary,
       collapsedIconColor: Colors.grey,
+      shape: Border.all(color: Colors.transparent),
       children: items.map((item) => ListTile(
         dense: true,
         contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 0),
-        leading: const Icon(Icons.circle, size: 6, color: Colors.white30),
-        title: Text(item, style: const TextStyle(color: Colors.white70)),
+        leading: Icon(Icons.circle, size: 6, color: theme.dividerColor),
+        title: Text(item, style: theme.textTheme.bodyMedium),
       )).toList(),
     );
   }
 
-  Widget _buildCalorieCard() {
+  Widget _buildCalorieCard(UserProfile user, ThemeData theme) {
+    final isDark = theme.brightness == Brightness.dark;
+    
     return Card(
-      color: AppColors.surface,
+      color: theme.cardColor,
+      elevation: 2,
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
       child: Padding(
         padding: const EdgeInsets.all(16),
-        child: Column(
-          children: [
-            const Text(
-              "OBJETIVO CALÓRICO DIARIO",
-              style: TextStyle(color: AppColors.textSecondary),
-            ),
-            Text(
-              "${_user!.tdee.toInt()} kcal",
-              style: const TextStyle(
-                color: AppColors.primary,
-                fontSize: 36,
-                fontWeight: FontWeight.bold,
+        child: SizedBox(
+          width: double.infinity,
+          child: Column(
+            children: [
+              Text(
+                "OBJETIVO CALÓRICO DIARIO",
+                style: theme.textTheme.labelMedium?.copyWith(color: AppColors.textSecondary),
               ),
-            ),
-            Text(
-              "Basado en fórmula Mifflin-St Jeor para ${_user!.somatotype.toString().split('.').last}",
-              style: const TextStyle(color: Colors.white38, fontSize: 12),
-            ),
-          ],
+              const SizedBox(height: 5),
+              Text(
+                "${user.tdee.toInt()} kcal",
+                style: TextStyle(
+                  color: AppColors.primary,
+                  fontSize: 36,
+                  fontWeight: FontWeight.bold,
+                  shadows: isDark ? [const Shadow(color: Colors.black45, offset: Offset(0, 2), blurRadius: 4)] : null,
+                ),
+              ),
+              Text(
+                "Basado en fórmula Mifflin-St Jeor para ${user.somatotype.toString().split('.').last}",
+                style: TextStyle(color: theme.textTheme.bodySmall?.color?.withOpacity(0.5), fontSize: 12),
+              ),
+            ],
+          ),
         ),
       ),
     );
   }
 
-  Widget _buildMacroCard(Map<String, double> macros) {
+  Widget _buildMacroCard(Map<String, double> macros, ThemeData theme) {
     return Row(
       children: [
-        _buildMacroItem("Proteína", macros['P']!, Colors.blueAccent),
+        _buildMacroItem("Proteína", macros['P']!, Colors.blueAccent, theme),
         const SizedBox(width: 10),
-        _buildMacroItem("Carbos", macros['C']!, Colors.greenAccent),
+        _buildMacroItem("Carbos", macros['C']!, Colors.greenAccent, theme),
         const SizedBox(width: 10),
-        _buildMacroItem("Grasas", macros['G']!, Colors.orangeAccent),
+        _buildMacroItem("Grasas", macros['G']!, Colors.orangeAccent, theme),
       ],
     );
   }
 
-  Widget _buildMacroItem(String label, double amount, Color color) {
+  Widget _buildMacroItem(String label, double amount, Color color, ThemeData theme) {
+    final isDark = theme.brightness == Brightness.dark;
+
     return Expanded(
       child: Container(
         padding: const EdgeInsets.all(12),
         decoration: BoxDecoration(
-          color: AppColors.surface,
+          color: theme.cardColor,
           borderRadius: BorderRadius.circular(10),
           border: Border.all(
-            color: Color.fromARGB(100, color.red, color.green, color.blue),
+            color: color.withOpacity(0.5),
+            width: 1.5
           ),
+          boxShadow: isDark ? [] : [BoxShadow(color: Colors.grey.withOpacity(0.1), blurRadius: 4, offset: const Offset(0, 2))],
         ),
         child: Column(
           children: [
@@ -278,7 +315,7 @@ class _NutritionScreenState extends State<NutritionScreen> {
             ),
             Text(
               "${amount.toInt()}g",
-              style: const TextStyle(color: Colors.white, fontSize: 20),
+              style: theme.textTheme.headlineSmall?.copyWith(fontWeight: FontWeight.bold),
             ),
           ],
         ),
@@ -286,33 +323,33 @@ class _NutritionScreenState extends State<NutritionScreen> {
     );
   }
 
-  Widget _buildHydrationCard() {
+  Widget _buildHydrationCard(ThemeData theme) {
     return Card(
-      color: AppColors.surface,
+      color: theme.cardColor,
+      elevation: 2,
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
       child: Padding(
         padding: const EdgeInsets.all(16),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            const Row(
+            Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
                 Text(
                   "Hidratación",
-                  style: TextStyle(
-                    color: Colors.white,
-                    fontSize: 18,
-                    fontWeight: FontWeight.bold,
-                  ),
+                  style: theme.textTheme.titleLarge?.copyWith(fontWeight: FontWeight.bold),
                 ),
-                Icon(Icons.water_drop, color: Colors.blue),
+                const Icon(Icons.water_drop, color: Colors.blue),
               ],
             ),
             const SizedBox(height: 10),
             LinearProgressIndicator(
               value: _waterIntake / _waterGoal,
               color: Colors.blue,
-              backgroundColor: Colors.grey.shade800,
+              backgroundColor: theme.dividerColor.withOpacity(0.2),
+              minHeight: 10,
+              borderRadius: BorderRadius.circular(5),
             ),
             const SizedBox(height: 10),
             Row(
@@ -320,10 +357,10 @@ class _NutritionScreenState extends State<NutritionScreen> {
               children: [
                 Text(
                   "${_waterIntake.toStringAsFixed(1)} / $_waterGoal L",
-                  style: const TextStyle(color: Colors.white),
+                  style: theme.textTheme.bodyLarge,
                 ),
                 IconButton(
-                  icon: const Icon(Icons.add_circle, color: Colors.blue),
+                  icon: const Icon(Icons.add_circle, color: Colors.blue, size: 30),
                   onPressed: () => setState(() => _waterIntake += 0.25),
                 ),
               ],
@@ -334,36 +371,37 @@ class _NutritionScreenState extends State<NutritionScreen> {
     );
   }
 
-  Widget _buildSupplementsCard() {
+  Widget _buildSupplementsCard(ThemeData theme) {
     return Card(
-      color: AppColors.surface,
+      color: theme.cardColor,
+      elevation: 2,
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
       child: Padding(
         padding: const EdgeInsets.all(16),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            const Text(
+            Text(
               "Suplementación Recomendada (Evidencia A)",
-              style: TextStyle(
-                color: Colors.white,
-                fontSize: 18,
-                fontWeight: FontWeight.bold,
-              ),
+              style: theme.textTheme.titleMedium?.copyWith(fontWeight: FontWeight.bold),
             ),
             const SizedBox(height: 10),
             _buildSupplementItem(
               "Creatina Monohidrato",
               "5g diarios (post-entreno o cualquier hora). Saturación muscular para energía explosiva.",
+              theme
             ),
-            const Divider(color: Colors.white24),
+            Divider(color: theme.dividerColor),
             _buildSupplementItem(
               "Cafeína",
               "3-6 mg/kg (30-60 min pre-entreno). Reducción de fatiga percibida.",
+              theme
             ),
-            const Divider(color: Colors.white24),
+            Divider(color: theme.dividerColor),
             _buildSupplementItem(
               "Proteína Whey",
               "Solo si no llegas a tus requerimientos de proteína con comida real.",
+              theme
             ),
           ],
         ),
@@ -371,7 +409,7 @@ class _NutritionScreenState extends State<NutritionScreen> {
     );
   }
 
-  Widget _buildSupplementItem(String name, String desc) {
+  Widget _buildSupplementItem(String name, String desc, ThemeData theme) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -385,7 +423,7 @@ class _NutritionScreenState extends State<NutritionScreen> {
         const SizedBox(height: 4),
         Text(
           desc,
-          style: const TextStyle(color: AppColors.textSecondary, fontSize: 12),
+          style: theme.textTheme.bodyMedium?.copyWith(color: AppColors.textSecondary),
         ),
       ],
     );

@@ -1,9 +1,11 @@
 import 'dart:io';
+import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/material.dart';
 import 'package:hive_flutter/hive_flutter.dart';
-import 'package:image_picker/image_picker.dart'; // Necesario para fotos
-import 'package:path_provider/path_provider.dart'; // Necesario para guardar archivos
-import 'package:provider/provider.dart'; // Para acceder al tema si fuese necesario
+import 'package:image_picker/image_picker.dart';
+import 'package:path_provider/path_provider.dart';
+import 'package:provider/provider.dart'; // Necesario para el ThemeProvider
+import '../main.dart'; // Para acceder al ThemeProvider
 import '../models/exercise_model.dart';
 import '../theme/app_colors.dart';
 
@@ -25,7 +27,6 @@ class _ExerciseLibraryScreenState extends State<ExerciseLibraryScreen> {
     super.dispose();
   }
 
-  // Normaliza texto para búsquedas (quita tildes y mayúsculas)
   String _normalize(String text) {
     return text
         .toLowerCase()
@@ -36,15 +37,21 @@ class _ExerciseLibraryScreenState extends State<ExerciseLibraryScreen> {
         .replaceAll(RegExp(r'[úùüû]'), 'u');
   }
 
-  // --- LÓGICA DE CÁMARA / GALERÍA ---
   Future<String?> _pickImage() async {
     try {
+      if (kIsWeb) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text("La carga de imágenes no está soportada en la versión Web demo.")),
+        );
+        return null;
+      }
+
       final picker = ImagePicker();
+      final theme = Theme.of(context);
       
-      // Preguntar origen: Cámara o Galería
       final source = await showModalBottomSheet<ImageSource>(
         context: context,
-        backgroundColor: Theme.of(context).cardColor, // Adaptable al tema
+        backgroundColor: theme.cardColor,
         shape: const RoundedRectangleBorder(
           borderRadius: BorderRadius.vertical(top: Radius.circular(20))
         ),
@@ -52,13 +59,13 @@ class _ExerciseLibraryScreenState extends State<ExerciseLibraryScreen> {
           child: Wrap(
             children: [
               ListTile(
-                leading: Icon(Icons.photo_library, color: Theme.of(context).iconTheme.color),
-                title: Text('Galería', style: TextStyle(color: Theme.of(context).textTheme.bodyLarge?.color)),
+                leading: Icon(Icons.photo_library, color: theme.iconTheme.color),
+                title: Text('Galería', style: theme.textTheme.bodyLarge),
                 onTap: () => Navigator.pop(context, ImageSource.gallery),
               ),
               ListTile(
-                leading: Icon(Icons.camera_alt, color: Theme.of(context).iconTheme.color),
-                title: Text('Cámara', style: TextStyle(color: Theme.of(context).textTheme.bodyLarge?.color)),
+                leading: Icon(Icons.camera_alt, color: theme.iconTheme.color),
+                title: Text('Cámara', style: theme.textTheme.bodyLarge),
                 onTap: () => Navigator.pop(context, ImageSource.camera),
               ),
             ],
@@ -70,13 +77,12 @@ class _ExerciseLibraryScreenState extends State<ExerciseLibraryScreen> {
 
       final XFile? image = await picker.pickImage(
         source: source, 
-        imageQuality: 50, // Comprimimos para no llenar memoria
+        imageQuality: 50,
         maxWidth: 800,
       );
 
       if (image == null) return null;
 
-      // Guardamos la imagen en el directorio de documentos de la app para que sea persistente
       final directory = await getApplicationDocumentsDirectory();
       final fileName = 'custom_${DateTime.now().millisecondsSinceEpoch}.jpg';
       final savedImage = await File(image.path).copy('${directory.path}/$fileName');
@@ -88,12 +94,10 @@ class _ExerciseLibraryScreenState extends State<ExerciseLibraryScreen> {
     }
   }
 
-  // --- DIÁLOGO DE AGREGAR / EDITAR ---
   void _showExerciseDialog({Exercise? exerciseToEdit}) {
     final isEditing = exerciseToEdit != null;
     final nameCtrl = TextEditingController(text: isEditing ? exerciseToEdit.name : '');
     
-    // Valores por defecto o los del ejercicio a editar
     String selectedMuscle = isEditing ? exerciseToEdit.muscleGroup : 'Pecho';
     String selectedEquipment = isEditing ? exerciseToEdit.equipment : 'Mancuernas';
     String? localImagePath = isEditing ? exerciseToEdit.localImagePath : null;
@@ -108,7 +112,6 @@ class _ExerciseLibraryScreenState extends State<ExerciseLibraryScreen> {
       context: context,
       builder: (ctx) => StatefulBuilder(
         builder: (context, setStateDialog) {
-          // Usamos colores del tema actual
           final theme = Theme.of(context);
           
           return AlertDialog(
@@ -122,12 +125,10 @@ class _ExerciseLibraryScreenState extends State<ExerciseLibraryScreen> {
               child: Column(
                 mainAxisSize: MainAxisSize.min,
                 children: [
-                  // --- SELECTOR DE FOTO ---
                   GestureDetector(
                     onTap: () async {
                       final path = await _pickImage();
                       if (path != null) {
-                        // Importante: Actualizamos el estado del DIÁLOGO, no de la pantalla
                         setStateDialog(() => localImagePath = path);
                       }
                     },
@@ -231,16 +232,12 @@ class _ExerciseLibraryScreenState extends State<ExerciseLibraryScreen> {
                   final box = Hive.box<Exercise>('exerciseBox');
                   
                   if (isEditing) {
-                    // --- CORRECCIÓN: Guardado explícito para asegurar actualización ---
                     exerciseToEdit!.name = nameCtrl.text;
                     exerciseToEdit.muscleGroup = selectedMuscle;
                     exerciseToEdit.equipment = selectedEquipment;
                     exerciseToEdit.localImagePath = localImagePath;
-                    
-                    // Usamos put con la key original para forzar la actualización en la caja
                     box.put(exerciseToEdit.key, exerciseToEdit); 
                   } else {
-                    // Crear nuevo
                     final newExercise = Exercise(
                       id: 'custom_${DateTime.now().millisecondsSinceEpoch}',
                       name: nameCtrl.text,
@@ -283,23 +280,22 @@ class _ExerciseLibraryScreenState extends State<ExerciseLibraryScreen> {
       return;
     }
 
+    final theme = Theme.of(context);
     showDialog(
       context: context,
       builder: (ctx) => AlertDialog(
-        backgroundColor: Theme.of(context).cardColor,
-        title: Text("¿Eliminar?", style: Theme.of(context).textTheme.titleLarge),
-        content: Text("¿Borrar '${exercise.name}' permanentemente?", style: Theme.of(context).textTheme.bodyMedium),
+        backgroundColor: theme.cardColor,
+        title: Text("¿Eliminar?", style: theme.textTheme.titleLarge),
+        content: Text("¿Borrar '${exercise.name}' permanentemente?", style: theme.textTheme.bodyMedium),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(ctx),
-            child: Text("Cancelar", style: TextStyle(color: Theme.of(context).textTheme.bodyMedium?.color)),
+            child: Text("Cancelar", style: TextStyle(color: theme.textTheme.bodyMedium?.color)),
           ),
           TextButton(
             onPressed: () {
-              // Borrado directo de la caja
               final box = Hive.box<Exercise>('exerciseBox');
               box.delete(exercise.key); 
-              
               Navigator.pop(ctx);
               ScaffoldMessenger.of(context).showSnackBar(
                 const SnackBar(content: Text("Ejercicio eliminado"), behavior: SnackBarBehavior.floating)
@@ -314,9 +310,9 @@ class _ExerciseLibraryScreenState extends State<ExerciseLibraryScreen> {
 
   @override
   Widget build(BuildContext context) {
-    // Obtenemos el tema actual
     final theme = Theme.of(context);
-    final isDark = theme.brightness == Brightness.dark;
+    final themeProvider = Provider.of<ThemeProvider>(context); // Provider para el botón
+    final isDark = themeProvider.isDarkMode;
 
     return Scaffold(
       backgroundColor: theme.scaffoldBackgroundColor,
@@ -326,6 +322,17 @@ class _ExerciseLibraryScreenState extends State<ExerciseLibraryScreen> {
         elevation: 0,
         centerTitle: true,
         iconTheme: theme.iconTheme,
+        actions: [
+          // --- BOTÓN DE TEMA AÑADIDO ---
+          IconButton(
+            icon: Icon(
+              isDark ? Icons.light_mode : Icons.dark_mode,
+              color: isDark ? Colors.orangeAccent : Colors.indigo,
+            ),
+            tooltip: "Cambiar Tema",
+            onPressed: themeProvider.toggleTheme,
+          ),
+        ],
       ),
       floatingActionButton: FloatingActionButton(
         onPressed: () => _showExerciseDialog(),
@@ -359,7 +366,6 @@ class _ExerciseLibraryScreenState extends State<ExerciseLibraryScreen> {
 
           return Column(
             children: [
-              // --- BUSCADOR ---
               Container(
                 padding: const EdgeInsets.all(16.0),
                 color: theme.cardColor,
@@ -388,7 +394,6 @@ class _ExerciseLibraryScreenState extends State<ExerciseLibraryScreen> {
                 ),
               ),
 
-              // --- FILTROS ---
               Container(
                 height: 50,
                 color: theme.cardColor,
@@ -404,7 +409,6 @@ class _ExerciseLibraryScreenState extends State<ExerciseLibraryScreen> {
 
               const SizedBox(height: 10),
 
-              // --- LISTA ---
               Expanded(
                 child: filteredExercises.isEmpty 
                   ? Center(child: Text("No se encontraron ejercicios", style: TextStyle(color: theme.textTheme.bodyMedium?.color)))
@@ -441,12 +445,11 @@ class _ExerciseLibraryScreenState extends State<ExerciseLibraryScreen> {
           color: isSelected ? Colors.white : theme.textTheme.bodyMedium?.color, 
           fontWeight: isSelected ? FontWeight.bold : FontWeight.normal
         ),
-        // --- AQUÍ CORREGÍ EL ERROR ---
-        // Borré la línea 'border: ...' y dejé solo el shape con su 'side'.
         shape: RoundedRectangleBorder(
           borderRadius: BorderRadius.circular(20), 
           side: BorderSide(color: isSelected ? AppColors.primary : Colors.transparent)
         ),
+        showCheckmark: false,
       ),
     );
   }
@@ -458,116 +461,124 @@ class _ExerciseLibraryScreenState extends State<ExerciseLibraryScreen> {
     ImageProvider? imageProvider;
     bool isLocalImage = false;
 
-    if (exercise.localImagePath != null && File(exercise.localImagePath!).existsSync()) {
-      imageProvider = FileImage(File(exercise.localImagePath!));
-      isLocalImage = true;
-    } else {
-      imageProvider = AssetImage('assets/exercises/${exercise.id}.png');
+    if (exercise.localImagePath != null) {
+      if (kIsWeb) {
+         imageProvider = null; 
+      } else {
+        final f = File(exercise.localImagePath!);
+        if (f.existsSync()) {
+          imageProvider = FileImage(f);
+          isLocalImage = true;
+        }
+      }
+    }
+    
+    if (imageProvider == null && !isCustom) {
+         imageProvider = AssetImage('assets/exercises/${exercise.id}.png');
     }
 
-    return Dismissible(
-      key: Key(exercise.id),
-      direction: isCustom ? DismissDirection.endToStart : DismissDirection.none,
-      background: Container(
-        alignment: Alignment.centerRight,
-        padding: const EdgeInsets.only(right: 20),
-        decoration: BoxDecoration(color: Colors.redAccent, borderRadius: BorderRadius.circular(15)),
-        child: const Icon(Icons.delete, color: Colors.white),
-      ),
-      confirmDismiss: (direction) async {
-        _confirmDelete(exercise);
-        return false;
-      },
-      child: Card(
-        margin: const EdgeInsets.only(bottom: 12),
-        color: theme.cardColor, // Color adaptable
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(15)),
-        elevation: 2,
-        child: InkWell(
-          borderRadius: BorderRadius.circular(15),
-          onTap: () => _showExerciseDetails(context, exercise, imageProvider!, isLocalImage),
-          onLongPress: isCustom ? () => _showExerciseDialog(exerciseToEdit: exercise) : null,
-          child: Padding(
-            padding: const EdgeInsets.all(12),
-            child: Row(
-              children: [
-                // MINIATURA
-                Container(
-                  width: 70,
-                  height: 70,
-                  decoration: BoxDecoration(
-                    color: Colors.black12,
-                    borderRadius: BorderRadius.circular(10),
-                    border: Border.all(color: Colors.black12),
-                    image: imageProvider != null 
-                        ? DecorationImage(
-                            image: imageProvider,
-                            fit: BoxFit.cover,
-                            onError: (e, s) {}
-                          ) 
-                        : null,
-                  ),
-                  child: imageProvider is AssetImage 
-                      ? Image(
-                          image: imageProvider, 
-                          fit: BoxFit.contain,
-                          errorBuilder: (c, e, s) => Center(
-                            child: Text(
-                              exercise.name.substring(0, 1).toUpperCase(),
-                              style: const TextStyle(color: AppColors.primary, fontWeight: FontWeight.bold, fontSize: 24),
-                            ),
-                          ),
-                        )
+    return Card(
+      margin: const EdgeInsets.only(bottom: 12),
+      color: theme.cardColor,
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(15)),
+      elevation: 2,
+      child: InkWell(
+        borderRadius: BorderRadius.circular(15),
+        onTap: () => _showExerciseDetails(context, exercise, imageProvider, isLocalImage),
+        child: Padding(
+          padding: const EdgeInsets.all(12),
+          child: Row(
+            children: [
+              Container(
+                width: 70,
+                height: 70,
+                decoration: BoxDecoration(
+                  color: Colors.black12,
+                  borderRadius: BorderRadius.circular(10),
+                  border: Border.all(color: theme.dividerColor.withOpacity(0.1)),
+                  image: imageProvider != null 
+                      ? DecorationImage(
+                          image: imageProvider,
+                          fit: BoxFit.cover,
+                          onError: (e, s) {}
+                        ) 
                       : null,
                 ),
-                const SizedBox(width: 15),
-                
-                // DATOS
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Row(
+                child: imageProvider == null
+                    ? Center(
+                        child: Text(
+                          exercise.name.substring(0, 1).toUpperCase(),
+                          style: const TextStyle(color: AppColors.primary, fontWeight: FontWeight.bold, fontSize: 24),
+                        ),
+                      )
+                    : null,
+              ),
+              const SizedBox(width: 15),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      exercise.name,
+                      style: theme.textTheme.titleMedium?.copyWith(fontWeight: FontWeight.bold),
+                      maxLines: 2,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                    const SizedBox(height: 4),
+                    Text(
+                      "${exercise.muscleGroup} • ${exercise.difficulty}",
+                      style: theme.textTheme.bodySmall,
+                    ),
+                    const SizedBox(height: 4),
+                    Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                      decoration: BoxDecoration(color: AppColors.primary.withOpacity(0.1), borderRadius: BorderRadius.circular(4)),
+                      child: Text(exercise.equipment, style: const TextStyle(color: AppColors.primary, fontSize: 10)),
+                    ),
+                  ],
+                ),
+              ),
+              if (isCustom)
+                PopupMenuButton<String>(
+                  icon: Icon(Icons.more_vert, color: theme.iconTheme.color),
+                  color: theme.cardColor,
+                  onSelected: (value) {
+                    if (value == 'edit') _showExerciseDialog(exerciseToEdit: exercise);
+                    if (value == 'delete') _confirmDelete(exercise);
+                  },
+                  itemBuilder: (context) => [
+                    PopupMenuItem(
+                      value: 'edit',
+                      child: Row(
                         children: [
-                          Expanded(
-                            child: Text(
-                              exercise.name,
-                              style: theme.textTheme.titleMedium?.copyWith(fontWeight: FontWeight.bold),
-                              maxLines: 2,
-                              overflow: TextOverflow.ellipsis,
-                            ),
-                          ),
-                          if (isCustom) 
-                            const Padding(
-                              padding: EdgeInsets.only(left: 5),
-                              child: Icon(Icons.edit, size: 14, color: AppColors.primary),
-                            )
+                          Icon(Icons.edit, color: theme.iconTheme.color, size: 20),
+                          const SizedBox(width: 10),
+                          Text("Editar", style: theme.textTheme.bodyMedium),
                         ],
                       ),
-                      const SizedBox(height: 4),
-                      Text(
-                        "${exercise.muscleGroup} • ${exercise.difficulty}",
-                        style: theme.textTheme.bodySmall,
+                    ),
+                    const PopupMenuItem(
+                      value: 'delete',
+                      child: Row(
+                        children: [
+                          Icon(Icons.delete, color: Colors.red, size: 20),
+                          const SizedBox(width: 10),
+                          Text("Eliminar", style: TextStyle(color: Colors.red)),
+                        ],
                       ),
-                      const SizedBox(height: 4),
-                      Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-                        decoration: BoxDecoration(color: AppColors.primary.withOpacity(0.1), borderRadius: BorderRadius.circular(4)),
-                        child: Text(exercise.equipment, style: const TextStyle(color: AppColors.primary, fontSize: 10)),
-                      ),
-                    ],
-                  ),
-                ),
+                    ),
+                  ],
+                )
+              else
                 Icon(Icons.arrow_forward_ios, color: theme.iconTheme.color?.withOpacity(0.3), size: 16),
-              ],
-            ),
+            ],
           ),
         ),
       ),
     );
   }
 
-  void _showExerciseDetails(BuildContext context, Exercise exercise, ImageProvider imageProvider, bool isLocal) {
+  void _showExerciseDetails(BuildContext context, Exercise exercise, ImageProvider? imageProvider, bool isLocal) {
     showModalBottomSheet(
       context: context,
       isScrollControlled: true,
@@ -594,11 +605,13 @@ class _ExerciseLibraryScreenState extends State<ExerciseLibraryScreen> {
                       child: Container(
                         width: double.infinity,
                         color: isLocal ? Colors.black : Colors.white,
-                        child: Image(
-                          image: imageProvider,
-                          fit: isLocal ? BoxFit.cover : BoxFit.contain,
-                          errorBuilder: (c, e, s) => const Center(child: Icon(Icons.image_not_supported, color: Colors.grey, size: 50)),
-                        ),
+                        child: imageProvider != null 
+                          ? Image(
+                              image: imageProvider,
+                              fit: isLocal ? BoxFit.cover : BoxFit.contain,
+                              errorBuilder: (c, e, s) => const Center(child: Icon(Icons.image_not_supported, color: Colors.grey, size: 50)),
+                            )
+                          : const Center(child: Icon(Icons.fitness_center, size: 80, color: Colors.grey)),
                       ),
                     ),
                     Positioned(
