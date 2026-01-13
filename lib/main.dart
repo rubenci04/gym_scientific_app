@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart'; // Importante para controlar barra de estado y navegación
 import 'package:hive_flutter/hive_flutter.dart';
@@ -20,65 +21,148 @@ import 'screens/home_screen.dart';
 import 'theme/app_colors.dart';
 
 void main() async {
-  // Aseguramos que el motor de Flutter esté listo antes de configurar el sistema
-  WidgetsFlutterBinding.ensureInitialized();
+  runZonedGuarded(
+    () async {
+      bool isInitSuccessful = false;
+      String? errorMessage;
 
-  // --- CONFIGURACIÓN DE MÁRGENES DEL SISTEMA ---
-  // He movido la configuración de estilo dentro del ThemeProvider o del build
-  // para que cambie dinámicamente, pero mantengo esta configuración inicial segura.
-  SystemChrome.setSystemUIOverlayStyle(const SystemUiOverlayStyle(
-    statusBarColor: Colors.transparent,
-    statusBarIconBrightness: Brightness.light, 
-    systemNavigationBarColor: AppColors.background,
-    systemNavigationBarIconBrightness: Brightness.light,
-  ));
+      try {
+        WidgetsFlutterBinding.ensureInitialized();
 
-  // Bloqueamos la orientación vertical (mejor experiencia para apps de gym)
-  await SystemChrome.setPreferredOrientations([
-    DeviceOrientation.portraitUp,
-  ]);
+        SystemChrome.setSystemUIOverlayStyle(
+          const SystemUiOverlayStyle(
+            statusBarColor: Colors.transparent,
+            statusBarIconBrightness: Brightness.light,
+            systemNavigationBarColor: AppColors.background,
+            systemNavigationBarIconBrightness: Brightness.light,
+          ),
+        );
 
-  await Hive.initFlutter();
+        await SystemChrome.setPreferredOrientations([
+          DeviceOrientation.portraitUp,
+        ]);
 
-  // REGISTROS (Adapters)
-  Hive.registerAdapter(SomatotypeAdapter()); // 0
-  Hive.registerAdapter(UserProfileAdapter()); // 1
-  Hive.registerAdapter(ExerciseAdapter()); // 2
-  Hive.registerAdapter(WorkoutSetAdapter()); // 3
-  Hive.registerAdapter(WorkoutExerciseAdapter()); // 4
-  Hive.registerAdapter(WorkoutSessionAdapter()); // 5
-  Hive.registerAdapter(TrainingGoalAdapter()); // 6
-  Hive.registerAdapter(TrainingLocationAdapter()); // 7
-  Hive.registerAdapter(RoutineDayAdapter()); // 8
-  Hive.registerAdapter(WeeklyRoutineAdapter()); // 9
-  Hive.registerAdapter(ExperienceAdapter()); // 10
-  Hive.registerAdapter(RoutineExerciseAdapter()); // 11
-  Hive.registerAdapter(HydrationSettingsAdapter()); // 12
+        await Hive.initFlutter();
 
-  // ABRIR CAJAS
-  await Hive.openBox<UserProfile>('userBox');
-  await Hive.openBox<Exercise>('exerciseBox');
-  await Hive.openBox<WorkoutSession>('historyBox');
-  await Hive.openBox<WeeklyRoutine>('routineBox');
-  await Hive.openBox<HydrationSettings>('hydrationBox');
-  
-  // He añadido esta caja para guardar configuraciones como el Tema Oscuro/Claro
-  await Hive.openBox('settingsBox'); 
+        _registerAdapters();
 
-  await SeedDataService.initializeExercises();
-  await NotificationService.initialize();
+        try {
+          await _openBoxes();
+          // Solo si _openBoxes no lanza excepción, consideramos éxito parcial
+          // Pero _openBoxes ya tiene try-catch interno, así que debemos verificar si las cajas están abiertas
+          if (Hive.isBoxOpen('userBox') && Hive.isBoxOpen('settingsBox')) {
+            isInitSuccessful = true;
+          } else {
+            errorMessage = "No se pudieron abrir las bases de datos locales.";
+          }
+        } catch (e) {
+          errorMessage = "Error crítico en base de datos: $e";
+        }
 
-  // He envuelto la app en un MultiProvider. Esto es vital para "modernizarla".
-  // Nos permite tener variables globales inteligentes que actualizan la pantalla
-  // cuando cambian (como el tema o las rutinas).
-  runApp(
-    MultiProvider(
-      providers: [
-        ChangeNotifierProvider(create: (_) => ThemeProvider()),
-      ],
-      child: const GymApp(),
-    ),
+        if (isInitSuccessful) {
+          try {
+            await SeedDataService.initializeExercises();
+          } catch (e) {
+            debugPrint("⚠️ Error inicializando ejercicios: $e");
+          }
+
+          try {
+            await NotificationService.initialize();
+          } catch (e) {
+            debugPrint("⚠️ Error inicializando notificaciones: $e");
+          }
+        }
+      } catch (e, stack) {
+        debugPrint("❌ CRITICAL ERROR IN MAIN: $e");
+        debugPrint(stack.toString());
+        errorMessage = e.toString();
+        isInitSuccessful = false;
+      } finally {
+        runApp(
+          isInitSuccessful
+              ? MultiProvider(
+                  providers: [
+                    ChangeNotifierProvider(create: (_) => ThemeProvider()),
+                  ],
+                  child: const GymApp(),
+                )
+              : ErrorApp(errorMessage: errorMessage),
+        );
+      }
+    },
+    (error, stack) {
+      debugPrint("💥 Uncaught Flutter error: $error");
+      debugPrint(stack.toString());
+    },
   );
+}
+
+void _registerAdapters() {
+  try {
+    if (!Hive.isAdapterRegistered(0)) Hive.registerAdapter(SomatotypeAdapter());
+    if (!Hive.isAdapterRegistered(1))
+      Hive.registerAdapter(UserProfileAdapter());
+    if (!Hive.isAdapterRegistered(2)) Hive.registerAdapter(ExerciseAdapter());
+    if (!Hive.isAdapterRegistered(3)) Hive.registerAdapter(WorkoutSetAdapter());
+    if (!Hive.isAdapterRegistered(4))
+      Hive.registerAdapter(WorkoutExerciseAdapter());
+    if (!Hive.isAdapterRegistered(5))
+      Hive.registerAdapter(WorkoutSessionAdapter());
+    if (!Hive.isAdapterRegistered(6))
+      Hive.registerAdapter(TrainingGoalAdapter());
+    if (!Hive.isAdapterRegistered(7))
+      Hive.registerAdapter(TrainingLocationAdapter());
+    if (!Hive.isAdapterRegistered(8)) Hive.registerAdapter(RoutineDayAdapter());
+    if (!Hive.isAdapterRegistered(9))
+      Hive.registerAdapter(WeeklyRoutineAdapter());
+    if (!Hive.isAdapterRegistered(10))
+      Hive.registerAdapter(ExperienceAdapter());
+    if (!Hive.isAdapterRegistered(11))
+      Hive.registerAdapter(RoutineExerciseAdapter());
+    if (!Hive.isAdapterRegistered(12))
+      Hive.registerAdapter(HydrationSettingsAdapter());
+  } catch (e) {
+    debugPrint("⚠️ Error registrando adapters: $e");
+  }
+}
+
+Future<void> _openBoxes() async {
+  await _openBoxSafely<UserProfile>('userBox');
+  await _openBoxSafely<Exercise>('exerciseBox');
+  await _openBoxSafely<WorkoutSession>('historyBox');
+  await _openBoxSafely<WeeklyRoutine>('routineBox');
+  await _openBoxSafely<HydrationSettings>('hydrationBox');
+  await _openBoxSafely('settingsBox');
+}
+
+/// Intenta abrir una caja. Si falla (por datos corruptos o cambios de esquema),
+/// la borra y la crea de nuevo limpia. (Self-Healing)
+Future<void> _openBoxSafely<T>(String boxName) async {
+  try {
+    await Hive.openBox<T>(boxName);
+  } catch (e) {
+    debugPrint("⚠️ Error abriendo caja '$boxName': $e");
+    debugPrint("🔥 Intentando reparar (borrar y recrear)...");
+
+    // Paso 1: Intentar borrar (ignorando errores si el archivo ya no existe)
+    try {
+      await Hive.deleteBoxFromDisk(boxName);
+    } catch (e2) {
+      debugPrint(
+        "⚠️ Advertencia al borrar '$boxName' (posiblemente no existía): $e2",
+      );
+    }
+
+    // Paso 2: Intentar abrir de nuevo (ahora debería estar limpio)
+    try {
+      await Hive.openBox<T>(boxName);
+      debugPrint("✅ Caja '$boxName' reparada exitosamente.");
+    } catch (e3) {
+      debugPrint("❌ Falló la reparación final de '$boxName': $e3");
+      // Si falla la apertura INCLUSO después de intentar borrar, es fatal.
+      rethrow;
+    }
+  }
 }
 
 class GymApp extends StatelessWidget {
@@ -86,23 +170,23 @@ class GymApp extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    // Verificación extra de seguridad
+    if (!Hive.isBoxOpen('userBox')) {
+      return const ErrorApp(errorMessage: "La caja de usuario está cerrada.");
+    }
+
     final userBox = Hive.box<UserProfile>('userBox');
     final bool userExists = userBox.containsKey('currentUser');
 
-    // Aquí "escucho" al ThemeProvider. Si cambia el tema, esta parte se reconstruye sola.
     final themeProvider = Provider.of<ThemeProvider>(context);
 
     return MaterialApp(
       debugShowCheckedModeBanner: false,
       title: 'Gym Scientific',
-      
-      // --- MODO DE TEMA DINÁMICO ---
-      themeMode: themeProvider.themeMode, 
-      
-      // TEMA CLARO (Definido por mí para que contraste bien)
+      themeMode: themeProvider.themeMode,
       theme: ThemeData(
         brightness: Brightness.light,
-        scaffoldBackgroundColor: const Color(0xFFF5F5F5), // Gris muy claro
+        scaffoldBackgroundColor: const Color(0xFFF5F5F5),
         primaryColor: AppColors.primary,
         colorScheme: const ColorScheme.light(
           primary: AppColors.primary,
@@ -123,8 +207,6 @@ class GymApp extends StatelessWidget {
         ),
         useMaterial3: true,
       ),
-
-      // TEMA OSCURO (El original que ya tenías, pulido)
       darkTheme: ThemeData(
         brightness: Brightness.dark,
         scaffoldBackgroundColor: AppColors.background,
@@ -135,15 +217,12 @@ class GymApp extends StatelessWidget {
           surface: AppColors.surface,
           background: AppColors.background,
         ),
-        
-        // --- ANIMACIONES GLOBALES ---
         pageTransitionsTheme: const PageTransitionsTheme(
           builders: {
             TargetPlatform.android: ZoomPageTransitionsBuilder(),
             TargetPlatform.iOS: CupertinoPageTransitionsBuilder(),
           },
         ),
-
         appBarTheme: const AppBarTheme(
           backgroundColor: AppColors.surface,
           elevation: 0,
@@ -161,42 +240,109 @@ class GymApp extends StatelessWidget {
   }
 }
 
-// --- CLASE THEME PROVIDER ---
-// He puesto esta clase aquí mismo para facilitarte el copiado, pero conceptualmente
-// actúa como el "cerebro" que decide si la app se ve oscura o clara.
 class ThemeProvider with ChangeNotifier {
-  bool _isDarkMode = true; // Por defecto oscuro
+  bool _isDarkMode = true;
 
   ThemeProvider() {
-    // Al iniciar, leo la memoria (Hive) para ver qué prefería el usuario
-    final box = Hive.box('settingsBox');
-    _isDarkMode = box.get('isDarkMode', defaultValue: true);
+    _loadTheme();
+  }
+
+  void _loadTheme() {
+    if (Hive.isBoxOpen('settingsBox')) {
+      final box = Hive.box('settingsBox');
+      _isDarkMode = box.get('isDarkMode', defaultValue: true);
+    } else {
+      _isDarkMode = true; // Default safe
+    }
     _updateSystemUI();
   }
 
   bool get isDarkMode => _isDarkMode;
-
   ThemeMode get themeMode => _isDarkMode ? ThemeMode.dark : ThemeMode.light;
 
   void toggleTheme() {
     _isDarkMode = !_isDarkMode;
-    
-    // Guardo la preferencia para la próxima vez
-    final box = Hive.box('settingsBox');
-    box.put('isDarkMode', _isDarkMode);
-    
+    if (Hive.isBoxOpen('settingsBox')) {
+      final box = Hive.box('settingsBox');
+      box.put('isDarkMode', _isDarkMode);
+    }
     _updateSystemUI();
-    notifyListeners(); // ¡Aviso a toda la app que repinte!
+    notifyListeners();
   }
 
-  // Esto ajusta los iconos de la barra de estado (batería, hora) para que se vean
-  // blancos sobre fondo oscuro, o negros sobre fondo claro.
   void _updateSystemUI() {
-    SystemChrome.setSystemUIOverlayStyle(SystemUiOverlayStyle(
-      statusBarColor: Colors.transparent,
-      statusBarIconBrightness: _isDarkMode ? Brightness.light : Brightness.dark,
-      systemNavigationBarColor: _isDarkMode ? AppColors.background : const Color(0xFFF5F5F5),
-      systemNavigationBarIconBrightness: _isDarkMode ? Brightness.light : Brightness.dark,
-    ));
+    SystemChrome.setSystemUIOverlayStyle(
+      SystemUiOverlayStyle(
+        statusBarColor: Colors.transparent,
+        statusBarIconBrightness: _isDarkMode
+            ? Brightness.light
+            : Brightness.dark,
+        systemNavigationBarColor: _isDarkMode
+            ? AppColors.background
+            : const Color(0xFFF5F5F5),
+        systemNavigationBarIconBrightness: _isDarkMode
+            ? Brightness.light
+            : Brightness.dark,
+      ),
+    );
+  }
+}
+
+class ErrorApp extends StatelessWidget {
+  final String? errorMessage;
+  const ErrorApp({super.key, this.errorMessage});
+
+  @override
+  Widget build(BuildContext context) {
+    return MaterialApp(
+      debugShowCheckedModeBanner: false,
+      home: Scaffold(
+        backgroundColor: Colors.red.shade900,
+        body: Center(
+          child: Padding(
+            padding: const EdgeInsets.all(24.0),
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                const Icon(Icons.error_outline, size: 80, color: Colors.white),
+                const SizedBox(height: 24),
+                const Text(
+                  "Error de Inicio",
+                  style: TextStyle(
+                    color: Colors.white,
+                    fontSize: 24,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+                const SizedBox(height: 16),
+                Text(
+                  errorMessage ??
+                      "Ocurrió un error desconocido al cargar la aplicación.",
+                  textAlign: TextAlign.center,
+                  style: const TextStyle(color: Colors.white70, fontSize: 16),
+                ),
+                const SizedBox(height: 32),
+                ElevatedButton.icon(
+                  onPressed: () {
+                    // Cerrar la app para que el usuario la reabra y se reinicie el proceso limpio.
+                    SystemNavigator.pop();
+                  },
+                  icon: const Icon(Icons.refresh),
+                  label: const Text("Salir y Reintentar"),
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: Colors.white,
+                    foregroundColor: Colors.red.shade900,
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 32,
+                      vertical: 16,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
   }
 }

@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import 'package:timezone/data/latest_all.dart' as tz;
 import 'package:timezone/timezone.dart' as tz;
@@ -12,42 +13,47 @@ class NotificationService {
   static Future<void> initialize() async {
     if (_initialized) return;
 
-    // Inicializar timezone
-    tz.initializeTimeZones();
-    // Nota para mí: Dejo fijo Buenos Aires como pidió el usuario.
     try {
-      tz.setLocalLocation(tz.getLocation('America/Argentina/Buenos_Aires'));
+      // Inicializar timezone
+      tz.initializeTimeZones();
+      // Nota para mí: Dejo fijo Buenos Aires como pidió el usuario.
+      try {
+        tz.setLocalLocation(tz.getLocation('America/Argentina/Buenos_Aires'));
+      } catch (e) {
+        // Fallback por si falla la location específica
+        tz.setLocalLocation(tz.local);
+      }
+
+      // Configurar Android
+      // Nota: Asegúrate de que el icono 'ic_launcher' exista en android/app/src/main/res/mipmap-*
+      const androidSettings = AndroidInitializationSettings(
+        '@mipmap/ic_launcher',
+      );
+
+      // Configurar iOS (opcional)
+      const iosSettings = DarwinInitializationSettings(
+        requestAlertPermission: true,
+        requestBadgePermission: true,
+        requestSoundPermission: true,
+      );
+
+      const initSettings = InitializationSettings(
+        android: androidSettings,
+        iOS: iosSettings,
+      );
+
+      await _notifications.initialize(
+        initSettings,
+        onDidReceiveNotificationResponse: (details) {
+          // Handle notification tap
+        },
+      );
+
+      _initialized = true;
     } catch (e) {
-      // Fallback por si falla la location específica
-      tz.setLocalLocation(tz.local);
+      // Logueamos el error pero no dejamos que crashee la app
+      debugPrint("⚠️ NotificationService initialization failed: $e");
     }
-
-    // Configurar Android
-    // Nota: Asegúrate de que el icono 'ic_launcher' exista en android/app/src/main/res/mipmap-*
-    const androidSettings = AndroidInitializationSettings(
-      '@mipmap/ic_launcher',
-    );
-
-    // Configurar iOS (opcional)
-    const iosSettings = DarwinInitializationSettings(
-      requestAlertPermission: true,
-      requestBadgePermission: true,
-      requestSoundPermission: true,
-    );
-
-    const initSettings = InitializationSettings(
-      android: androidSettings,
-      iOS: iosSettings,
-    );
-
-    await _notifications.initialize(
-      initSettings,
-      onDidReceiveNotificationResponse: (details) {
-        // Handle notification tap
-      },
-    );
-
-    _initialized = true;
   }
 
   static Future<void> scheduleHydrationReminders() async {
@@ -63,7 +69,7 @@ class NotificationService {
 
     // Schedule notifications for each interval
     final now = DateTime.now();
-    
+
     // Construimos la hora de inicio para "HOY"
     final startTime = DateTime(
       now.year,
@@ -71,17 +77,16 @@ class NotificationService {
       now.day,
       settings.startHour,
     );
-    
+
     // Construimos la hora de fin para "HOY"
     final endTime = DateTime(now.year, now.month, now.day, settings.endHour);
 
     int id = 0;
     DateTime scheduledTime = startTime;
 
-    // Nota para mí: Aquí estaba el error. Si 'scheduledTime' es menor a 'endTime', 
+    // Nota para mí: Aquí estaba el error. Si 'scheduledTime' es menor a 'endTime',
     // iteramos por los bloques de tiempo.
     while (scheduledTime.isBefore(endTime)) {
-      
       DateTime notificationDate = scheduledTime;
 
       // CORRECCIÓN CLAVE:
@@ -95,12 +100,13 @@ class NotificationService {
       await _scheduleNotification(
         id: id,
         title: '💧 Hidratación',
-        body: '¡Recuerda beber agua! Mantente hidratado para un mejor rendimiento.',
+        body:
+            '¡Recuerda beber agua! Mantente hidratado para un mejor rendimiento.',
         scheduledTime: notificationDate,
       );
-      
+
       id++;
-      
+
       // Avanzamos al siguiente intervalo
       scheduledTime = scheduledTime.add(
         Duration(minutes: settings.intervalMinutes),
@@ -130,7 +136,7 @@ class NotificationService {
       iOS: iosDetails,
     );
 
-    // Nota para mí: matchDateTimeComponents: DateTimeComponents.time 
+    // Nota para mí: matchDateTimeComponents: DateTimeComponents.time
     // hace que se repita todos los días a la misma hora.
     await _notifications.zonedSchedule(
       id,
@@ -141,7 +147,7 @@ class NotificationService {
       androidScheduleMode: AndroidScheduleMode.exactAllowWhileIdle,
       uiLocalNotificationDateInterpretation:
           UILocalNotificationDateInterpretation.absoluteTime,
-      matchDateTimeComponents: DateTimeComponents.time, 
+      matchDateTimeComponents: DateTimeComponents.time,
     );
   }
 

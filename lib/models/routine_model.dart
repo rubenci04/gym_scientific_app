@@ -11,17 +11,19 @@ class RoutineDay extends HiveObject {
   String name; // ej: "Día 1: Torso"
 
   @HiveField(2)
-  List<RoutineExercise> exercises; // ✅ CORREGIDO: Orden cambiado
+  List<RoutineExercise> exercises; 
 
   @HiveField(3)
-  List<String> targetMuscles; // ✅ CORREGIDO: Ahora en posición 3
+  List<String> targetMuscles;
 
   RoutineDay({
     required this.id,
     required this.name,
-    required this.targetMuscles,
-    required this.exercises,
-  });
+    required List<String> targetMuscles,
+    required List<RoutineExercise> exercises,
+  })  : targetMuscles = List<String>.from(targetMuscles),
+        exercises = List<RoutineExercise>.from(exercises);
+        // ^^^ ESTO ES EL BLINDAJE: Convierte cualquier lista entrante al tipo exacto.
 }
 
 @HiveType(typeId: 9)
@@ -44,10 +46,11 @@ class WeeklyRoutine extends HiveObject {
   WeeklyRoutine({
     required this.id,
     required this.name,
-    required this.days,
+    required List<RoutineDay> days,
     required this.createdAt,
     this.isActive = false,
-  });
+  }) : days = List<RoutineDay>.from(days); 
+       // ^^^ BLINDAJE: Asegura que la lista sea de RoutineDay, no genérica.
 }
 
 @HiveType(typeId: 11)

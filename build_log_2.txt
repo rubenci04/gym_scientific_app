@@ -1,0 +1,7 @@
+Running Gradle task 'assembleRelease'...                        
+warning: [options] source value 8 is obsolete and will be removed in a future release
+warning: [options] target value 8 is obsolete and will be removed in a future release
+warning: [options] To suppress warnings about obsolete options, use -Xlint:-options.
+3 warnings
+Running Gradle task 'assembleRelease'...                           44.0s
+√ Built build\app\outputs\flutter-apk\app-release.apk (117.9MB)

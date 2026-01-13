@@ -6,9 +6,52 @@ part of 'routine_model.dart';
 // TypeAdapterGenerator
 // **************************************************************************
 
+class RoutineDayAdapter extends TypeAdapter<RoutineDay> {
+  @override
+  final int typeId = 8;
+
+  @override
+  RoutineDay read(BinaryReader reader) {
+    final numOfFields = reader.readByte();
+    final fields = <int, dynamic>{
+      for (int i = 0; i < numOfFields; i++) reader.readByte(): reader.read(),
+    };
+    return RoutineDay(
+      id: fields[0] as String,
+      name: fields[1] as String,
+      targetMuscles: (fields[3] as List).cast<String>(),
+      exercises: (fields[2] as List).cast<RoutineExercise>(),
+    );
+  }
+
+  @override
+  void write(BinaryWriter writer, RoutineDay obj) {
+    writer
+      ..writeByte(4)
+      ..writeByte(0)
+      ..write(obj.id)
+      ..writeByte(1)
+      ..write(obj.name)
+      ..writeByte(2)
+      ..write(obj.exercises)
+      ..writeByte(3)
+      ..write(obj.targetMuscles);
+  }
+
+  @override
+  int get hashCode => typeId.hashCode;
+
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      other is RoutineDayAdapter &&
+          runtimeType == other.runtimeType &&
+          typeId == other.typeId;
+}
+
 class WeeklyRoutineAdapter extends TypeAdapter<WeeklyRoutine> {
   @override
-  final int typeId = 9; // ✅ CORREGIDO: Era 3, causaba conflicto con WorkoutSession
+  final int typeId = 9;
 
   @override
   WeeklyRoutine read(BinaryReader reader) {
@@ -52,52 +95,9 @@ class WeeklyRoutineAdapter extends TypeAdapter<WeeklyRoutine> {
           typeId == other.typeId;
 }
 
-class RoutineDayAdapter extends TypeAdapter<RoutineDay> {
-  @override
-  final int typeId = 8; // ✅ CORREGIDO: Era 4, causaba conflicto con WorkoutExercise
-
-  @override
-  RoutineDay read(BinaryReader reader) {
-    final numOfFields = reader.readByte();
-    final fields = <int, dynamic>{
-      for (int i = 0; i < numOfFields; i++) reader.readByte(): reader.read(),
-    };
-    return RoutineDay(
-      id: fields[0] as String,
-      name: fields[1] as String,
-      exercises: (fields[2] as List).cast<RoutineExercise>(),
-      targetMuscles: (fields[3] as List).cast<String>(),
-    );
-  }
-
-  @override
-  void write(BinaryWriter writer, RoutineDay obj) {
-    writer
-      ..writeByte(4)
-      ..writeByte(0)
-      ..write(obj.id)
-      ..writeByte(1)
-      ..write(obj.name)
-      ..writeByte(2)
-      ..write(obj.exercises)
-      ..writeByte(3)
-      ..write(obj.targetMuscles);
-  }
-
-  @override
-  int get hashCode => typeId.hashCode;
-
-  @override
-  bool operator ==(Object other) =>
-      identical(this, other) ||
-      other is RoutineDayAdapter &&
-          runtimeType == other.runtimeType &&
-          typeId == other.typeId;
-}
-
 class RoutineExerciseAdapter extends TypeAdapter<RoutineExercise> {
   @override
-  final int typeId = 11; // ✅ CORREGIDO: Era 5, causaba conflicto con WorkoutSession
+  final int typeId = 11;
 
   @override
   RoutineExercise read(BinaryReader reader) {
