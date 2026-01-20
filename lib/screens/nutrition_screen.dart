@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:hive_flutter/hive_flutter.dart';
-import 'package:provider/provider.dart'; // Necesario para el ThemeProvider
-import '../main.dart'; // Para acceder al ThemeProvider
+import 'package:provider/provider.dart';
+import '../main.dart'; // Para ThemeProvider
 import '../models/user_model.dart';
 import '../theme/app_colors.dart';
 
@@ -13,11 +13,197 @@ class NutritionScreen extends StatefulWidget {
 }
 
 class _NutritionScreenState extends State<NutritionScreen> {
+  // Datos del día actual
+  double _eatenCalories = 0;
+  double _eatenProtein = 0;
+  double _eatenCarbs = 0;
+  double _eatenFat = 0;
   double _waterIntake = 0;
-  final double _waterGoal = 3.0; // Litros por defecto
+  final double _waterGoal = 3.0;
 
-  // Calculamos la nutrición al vuelo basándonos en el usuario actualizado
+  late Box _dailyBox;
+  bool _isLoading = true;
+
+  @override
+  void initState() {
+    super.initState();
+    _initDailyTracking();
+  }
+
+  Future<void> _initDailyTracking() async {
+    // Abrimos una caja ligera para guardar el progreso diario
+    _dailyBox = await Hive.openBox('dailyTrackingBox');
+    _loadTodayData();
+    setState(() => _isLoading = false);
+  }
+
+  void _loadTodayData() {
+    // Usamos la fecha como clave para reiniciar cada día automáticamente
+    final todayKey = _getTodayKey();
+    
+    // Si ya hay datos de hoy, los cargamos. Si no, ceros.
+    final data = _dailyBox.get(todayKey, defaultValue: {
+      'cals': 0.0,
+      'prot': 0.0,
+      'carbs': 0.0,
+      'fat': 0.0,
+      'water': 0.0,
+    });
+
+    // Convertimos dynamic a tipos seguros
+    if (data is Map) {
+      setState(() {
+        _eatenCalories = (data['cals'] ?? 0.0) as double;
+        _eatenProtein = (data['prot'] ?? 0.0) as double;
+        _eatenCarbs = (data['carbs'] ?? 0.0) as double;
+        _eatenFat = (data['fat'] ?? 0.0) as double;
+        _waterIntake = (data['water'] ?? 0.0) as double;
+      });
+    }
+  }
+
+  void _saveData() {
+    final todayKey = _getTodayKey();
+    _dailyBox.put(todayKey, {
+      'cals': _eatenCalories,
+      'prot': _eatenProtein,
+      'carbs': _eatenCarbs,
+      'fat': _eatenFat,
+      'water': _waterIntake,
+    });
+  }
+
+  String _getTodayKey() {
+    final now = DateTime.now();
+    return "${now.year}-${now.month}-${now.day}";
+  }
+
+  void _addFood(String name, double cals, double p, double c, double f) {
+    setState(() {
+      _eatenCalories += cals;
+      _eatenProtein += p;
+      _eatenCarbs += c;
+      _eatenFat += f;
+    });
+    _saveData();
+    
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text("Añadido: $name (+${cals.toInt()} kcal)"),
+        duration: const Duration(milliseconds: 1500),
+        behavior: SnackBarBehavior.floating,
+        backgroundColor: Colors.green,
+      )
+    );
+  }
+
+  void _showAddCustomFoodDialog(BuildContext context, ThemeData theme) {
+    final nameCtrl = TextEditingController();
+    final calsCtrl = TextEditingController();
+    final protCtrl = TextEditingController();
+    final carbsCtrl = TextEditingController();
+    final fatCtrl = TextEditingController();
+
+    showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        backgroundColor: theme.cardColor,
+        title: Text("Agregar Comida Manual", style: theme.textTheme.titleLarge),
+        content: SingleChildScrollView(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              TextField(
+                controller: nameCtrl,
+                style: theme.textTheme.bodyMedium,
+                decoration: const InputDecoration(labelText: "Nombre (ej: Manzana)"),
+              ),
+              const SizedBox(height: 10),
+              TextField(
+                controller: calsCtrl,
+                keyboardType: TextInputType.number,
+                style: theme.textTheme.bodyMedium,
+                decoration: const InputDecoration(labelText: "Calorías (kcal)"),
+              ),
+              const SizedBox(height: 10),
+              Row(
+                children: [
+                  Expanded(child: TextField(controller: protCtrl, keyboardType: TextInputType.number, style: theme.textTheme.bodyMedium, decoration: const InputDecoration(labelText: "Prot (g)"))),
+                  const SizedBox(width: 10),
+                  Expanded(child: TextField(controller: carbsCtrl, keyboardType: TextInputType.number, style: theme.textTheme.bodyMedium, decoration: const InputDecoration(labelText: "Carb (g)"))),
+                  const SizedBox(width: 10),
+                  Expanded(child: TextField(controller: fatCtrl, keyboardType: TextInputType.number, style: theme.textTheme.bodyMedium, decoration: const InputDecoration(labelText: "Grasa (g)"))),
+                ],
+              )
+            ],
+          ),
+        ),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(ctx), child: const Text("Cancelar")),
+          ElevatedButton(
+            style: ElevatedButton.styleFrom(backgroundColor: AppColors.primary, foregroundColor: Colors.white),
+            onPressed: () {
+              if (nameCtrl.text.isEmpty || calsCtrl.text.isEmpty) return;
+              _addFood(
+                nameCtrl.text,
+                double.tryParse(calsCtrl.text) ?? 0,
+                double.tryParse(protCtrl.text) ?? 0,
+                double.tryParse(carbsCtrl.text) ?? 0,
+                double.tryParse(fatCtrl.text) ?? 0,
+              );
+              Navigator.pop(ctx);
+            },
+            child: const Text("Agregar"),
+          )
+        ],
+      ),
+    );
+  }
+
+  // Base de datos local de comidas comunes para selección rápida
+  final Map<String, List<Map<String, dynamic>>> _foodDatabase = {
+    "Desayuno / Merienda": [
+      {'name': "Yogur, cereales y fruta", 'kcal': 250, 'p': 10, 'c': 40, 'f': 5},
+      {'name': "Panqueques avena/banana", 'kcal': 300, 'p': 15, 'c': 45, 'f': 8},
+      {'name': "Tostadas pan francés c/mermelada", 'kcal': 280, 'p': 6, 'c': 55, 'f': 4},
+      {'name': "Licuado banana c/leche", 'kcal': 320, 'p': 12, 'c': 50, 'f': 8},
+      {'name': "Huevos revueltos (2) c/tomate", 'kcal': 220, 'p': 14, 'c': 5, 'f': 15},
+      {'name': "Tostadas c/queso y dulce", 'kcal': 260, 'p': 8, 'c': 40, 'f': 9},
+      {'name': "Bowl avena y manzana", 'kcal': 300, 'p': 10, 'c': 50, 'f': 6},
+      {'name': "Tostada integral palta/huevo", 'kcal': 350, 'p': 12, 'c': 30, 'f': 20},
+      {'name': "Sandwich queso y tomate", 'kcal': 300, 'p': 12, 'c': 35, 'f': 12},
+      {'name': "Scoop Whey Protein", 'kcal': 120, 'p': 24, 'c': 3, 'f': 1},
+      {'name': "Café con leche", 'kcal': 100, 'p': 5, 'c': 8, 'f': 4},
+    ],
+    "Almuerzo (Comidas)": [
+      {'name': "Guiso arroz c/pollo", 'kcal': 450, 'p': 25, 'c': 60, 'f': 10},
+      {'name': "Milanesa al horno c/ensalada", 'kcal': 400, 'p': 30, 'c': 20, 'f': 18},
+      {'name': "Fideos con tuco", 'kcal': 480, 'p': 15, 'c': 80, 'f': 10},
+      {'name': "Tarta atún (2 porciones)", 'kcal': 380, 'p': 20, 'c': 35, 'f': 18},
+      {'name': "Pastel de papas", 'kcal': 500, 'p': 25, 'c': 50, 'f': 20},
+      {'name': "Polenta con salsa y queso", 'kcal': 420, 'p': 12, 'c': 70, 'f': 12},
+      {'name': "Bife a la criolla c/arroz", 'kcal': 450, 'p': 35, 'c': 40, 'f': 15},
+      {'name': "Zapallitos rellenos (2)", 'kcal': 300, 'p': 18, 'c': 20, 'f': 15},
+      {'name': "Albóndigas con puré", 'kcal': 480, 'p': 25, 'c': 50, 'f': 20},
+      {'name': "Filet merluza c/puré", 'kcal': 350, 'p': 25, 'c': 30, 'f': 8},
+      {'name': "Pechuga de pollo (200g)", 'kcal': 220, 'p': 46, 'c': 0, 'f': 4},
+      {'name': "Arroz blanco (taza cocida)", 'kcal': 200, 'p': 4, 'c': 44, 'f': 0},
+    ],
+    "Cena (Ligera)": [
+      {'name': "Omelette 2 huevos y queso", 'kcal': 320, 'p': 18, 'c': 2, 'f': 22},
+      {'name': "Ensalada completa (atún/huevo)", 'kcal': 280, 'p': 20, 'c': 15, 'f': 12},
+      {'name': "Sopa verduras c/fideos", 'kcal': 150, 'p': 5, 'c': 25, 'f': 3},
+      {'name': "Tarta acelga (2 porciones)", 'kcal': 250, 'p': 10, 'c': 25, 'f': 12},
+      {'name': "Revuelto zapallitos", 'kcal': 200, 'p': 12, 'c': 10, 'f': 10},
+      {'name': "Pechuga plancha c/tomate", 'kcal': 250, 'p': 30, 'c': 5, 'f': 5},
+      {'name': "Empanadas (2 unidades)", 'kcal': 500, 'p': 15, 'c': 40, 'f': 25},
+      {'name': "Berenjenas napolitana", 'kcal': 300, 'p': 10, 'c': 15, 'f': 18},
+      {'name': "Hamburguesa lentejas", 'kcal': 350, 'p': 15, 'c': 40, 'f': 10},
+    ]
+  };
+
   UserProfile _calculateNutrition(UserProfile user) {
+    // Recalculamos TDEE al vuelo por si cambió el peso
     double bmr;
     if (user.gender == 'Masculino') {
       bmr = (10 * user.weight) + (6.25 * user.height) - (5 * user.age) + 5;
@@ -30,18 +216,11 @@ class _NutritionScreenState extends State<NutritionScreen> {
 
     double tdee = bmr * activityFactor;
 
-    if (user.goal == TrainingGoal.weightLoss || user.goal == TrainingGoal.generalHealth) {
-      if (user.goal == TrainingGoal.weightLoss) tdee -= 500;
-    } else if (user.goal == TrainingGoal.hypertrophy || user.goal == TrainingGoal.strength) {
-      tdee += 300;
-    }
+    if (user.goal == TrainingGoal.weightLoss) tdee -= 500;
+    if (user.goal == TrainingGoal.hypertrophy) tdee += 300;
 
-    // Actualizamos el objeto en memoria (y guardamos si cambió significativamente)
-    if ((user.tdee - tdee).abs() > 1) {
-      user.tdee = tdee;
-      user.save();
-    }
-    
+    // Solo actualizamos el modelo en memoria para mostrar, no guardamos en DB aquí para evitar loops
+    user.tdee = tdee;
     return user;
   }
 
@@ -62,7 +241,6 @@ class _NutritionScreenState extends State<NutritionScreen> {
       carbs = tdee * 0.40 / 4;
       fats = tdee * 0.30 / 9;
     }
-
     return {'P': protein, 'C': carbs, 'G': fats};
   }
 
@@ -72,55 +250,54 @@ class _NutritionScreenState extends State<NutritionScreen> {
     final themeProvider = Provider.of<ThemeProvider>(context);
     final isDark = themeProvider.isDarkMode;
 
+    if (_isLoading) return const Scaffold(body: Center(child: CircularProgressIndicator()));
+
     return Scaffold(
       backgroundColor: theme.scaffoldBackgroundColor,
       appBar: AppBar(
-        title: Text('Nutrición Científica', style: theme.appBarTheme.titleTextStyle),
+        title: Text('Nutrición & Tracking', style: theme.appBarTheme.titleTextStyle),
         backgroundColor: theme.appBarTheme.backgroundColor,
-        elevation: 0,
-        iconTheme: theme.iconTheme,
         actions: [
-          // Botón de Tema
           IconButton(
-            icon: Icon(
-              isDark ? Icons.light_mode : Icons.dark_mode,
-              color: isDark ? Colors.orangeAccent : Colors.indigo,
-            ),
-            tooltip: "Cambiar Tema",
+            icon: Icon(isDark ? Icons.light_mode : Icons.dark_mode, color: isDark ? Colors.orange : Colors.indigo),
             onPressed: themeProvider.toggleTheme,
           ),
         ],
       ),
-      // Usamos ValueListenableBuilder para escuchar cambios en el perfil (peso, edad, etc)
-      // y recalcular la dieta automáticamente.
+      floatingActionButton: FloatingActionButton.extended(
+        onPressed: () => _showAddCustomFoodDialog(context, theme),
+        backgroundColor: AppColors.primary,
+        icon: const Icon(Icons.add, color: Colors.white),
+        label: const Text("Comida Manual", style: TextStyle(color: Colors.white)),
+      ),
       body: ValueListenableBuilder(
         valueListenable: Hive.box<UserProfile>('userBox').listenable(),
         builder: (context, Box<UserProfile> box, _) {
           final user = box.get('currentUser');
-          
-          if (user == null) {
-            return const Center(child: CircularProgressIndicator());
-          }
+          if (user == null) return const Center(child: CircularProgressIndicator());
 
           final updatedUser = _calculateNutrition(user);
-          final macros = _getMacros(updatedUser);
+          final macrosGoal = _getMacros(updatedUser);
 
           return SingleChildScrollView(
             padding: const EdgeInsets.all(16),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                _buildCalorieCard(updatedUser, theme),
+                // 1. Resumen de Hoy (Tracking)
+                _buildTrackingCard(updatedUser, macrosGoal, theme),
                 const SizedBox(height: 20),
-                _buildMacroCard(macros, theme),
-                const SizedBox(height: 20),
-                
-                _buildMenuTucumano(theme), 
-                
-                const SizedBox(height: 20),
+
+                // 2. Hidratación
                 _buildHydrationCard(theme),
                 const SizedBox(height: 20),
-                _buildSupplementsCard(theme),
+
+                // 3. Menú Interactivo
+                Text("Menú Rápido (Toca para agregar):", style: theme.textTheme.titleMedium?.copyWith(fontWeight: FontWeight.bold)),
+                const SizedBox(height: 10),
+                _buildMenuInteractible(theme),
+                
+                const SizedBox(height: 80), // Espacio para el FAB
               ],
             ),
           );
@@ -129,303 +306,217 @@ class _NutritionScreenState extends State<NutritionScreen> {
     );
   }
 
-  Widget _buildMenuTucumano(ThemeData theme) {
-    return Card(
-      color: theme.cardColor,
-      elevation: 2,
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-      child: Padding(
-        padding: const EdgeInsets.all(8.0),
-        child: Column(
-          children: [
-            Padding(
-              padding: const EdgeInsets.all(8.0),
-              child: Row(
-                children: [
-                  const Icon(Icons.restaurant, color: Colors.orange),
-                  const SizedBox(width: 10),
-                  Expanded(
-                    child: Text(
-                      "Recetario",
-                      style: theme.textTheme.titleLarge?.copyWith(fontWeight: FontWeight.bold),
-                    ),
-                  ),
-                ],
-              ),
-            ),
-            // Desayuno
-            _buildRecipeExpansionTile(
-              "Desayuno / Merienda", 
-              Icons.wb_sunny,
-              [
-                "Yogur con cereales (copos) y fruta de estación. (~250 kcal)",
-                "Panqueques de avena y banana. (~300 kcal, 15g prot)",
-                "Té con leche y tostadas de pan francés con mermelada. (~280 kcal)",
-                "Licuado de banana con leche y un puñado de nueces. (~320 kcal)",
-                "Huevos revueltos (2) con tomate y mate. (~220 kcal, 14g prot)",
-                "Tostadas con queso crema y dulce de cayote/batata. (~260 kcal)",
-                "Bowl de avena cocida con manzana y canela. (~300 kcal)",
-                "Tostadas de pan integral con palta y huevo poche. (~350 kcal, 12g prot)",
-                "Yogur griego natural con mix de semillas y miel. (~280 kcal, 15g prot)",
-                "Sandwich de queso tybo y tomate en pan árabe tostado. (~300 kcal, 12g prot)",
-                "Licuado de proteínas (whey) con fruta y agua/leche. (~250 kcal, 25g prot)",
-              ],
-              theme
-            ),
-            Divider(color: theme.dividerColor),
-            // Almuerzo
-            _buildRecipeExpansionTile(
-              "Almuerzo (Energía)", 
-              Icons.lunch_dining,
-              [
-                "Guiso de arroz con pollo. (~450 kcal, 25g prot)",
-                "Milanesa con ensalada mixta. (~400 kcal, 30g prot)",
-                "Fideos con tuco casero. (~480 kcal)",
-                "Tarta de atún o caballa (masa casera). (~380 kcal por porción, 20g prot)",
-                "Pastel de papas. (~500 kcal)",
-                "Polenta con salsa bolognesa y queso. (~420 kcal)",
-                "Salpicón de ave. (~350 kcal, 28g prot)",
-                "Bife a la criolla con arroz. (~450 kcal, 35g prot)",
-                "Zapallitos rellenos con carne y arroz. (~300 kcal, 18g prot)",
-                "Albóndigas de carne con puré. (~480 kcal)",
-                "Wok de vegetales con trozos de carne magra o pollo. (~400 kcal, 30g prot)",
-                "Filet de merluza al horno con puré de calabaza. (~350 kcal, 25g prot)",
-                "Ensalada César con pollo (aderezo ligero). (~380 kcal, 28g prot)",
-                "Wrap o Fajitas de pollo con verduras salteadas. (~450 kcal, 25g prot)",
-                "Lentejas guisadas con verduras. (~400 kcal, 18g prot)",
-              ],
-              theme
-            ),
-            Divider(color: theme.dividerColor),
-            // Cena
-            _buildRecipeExpansionTile(
-              "Cena (Ligera)", 
-              Icons.dinner_dining,
-              [
-                "Omelette de 2 huevos con queso. (~320 kcal, 18g prot)",
-                "Ensalada completa (huevo, atún). (~280 kcal, 20g prot)",
-                "Sopa de verduras con fideos. (~150 kcal)",
-                "Tarta de acelga o espinaca con huevo. (~250 kcal)",
-                "Revuelto de zapallitos verdes y huevo. (~200 kcal)",
-                "Pechuga de pollo a la plancha con tomate. (~250 kcal, 30g prot)",
-                "Arroz frío con atún y mayonesa. (~350 kcal)",
-                "Empanadas de carne o Pollo al Horno (2 unidades). (~500 kcal)",
-                "Berenjenas a la napolitana. (~300 kcal)",
-                "Humita en olla (plato chico). (~350 kcal)",
-                "Tortilla de acelga o espinaca al horno. (~220 kcal)",
-                "Filet de pollo al limón con espárragos o chauchas. (~280 kcal, 28g prot)",
-                "Ensalada de lentejas frías, tomate y huevo duro. (~320 kcal, 18g prot)",
-                "Calabaza rellena con queso y choclo. (~300 kcal)",
-                "Hamburguesa de lentejas o carne magra al plato con ensalada. (~350 kcal, 22g prot)",
-              ],
-              theme
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-
-  Widget _buildRecipeExpansionTile(String title, IconData icon, List<String> items, ThemeData theme) {
-    return ExpansionTile(
-      leading: Icon(icon, color: AppColors.secondary),
-      title: Text(title, style: theme.textTheme.titleMedium?.copyWith(fontWeight: FontWeight.bold)),
-      iconColor: AppColors.primary,
-      collapsedIconColor: Colors.grey,
-      shape: Border.all(color: Colors.transparent),
-      children: items.map((item) => ListTile(
-        dense: true,
-        contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 0),
-        leading: Icon(Icons.circle, size: 6, color: theme.dividerColor),
-        title: Text(item, style: theme.textTheme.bodyMedium),
-      )).toList(),
-    );
-  }
-
-  Widget _buildCalorieCard(UserProfile user, ThemeData theme) {
-    final isDark = theme.brightness == Brightness.dark;
+  Widget _buildTrackingCard(UserProfile user, Map<String, double> goals, ThemeData theme) {
+    double caloriesProgress = (_eatenCalories / user.tdee).clamp(0.0, 1.0);
     
     return Card(
       color: theme.cardColor,
-      elevation: 2,
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+      elevation: 3,
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(15)),
       child: Padding(
         padding: const EdgeInsets.all(16),
-        child: SizedBox(
-          width: double.infinity,
-          child: Column(
-            children: [
-              Text(
-                "OBJETIVO CALÓRICO DIARIO",
-                style: theme.textTheme.labelMedium?.copyWith(color: AppColors.textSecondary),
-              ),
-              const SizedBox(height: 5),
-              Text(
-                "${user.tdee.toInt()} kcal",
-                style: TextStyle(
-                  color: AppColors.primary,
-                  fontSize: 36,
-                  fontWeight: FontWeight.bold,
-                  shadows: isDark ? [const Shadow(color: Colors.black45, offset: Offset(0, 2), blurRadius: 4)] : null,
-                ),
-              ),
-              Text(
-                "Basado en fórmula Mifflin-St Jeor para ${user.somatotype.toString().split('.').last}",
-                style: TextStyle(color: theme.textTheme.bodySmall?.color?.withOpacity(0.5), fontSize: 12),
-              ),
-            ],
-          ),
-        ),
-      ),
-    );
-  }
-
-  Widget _buildMacroCard(Map<String, double> macros, ThemeData theme) {
-    return Row(
-      children: [
-        _buildMacroItem("Proteína", macros['P']!, Colors.blueAccent, theme),
-        const SizedBox(width: 10),
-        _buildMacroItem("Carbos", macros['C']!, Colors.greenAccent, theme),
-        const SizedBox(width: 10),
-        _buildMacroItem("Grasas", macros['G']!, Colors.orangeAccent, theme),
-      ],
-    );
-  }
-
-  Widget _buildMacroItem(String label, double amount, Color color, ThemeData theme) {
-    final isDark = theme.brightness == Brightness.dark;
-
-    return Expanded(
-      child: Container(
-        padding: const EdgeInsets.all(12),
-        decoration: BoxDecoration(
-          color: theme.cardColor,
-          borderRadius: BorderRadius.circular(10),
-          border: Border.all(
-            color: color.withOpacity(0.5),
-            width: 1.5
-          ),
-          boxShadow: isDark ? [] : [BoxShadow(color: Colors.grey.withOpacity(0.1), blurRadius: 4, offset: const Offset(0, 2))],
-        ),
         child: Column(
           children: [
-            Text(
-              label,
-              style: TextStyle(color: color, fontWeight: FontWeight.bold),
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text("Resumen Diario", style: theme.textTheme.titleMedium?.copyWith(fontWeight: FontWeight.bold)),
+                    Text(
+                      _getTodayKey(), // Muestra la fecha simple
+                      style: TextStyle(color: theme.textTheme.bodySmall?.color, fontSize: 12),
+                    ),
+                  ],
+                ),
+                TextButton(
+                  onPressed: () {
+                    // Confirmar reinicio
+                    showDialog(context: context, builder: (c) => AlertDialog(
+                      title: const Text("¿Reiniciar día?"),
+                      content: const Text("Se borrarán las comidas de hoy."),
+                      actions: [
+                        TextButton(onPressed: () => Navigator.pop(c), child: const Text("Cancelar")),
+                        TextButton(onPressed: () {
+                          setState(() { _eatenCalories=0; _eatenProtein=0; _eatenCarbs=0; _eatenFat=0; _waterIntake=0; });
+                          _saveData();
+                          Navigator.pop(c);
+                        }, child: const Text("Reiniciar", style: TextStyle(color: Colors.red)))
+                      ],
+                    ));
+                  },
+                  child: const Text("Reiniciar", style: TextStyle(color: Colors.red)),
+                )
+              ],
             ),
-            Text(
-              "${amount.toInt()}g",
-              style: theme.textTheme.headlineSmall?.copyWith(fontWeight: FontWeight.bold),
+            const SizedBox(height: 10),
+            
+            // Círculo de Calorías
+            Row(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                Stack(
+                  alignment: Alignment.center,
+                  children: [
+                    SizedBox(
+                      height: 110, width: 110,
+                      child: CircularProgressIndicator(
+                        value: caloriesProgress,
+                        backgroundColor: theme.dividerColor.withOpacity(0.1),
+                        color: caloriesProgress > 1.0 ? Colors.redAccent : AppColors.primary,
+                        strokeWidth: 10,
+                        strokeCap: StrokeCap.round,
+                      ),
+                    ),
+                    Column(
+                      children: [
+                        Text("${_eatenCalories.toInt()}", style: theme.textTheme.headlineSmall?.copyWith(fontWeight: FontWeight.bold)),
+                        Text("/ ${user.tdee.toInt()} kcal", style: TextStyle(fontSize: 12, color: theme.textTheme.bodySmall?.color)),
+                      ],
+                    )
+                  ],
+                ),
+              ],
             ),
+            const SizedBox(height: 20),
+            // Barras de Macros
+            _buildMacroBar("Proteína", _eatenProtein, goals['P']!, Colors.blueAccent, theme),
+            _buildMacroBar("Carbos", _eatenCarbs, goals['C']!, Colors.greenAccent, theme),
+            _buildMacroBar("Grasas", _eatenFat, goals['G']!, Colors.orangeAccent, theme),
           ],
         ),
       ),
     );
+  }
+
+  Widget _buildMacroBar(String label, double current, double goal, Color color, ThemeData theme) {
+    double progress = (goal > 0) ? (current / goal).clamp(0.0, 1.0) : 0.0;
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 6),
+      child: Column(
+        children: [
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Text(label, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 12)),
+              Text("${current.toInt()} / ${goal.toInt()}g", style: TextStyle(fontSize: 11, color: theme.textTheme.bodySmall?.color)),
+            ],
+          ),
+          const SizedBox(height: 4),
+          ClipRRect(
+            borderRadius: BorderRadius.circular(5),
+            child: LinearProgressIndicator(
+              value: progress,
+              backgroundColor: theme.dividerColor.withOpacity(0.1),
+              color: color,
+              minHeight: 8,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildMenuInteractible(ThemeData theme) {
+    return Column(
+      children: _foodDatabase.entries.map((entry) {
+        return Card(
+          color: theme.cardColor,
+          elevation: 1,
+          margin: const EdgeInsets.only(bottom: 10),
+          child: ExpansionTile(
+            leading: Icon(_getIconForCategory(entry.key), color: AppColors.primary),
+            title: Text(entry.key, style: theme.textTheme.titleMedium?.copyWith(fontWeight: FontWeight.bold)),
+            iconColor: AppColors.primary,
+            shape: Border.all(color: Colors.transparent),
+            children: entry.value.map((food) {
+              return ListTile(
+                dense: true,
+                title: Text(food['name'], style: theme.textTheme.bodyMedium),
+                subtitle: Text(
+                  "${food['kcal']} kcal | P: ${food['p']} C: ${food['c']} G: ${food['f']}", 
+                  style: TextStyle(fontSize: 11, color: theme.textTheme.bodySmall?.color)
+                ),
+                trailing: IconButton(
+                  icon: const Icon(Icons.add_circle_outline, color: Colors.green),
+                  onPressed: () {
+                    _addFood(
+                      food['name'], 
+                      (food['kcal'] as num).toDouble(), 
+                      (food['p'] as num).toDouble(), 
+                      (food['c'] as num).toDouble(), 
+                      (food['f'] as num).toDouble()
+                    );
+                  },
+                ),
+              );
+            }).toList(),
+          ),
+        );
+      }).toList(),
+    );
+  }
+
+  IconData _getIconForCategory(String category) {
+    if (category.contains("Desayuno")) return Icons.wb_sunny_outlined;
+    if (category.contains("Almuerzo")) return Icons.lunch_dining;
+    return Icons.nights_stay_outlined;
   }
 
   Widget _buildHydrationCard(ThemeData theme) {
     return Card(
       color: theme.cardColor,
-      elevation: 2,
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
       child: Padding(
         padding: const EdgeInsets.all(16),
         child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
-                Text(
-                  "Hidratación",
-                  style: theme.textTheme.titleLarge?.copyWith(fontWeight: FontWeight.bold),
+                Row(
+                  children: [
+                    Icon(Icons.water_drop, color: Colors.blue[400]),
+                    const SizedBox(width: 8),
+                    const Text("Hidratación", style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
+                  ],
                 ),
-                const Icon(Icons.water_drop, color: Colors.blue),
+                Text("${_waterIntake.toStringAsFixed(1)} / $_waterGoal L", style: const TextStyle(fontWeight: FontWeight.bold)),
               ],
             ),
             const SizedBox(height: 10),
             LinearProgressIndicator(
-              value: _waterIntake / _waterGoal,
+              value: (_waterIntake / _waterGoal).clamp(0.0, 1.0),
               color: Colors.blue,
-              backgroundColor: theme.dividerColor.withOpacity(0.2),
-              minHeight: 10,
-              borderRadius: BorderRadius.circular(5),
+              backgroundColor: Colors.blue.withOpacity(0.1),
+              minHeight: 12,
+              borderRadius: BorderRadius.circular(6),
             ),
             const SizedBox(height: 10),
             Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              mainAxisAlignment: MainAxisAlignment.spaceAround,
               children: [
-                Text(
-                  "${_waterIntake.toStringAsFixed(1)} / $_waterGoal L",
-                  style: theme.textTheme.bodyLarge,
+                IconButton.filledTonal(
+                  icon: const Icon(Icons.remove),
+                  onPressed: () {
+                    setState(() => _waterIntake = (_waterIntake - 0.25).clamp(0.0, 5.0));
+                    _saveData();
+                  },
                 ),
-                IconButton(
-                  icon: const Icon(Icons.add_circle, color: Colors.blue, size: 30),
-                  onPressed: () => setState(() => _waterIntake += 0.25),
+                const Text("- 250ml +"),
+                IconButton.filled(
+                  style: IconButton.styleFrom(backgroundColor: Colors.blue),
+                  icon: const Icon(Icons.add, color: Colors.white),
+                  onPressed: () {
+                    setState(() => _waterIntake += 0.25);
+                    _saveData();
+                  },
                 ),
               ],
-            ),
+            )
           ],
         ),
       ),
-    );
-  }
-
-  Widget _buildSupplementsCard(ThemeData theme) {
-    return Card(
-      color: theme.cardColor,
-      elevation: 2,
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-      child: Padding(
-        padding: const EdgeInsets.all(16),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(
-              "Suplementación Recomendada (Evidencia A)",
-              style: theme.textTheme.titleMedium?.copyWith(fontWeight: FontWeight.bold),
-            ),
-            const SizedBox(height: 10),
-            _buildSupplementItem(
-              "Creatina Monohidrato",
-              "5g diarios (post-entreno o cualquier hora). Saturación muscular para energía explosiva.",
-              theme
-            ),
-            Divider(color: theme.dividerColor),
-            _buildSupplementItem(
-              "Cafeína",
-              "3-6 mg/kg (30-60 min pre-entreno). Reducción de fatiga percibida.",
-              theme
-            ),
-            Divider(color: theme.dividerColor),
-            _buildSupplementItem(
-              "Proteína Whey",
-              "Solo si no llegas a tus requerimientos de proteína con comida real.",
-              theme
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-
-  Widget _buildSupplementItem(String name, String desc, ThemeData theme) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Text(
-          name,
-          style: const TextStyle(
-            color: AppColors.secondary,
-            fontWeight: FontWeight.bold,
-          ),
-        ),
-        const SizedBox(height: 4),
-        Text(
-          desc,
-          style: theme.textTheme.bodyMedium?.copyWith(color: AppColors.textSecondary),
-        ),
-      ],
     );
   }
 }

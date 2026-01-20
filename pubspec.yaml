@@ -18,13 +18,9 @@ dependencies:
   path_drawing: ^1.0.1
   flutter_local_notifications: ^17.2.3
   timezone: ^0.9.4
-
-  # // NOTA PARA MI: Agrego estas dependencias para la gestión de imágenes de usuario
   image_picker: ^1.0.4
   path_provider: ^2.1.1
   flutter_image_compress: ^2.1.0
-
-  # // NOTA PARA MI: Agrego esta librería para las transiciones y animaciones suaves (Swipes/Fade)
   animations: ^2.0.8
 
 dev_dependencies:
@@ -33,7 +29,6 @@ dev_dependencies:
   flutter_lints: ^3.0.0
   hive_generator: ^2.0.1
   build_runner: ^2.4.13
-  # Agregamos esta librería para generar los iconos
   flutter_launcher_icons: ^0.13.1
 
 flutter:
@@ -45,12 +40,9 @@ flutter:
     - assets/logo/
     - assets/exercises/
 
-# --- CONFIGURACIÓN DEL ICONO ---
 flutter_icons:
   android: "ic_launcher"
   ios: true
-  # Asegúrate de que este sea el nombre exacto de tu archivo de logo. 
-  # Recuerda editar esta imagen para darle margen transparente si se ve cortada.
   image_path: "assets/logo/logo_icon.png.png" 
-  adaptive_icon_background: "#121212" # Color de fondo (negro oscuro para que coincida con tu app)
+  adaptive_icon_background: "#121212"
   adaptive_icon_foreground: "assets/logo/logo_icon.png.png"

@@ -27,6 +27,7 @@ class _ProgressScreenState extends State<ProgressScreen> {
   }
 
   void _loadHistory() {
+    // // NOTA PARA MI: Recupero las cajas de Hive para acceder a los datos guardados.
     final historyBox = Hive.box<WorkoutSession>('historyBox');
     final exerciseBox = Hive.box<Exercise>('exerciseBox');
 
@@ -35,6 +36,7 @@ class _ProgressScreenState extends State<ProgressScreen> {
 
     final Map<String, String> foundExercises = {};
     
+    // // NOTA PARA MI: Recorro el historial para encontrar qué ejercicios ha hecho el usuario y listarlos en el filtro.
     for (var session in rawHistory) {
       for (var ex in session.exercises) {
         if (!foundExercises.containsKey(ex.exerciseId)) {
@@ -48,6 +50,7 @@ class _ProgressScreenState extends State<ProgressScreen> {
       _history = rawHistory;
       _availableExercises = foundExercises;
       
+      // // NOTA PARA MI: Si no hay selección previa, selecciono el primer ejercicio disponible por defecto.
       if (_selectedExerciseId == null && _availableExercises.isNotEmpty) {
         _selectedExerciseId = _availableExercises.keys.first;
       }
@@ -73,6 +76,7 @@ class _ProgressScreenState extends State<ProgressScreen> {
         double yValue = 0;
 
         if (_selectedMetric == 'Volumen Total') {
+          // // NOTA PARA MI: Calculo el volumen total (peso * repeticiones) de todas las series.
           for (var set in targetExercise.sets) {
             yValue += set.weight * set.reps;
           }
@@ -80,7 +84,7 @@ class _ProgressScreenState extends State<ProgressScreen> {
           double max1RM = 0;
           for (var set in targetExercise.sets) {
             if (set.weight > 0 && set.reps > 0) {
-              // Fórmula de Epley
+              // // NOTA PARA MI: Uso la fórmula de Epley para estimar el 1RM.
               double estimated = set.weight * (1 + set.reps / 30);
               if (estimated > max1RM) max1RM = estimated;
             }
@@ -276,9 +280,9 @@ class _ProgressScreenState extends State<ProgressScreen> {
                         ],
                         lineTouchData: LineTouchData(
                           touchTooltipData: LineTouchTooltipData(
-                            // --- CORRECCIÓN AQUÍ ---
-                            // Usamos un color seguro (negro semi-transparente) que siempre queda bien en tooltips
-                            tooltipBgColor: Colors.black.withOpacity(0.8), 
+                            // // NOTA PARA MI: CORRECCIÓN -> 'tooltipBgColor' es compatible con fl_chart 0.63.0.
+                            tooltipBgColor: Colors.black.withOpacity(0.8),
+                            
                             getTooltipItems: (touchedSpots) {
                               return touchedSpots.map((LineBarSpot touchedSpot) {
                                 return LineTooltipItem(
