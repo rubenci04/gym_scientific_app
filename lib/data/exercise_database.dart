@@ -2,6 +2,7 @@ import '../models/exercise_model.dart';
 
 /// Base de datos completa de ejercicios
 /// Organizada por grupo muscular con información educativa completa
+/// Actualizada con Metadatos del Informe Técnico Maestro (Mecánica, Tiempo, Simetría)
 class ExerciseDatabase {
   static List<Exercise> getAllExercises() {
     return [
@@ -39,6 +40,12 @@ class ExerciseDatabase {
       secondaryMuscles: ['Deltoides Anterior', 'Tríceps'],
       variations: ['bench_press_incline', 'bench_press_decline'],
       alternativeExercise: 'pushup',
+      // METADATOS INFORME TÉCNICO
+      mechanic: 'compound',
+      timeCost: 4.5, // 3 min descanso + ejecución
+      symmetryScore: 2,
+      primaryMechanism: 'tension',
+      substitutionGroup: 'horizontal_press_heavy',
     ),
     Exercise(
       id: 'bench_press_incline',
@@ -53,6 +60,11 @@ class ExerciseDatabase {
       targetMuscles: ['Pectoral Superior'],
       secondaryMuscles: ['Deltoides Anterior', 'Tríceps'],
       variations: ['db_press_incline'],
+      mechanic: 'compound',
+      timeCost: 4.0,
+      symmetryScore: 2,
+      primaryMechanism: 'tension',
+      substitutionGroup: 'incline_press',
     ),
     Exercise(
       id: 'bench_press_decline',
@@ -66,6 +78,11 @@ class ExerciseDatabase {
       commonMistakes: ['Usar demasiado peso', 'Rango de movimiento corto'],
       targetMuscles: ['Pectoral Inferior'],
       secondaryMuscles: ['Tríceps'],
+      mechanic: 'compound',
+      timeCost: 4.0,
+      symmetryScore: 2,
+      primaryMechanism: 'tension',
+      substitutionGroup: 'decline_press',
     ),
     Exercise(
       id: 'db_press_flat',
@@ -79,6 +96,12 @@ class ExerciseDatabase {
       commonMistakes: ['Chocar las mancuernas arriba', 'Bajar poco'],
       targetMuscles: ['Pectoral Mayor'],
       secondaryMuscles: ['Deltoides Anterior', 'Tríceps'],
+      isBilateral: false,
+      mechanic: 'compound',
+      timeCost: 3.5,
+      symmetryScore: 8, // Alto puntaje por ser mancuernas (corrige lados)
+      primaryMechanism: 'tension',
+      substitutionGroup: 'horizontal_press_heavy',
     ),
     Exercise(
       id: 'db_press_incline',
@@ -92,6 +115,12 @@ class ExerciseDatabase {
       commonMistakes: ['Banco muy vertical'],
       targetMuscles: ['Pectoral Superior'],
       secondaryMuscles: ['Deltoides Anterior', 'Tríceps'],
+      isBilateral: false,
+      mechanic: 'compound',
+      timeCost: 3.5,
+      symmetryScore: 8,
+      primaryMechanism: 'tension',
+      substitutionGroup: 'incline_press',
     ),
     Exercise(
       id: 'cable_crossover',
@@ -105,6 +134,11 @@ class ExerciseDatabase {
       commonMistakes: ['Usar demasiado peso', 'Parecer un press en vez de apertura'],
       targetMuscles: ['Pectoral Mayor'],
       secondaryMuscles: ['Deltoides Anterior'],
+      mechanic: 'isolation',
+      timeCost: 2.5,
+      symmetryScore: 6,
+      primaryMechanism: 'metabolic', // Estrés metabólico (Bombeo)
+      substitutionGroup: 'chest_fly',
     ),
     Exercise(
       id: 'db_fly',
@@ -118,6 +152,11 @@ class ExerciseDatabase {
       commonMistakes: ['Bajar demasiado rápido', 'Extender brazos totalmente'],
       targetMuscles: ['Pectoral Mayor'],
       secondaryMuscles: [],
+      mechanic: 'isolation',
+      timeCost: 2.5,
+      symmetryScore: 7,
+      primaryMechanism: 'damage', // Alto daño muscular por estiramiento
+      substitutionGroup: 'chest_fly',
     ),
     Exercise(
       id: 'pushup',
@@ -131,6 +170,11 @@ class ExerciseDatabase {
       commonMistakes: ['Caderas caídas', 'Cabeza hacia abajo'],
       targetMuscles: ['Pectoral Mayor'],
       secondaryMuscles: ['Tríceps', 'Core'],
+      mechanic: 'compound',
+      timeCost: 2.0,
+      symmetryScore: 5,
+      primaryMechanism: 'metabolic',
+      substitutionGroup: 'pushup_variations',
     ),
     Exercise(
       id: 'pushup_incline',
@@ -144,6 +188,11 @@ class ExerciseDatabase {
       commonMistakes: ['Dejar la cadera atrás'],
       targetMuscles: ['Pectoral Inferior'],
       secondaryMuscles: ['Tríceps'],
+      mechanic: 'compound',
+      timeCost: 2.0,
+      symmetryScore: 5,
+      primaryMechanism: 'metabolic',
+      substitutionGroup: 'pushup_variations',
     ),
     Exercise(
       id: 'pushup_decline',
@@ -157,6 +206,11 @@ class ExerciseDatabase {
       commonMistakes: ['Arquear la espalda'],
       targetMuscles: ['Pectoral Superior'],
       secondaryMuscles: ['Hombros', 'Tríceps'],
+      mechanic: 'compound',
+      timeCost: 2.0,
+      symmetryScore: 5,
+      primaryMechanism: 'metabolic',
+      substitutionGroup: 'pushup_variations',
     ),
     Exercise(
       id: 'pushup_diamond',
@@ -170,6 +224,11 @@ class ExerciseDatabase {
       commonMistakes: ['Abrir los codos'],
       targetMuscles: ['Tríceps', 'Pectoral Interior'],
       secondaryMuscles: ['Hombros'],
+      mechanic: 'compound',
+      timeCost: 2.0,
+      symmetryScore: 5,
+      primaryMechanism: 'metabolic',
+      substitutionGroup: 'pushup_variations',
     ),
     Exercise(
       id: 'pec_deck',
@@ -183,6 +242,11 @@ class ExerciseDatabase {
       commonMistakes: ['Empujar con el cuerpo'],
       targetMuscles: ['Pectoral Mayor'],
       secondaryMuscles: [],
+      mechanic: 'isolation',
+      timeCost: 2.5,
+      symmetryScore: 4,
+      primaryMechanism: 'metabolic',
+      substitutionGroup: 'chest_fly',
     ),
     Exercise(
       id: 'chest_press_machine',
@@ -196,6 +260,11 @@ class ExerciseDatabase {
       commonMistakes: ['Despegar la espalda'],
       targetMuscles: ['Pectoral Mayor'],
       secondaryMuscles: ['Tríceps'],
+      mechanic: 'compound',
+      timeCost: 3.0,
+      symmetryScore: 6, // Algunas máquinas son iso-laterales
+      primaryMechanism: 'tension',
+      substitutionGroup: 'horizontal_press_machine',
     ),
     Exercise(
       id: 'dips_chest',
@@ -209,6 +278,11 @@ class ExerciseDatabase {
       commonMistakes: ['Mantenerse vertical (eso es para tríceps)'],
       targetMuscles: ['Pectoral Inferior'],
       secondaryMuscles: ['Tríceps', 'Hombros'],
+      mechanic: 'compound',
+      timeCost: 3.0,
+      symmetryScore: 5,
+      primaryMechanism: 'damage', // Gran estiramiento bajo carga
+      substitutionGroup: 'dips',
     ),
     Exercise(
       id: 'svend_press',
@@ -222,6 +296,11 @@ class ExerciseDatabase {
       commonMistakes: ['Usar mucho peso', 'Relajar la presión'],
       targetMuscles: ['Pectoral Interior'],
       secondaryMuscles: ['Hombros'],
+      mechanic: 'isolation',
+      timeCost: 2.0,
+      symmetryScore: 5,
+      primaryMechanism: 'metabolic',
+      substitutionGroup: 'chest_finishers',
     ),
   ];
 
@@ -241,6 +320,11 @@ class ExerciseDatabase {
       commonMistakes: ['Redondear espalda', 'Usar brazos para jalar'],
       targetMuscles: ['Espalda Baja', 'Trapecios', 'Dorsales'],
       secondaryMuscles: ['Glúteos', 'Isquios'],
+      mechanic: 'compound',
+      timeCost: 6.0, // Muy demandante, descansos largos
+      symmetryScore: 1,
+      primaryMechanism: 'tension',
+      substitutionGroup: 'deadlift_pattern',
     ),
     Exercise(
       id: 'deadlift_sumo',
@@ -254,6 +338,11 @@ class ExerciseDatabase {
       commonMistakes: ['Caderas muy altas', 'Rodillas hacia adentro'],
       targetMuscles: ['Glúteos', 'Aductores', 'Espalda Baja'],
       secondaryMuscles: ['Cuádriceps', 'Trapecios'],
+      mechanic: 'compound',
+      timeCost: 6.0,
+      symmetryScore: 1,
+      primaryMechanism: 'tension',
+      substitutionGroup: 'deadlift_pattern',
     ),
     Exercise(
       id: 'pullover_db',
@@ -267,6 +356,11 @@ class ExerciseDatabase {
       commonMistakes: ['Convertirlo en extensión de tríceps', 'Subir demasiado la pesa'],
       targetMuscles: ['Dorsales'],
       secondaryMuscles: ['Serratos', 'Pectorales', 'Tríceps'],
+      mechanic: 'isolation',
+      timeCost: 3.0,
+      symmetryScore: 5,
+      primaryMechanism: 'damage', // Gran estiramiento
+      substitutionGroup: 'lat_isolation',
     ),
     Exercise(
       id: 'lat_pulldown',
@@ -280,6 +374,11 @@ class ExerciseDatabase {
       commonMistakes: ['Jalar tras nuca', 'Usar impulso'],
       targetMuscles: ['Dorsal Ancho'],
       secondaryMuscles: ['Bíceps'],
+      mechanic: 'compound',
+      timeCost: 3.0,
+      symmetryScore: 3,
+      primaryMechanism: 'tension',
+      substitutionGroup: 'vertical_pull',
     ),
     Exercise(
       id: 'row_barbell',
@@ -293,6 +392,11 @@ class ExerciseDatabase {
       commonMistakes: ['Estar muy vertical'],
       targetMuscles: ['Dorsales', 'Romboides'],
       secondaryMuscles: ['Bíceps', 'Espalda Baja'],
+      mechanic: 'compound',
+      timeCost: 4.0,
+      symmetryScore: 2,
+      primaryMechanism: 'tension',
+      substitutionGroup: 'horizontal_row_heavy',
     ),
     Exercise(
       id: 'pullup',
@@ -306,6 +410,11 @@ class ExerciseDatabase {
       commonMistakes: ['No pasar la barbilla'],
       targetMuscles: ['Dorsal Ancho'],
       secondaryMuscles: ['Bíceps', 'Core'],
+      mechanic: 'compound',
+      timeCost: 3.5,
+      symmetryScore: 5,
+      primaryMechanism: 'tension',
+      substitutionGroup: 'vertical_pull_bodyweight',
     ),
     Exercise(
       id: 'chinup',
@@ -319,6 +428,11 @@ class ExerciseDatabase {
       commonMistakes: ['Rango parcial'],
       targetMuscles: ['Dorsales', 'Bíceps'],
       secondaryMuscles: [],
+      mechanic: 'compound',
+      timeCost: 3.5,
+      symmetryScore: 5,
+      primaryMechanism: 'tension',
+      substitutionGroup: 'vertical_pull_bodyweight',
     ),
     Exercise(
       id: 'row_db_one_arm',
@@ -332,6 +446,12 @@ class ExerciseDatabase {
       commonMistakes: ['Rotar el torso'],
       targetMuscles: ['Dorsales'],
       secondaryMuscles: ['Bíceps'],
+      isBilateral: false,
+      mechanic: 'compound',
+      timeCost: 4.5, // Unilateral lleva tiempo
+      symmetryScore: 10, // PERFECTO PARA ASIMETRÍA
+      primaryMechanism: 'tension',
+      substitutionGroup: 'horizontal_row_unilateral',
     ),
     Exercise(
       id: 'row_seated',
@@ -345,6 +465,11 @@ class ExerciseDatabase {
       commonMistakes: ['Balanceo excesivo'],
       targetMuscles: ['Dorsales', 'Trapecio Medio'],
       secondaryMuscles: ['Bíceps'],
+      mechanic: 'compound',
+      timeCost: 3.0,
+      symmetryScore: 3,
+      primaryMechanism: 'metabolic',
+      substitutionGroup: 'horizontal_row_cable',
     ),
     Exercise(
       id: 't_bar_row',
@@ -358,6 +483,11 @@ class ExerciseDatabase {
       commonMistakes: ['Redondear lumbar'],
       targetMuscles: ['Dorsales', 'Romboides'],
       secondaryMuscles: ['Bíceps'],
+      mechanic: 'compound',
+      timeCost: 4.0,
+      symmetryScore: 2,
+      primaryMechanism: 'tension',
+      substitutionGroup: 'horizontal_row_heavy',
     ),
     Exercise(
       id: 'shrug_barbell',
@@ -371,6 +501,11 @@ class ExerciseDatabase {
       commonMistakes: ['Rotar los hombros'],
       targetMuscles: ['Trapecio Superior'],
       secondaryMuscles: [],
+      mechanic: 'isolation',
+      timeCost: 2.5,
+      symmetryScore: 2,
+      primaryMechanism: 'metabolic',
+      substitutionGroup: 'traps',
     ),
     Exercise(
       id: 'shrug_dumbbell',
@@ -384,6 +519,11 @@ class ExerciseDatabase {
       commonMistakes: ['Usar impulso de piernas', 'Rodar los hombros adelante'],
       targetMuscles: ['Trapecio Superior'],
       secondaryMuscles: ['Agarre'],
+      mechanic: 'isolation',
+      timeCost: 2.5,
+      symmetryScore: 7,
+      primaryMechanism: 'metabolic',
+      substitutionGroup: 'traps',
     ),
     Exercise(
       id: 'face_pull',
@@ -397,6 +537,11 @@ class ExerciseDatabase {
       commonMistakes: ['Bajar los codos'],
       targetMuscles: ['Deltoides Posterior', 'Manguito Rotador'],
       secondaryMuscles: ['Trapecio'],
+      mechanic: 'isolation',
+      timeCost: 2.5,
+      symmetryScore: 8, // Corrige postura
+      primaryMechanism: 'metabolic', // Altas reps siempre
+      substitutionGroup: 'rear_delt',
     ),
     Exercise(
       id: 'seal_row',
@@ -410,6 +555,11 @@ class ExerciseDatabase {
       commonMistakes: ['Levantar la cabeza'],
       targetMuscles: ['Dorsales', 'Romboides'],
       secondaryMuscles: ['Bíceps'],
+      mechanic: 'compound',
+      timeCost: 4.0,
+      symmetryScore: 5,
+      primaryMechanism: 'tension',
+      substitutionGroup: 'horizontal_row_supported',
     ),
   ];
 
@@ -429,6 +579,11 @@ class ExerciseDatabase {
       commonMistakes: ['Arquear lumbar excesivamente'],
       targetMuscles: ['Deltoides Anterior', 'Medio'],
       secondaryMuscles: ['Tríceps'],
+      mechanic: 'compound',
+      timeCost: 4.5,
+      symmetryScore: 1,
+      primaryMechanism: 'tension',
+      substitutionGroup: 'overhead_press_heavy',
     ),
     Exercise(
       id: 'ohp_db',
@@ -442,6 +597,12 @@ class ExerciseDatabase {
       commonMistakes: ['Rango de movimiento corto'],
       targetMuscles: ['Deltoides Anterior', 'Medio'],
       secondaryMuscles: ['Tríceps'],
+      isBilateral: false,
+      mechanic: 'compound',
+      timeCost: 4.0,
+      symmetryScore: 8,
+      primaryMechanism: 'tension',
+      substitutionGroup: 'overhead_press_db',
     ),
     Exercise(
       id: 'lat_raise',
@@ -455,6 +616,11 @@ class ExerciseDatabase {
       commonMistakes: ['Usar impulso', 'Manos más altas que codos'],
       targetMuscles: ['Deltoides Medio'],
       secondaryMuscles: [],
+      mechanic: 'isolation',
+      timeCost: 2.5,
+      symmetryScore: 7,
+      primaryMechanism: 'metabolic',
+      substitutionGroup: 'lateral_raise',
     ),
     Exercise(
       id: 'front_raise',
@@ -468,6 +634,11 @@ class ExerciseDatabase {
       commonMistakes: ['Balanceo'],
       targetMuscles: ['Deltoides Anterior'],
       secondaryMuscles: [],
+      mechanic: 'isolation',
+      timeCost: 2.5,
+      symmetryScore: 7,
+      primaryMechanism: 'metabolic',
+      substitutionGroup: 'front_raise',
     ),
     Exercise(
       id: 'rear_delt_fly',
@@ -481,6 +652,11 @@ class ExerciseDatabase {
       commonMistakes: ['Juntar escápulas (usar espalda)'],
       targetMuscles: ['Deltoides Posterior'],
       secondaryMuscles: [],
+      mechanic: 'isolation',
+      timeCost: 2.5,
+      symmetryScore: 7,
+      primaryMechanism: 'metabolic',
+      substitutionGroup: 'rear_delt',
     ),
     Exercise(
       id: 'arnold_press',
@@ -494,6 +670,12 @@ class ExerciseDatabase {
       commonMistakes: ['Empezar muy abierto'],
       targetMuscles: ['Hombro Completo'],
       secondaryMuscles: ['Tríceps'],
+      isBilateral: false,
+      mechanic: 'compound',
+      timeCost: 4.0,
+      symmetryScore: 8,
+      primaryMechanism: 'tension',
+      substitutionGroup: 'overhead_press_db',
     ),
     Exercise(
       id: 'upright_row',
@@ -507,6 +689,11 @@ class ExerciseDatabase {
       commonMistakes: ['Agarre muy estrecho (lesivo)'],
       targetMuscles: ['Deltoides Medio', 'Trapecios'],
       secondaryMuscles: ['Bíceps'],
+      mechanic: 'compound',
+      timeCost: 3.5,
+      symmetryScore: 3,
+      primaryMechanism: 'metabolic',
+      substitutionGroup: 'upright_row',
     ),
     Exercise(
       id: 'egyptian_lat_raise',
@@ -520,6 +707,12 @@ class ExerciseDatabase {
       commonMistakes: ['Tirones'],
       targetMuscles: ['Deltoides Medio'],
       secondaryMuscles: [],
+      isBilateral: false,
+      mechanic: 'isolation',
+      timeCost: 3.5, // Unilateral
+      symmetryScore: 9,
+      primaryMechanism: 'damage', // Gran estiramiento
+      substitutionGroup: 'lateral_raise',
     ),
   ];
 
@@ -539,6 +732,11 @@ class ExerciseDatabase {
       commonMistakes: ['Usar espalda baja'],
       targetMuscles: ['Bíceps'],
       secondaryMuscles: ['Antebrazos'],
+      mechanic: 'isolation',
+      timeCost: 3.0,
+      symmetryScore: 2,
+      primaryMechanism: 'tension',
+      substitutionGroup: 'bicep_curl_heavy',
     ),
     Exercise(
       id: 'curl_concentration',
@@ -552,6 +750,12 @@ class ExerciseDatabase {
       commonMistakes: ['Ayudarse con el hombro'],
       targetMuscles: ['Bíceps (Pico)'],
       secondaryMuscles: [],
+      isBilateral: false,
+      mechanic: 'isolation',
+      timeCost: 4.0,
+      symmetryScore: 10,
+      primaryMechanism: 'metabolic',
+      substitutionGroup: 'bicep_isolation',
     ),
     Exercise(
       id: 'curl_db',
@@ -565,6 +769,12 @@ class ExerciseDatabase {
       commonMistakes: ['Balanceo'],
       targetMuscles: ['Bíceps'],
       secondaryMuscles: [],
+      isBilateral: false,
+      mechanic: 'isolation',
+      timeCost: 3.5,
+      symmetryScore: 9,
+      primaryMechanism: 'metabolic',
+      substitutionGroup: 'bicep_curl_db',
     ),
     Exercise(
       id: 'curl_hammer',
@@ -578,6 +788,12 @@ class ExerciseDatabase {
       commonMistakes: ['Abrir codos'],
       targetMuscles: ['Braquial', 'Bíceps'],
       secondaryMuscles: ['Antebrazos'],
+      isBilateral: false,
+      mechanic: 'isolation',
+      timeCost: 3.0,
+      symmetryScore: 8,
+      primaryMechanism: 'tension',
+      substitutionGroup: 'hammer_curl',
     ),
     Exercise(
       id: 'preacher_curl',
@@ -591,6 +807,11 @@ class ExerciseDatabase {
       commonMistakes: ['Rango corto'],
       targetMuscles: ['Bíceps Corto'],
       secondaryMuscles: [],
+      mechanic: 'isolation',
+      timeCost: 3.0,
+      symmetryScore: 5,
+      primaryMechanism: 'damage', // Gran estiramiento
+      substitutionGroup: 'preacher_curl',
     ),
     Exercise(
       id: 'incline_db_curl',
@@ -604,6 +825,12 @@ class ExerciseDatabase {
       commonMistakes: ['Adelantar codos'],
       targetMuscles: ['Bíceps Largo'],
       secondaryMuscles: [],
+      isBilateral: false,
+      mechanic: 'isolation',
+      timeCost: 3.5,
+      symmetryScore: 9,
+      primaryMechanism: 'damage',
+      substitutionGroup: 'incline_curl',
     ),
     Exercise(
       id: 'bayesian_curl',
@@ -617,6 +844,12 @@ class ExerciseDatabase {
       commonMistakes: ['Perder tensión'],
       targetMuscles: ['Bíceps Largo'],
       secondaryMuscles: [],
+      isBilateral: false,
+      mechanic: 'isolation',
+      timeCost: 4.0,
+      symmetryScore: 10,
+      primaryMechanism: 'damage',
+      substitutionGroup: 'behind_back_curl',
     ),
     Exercise(
       id: 'spider_curl',
@@ -630,6 +863,11 @@ class ExerciseDatabase {
       commonMistakes: ['Inercia'],
       targetMuscles: ['Bíceps Corto'],
       secondaryMuscles: [],
+      mechanic: 'isolation',
+      timeCost: 3.0,
+      symmetryScore: 4,
+      primaryMechanism: 'metabolic',
+      substitutionGroup: 'spider_curl',
     ),
     Exercise(
       id: 'curl_reverse_barbell',
@@ -643,6 +881,11 @@ class ExerciseDatabase {
       commonMistakes: ['Usar demasiado peso', 'Doblar muñecas'],
       targetMuscles: ['Braquiorradial', 'Braquial'],
       secondaryMuscles: ['Antebrazo'],
+      mechanic: 'isolation',
+      timeCost: 2.5,
+      symmetryScore: 2,
+      primaryMechanism: 'metabolic',
+      substitutionGroup: 'reverse_curl',
     ),
   ];
 
@@ -662,6 +905,11 @@ class ExerciseDatabase {
       commonMistakes: ['Mover los codos adelante y atrás'],
       targetMuscles: ['Tríceps (Lateral)'],
       secondaryMuscles: [],
+      mechanic: 'isolation',
+      timeCost: 2.5,
+      symmetryScore: 4,
+      primaryMechanism: 'metabolic',
+      substitutionGroup: 'pushdown',
     ),
     Exercise(
       id: 'dips_machine',
@@ -675,6 +923,11 @@ class ExerciseDatabase {
       commonMistakes: ['Encoger hombros'],
       targetMuscles: ['Tríceps'],
       secondaryMuscles: ['Pecho'],
+      mechanic: 'compound',
+      timeCost: 3.0,
+      symmetryScore: 5,
+      primaryMechanism: 'tension',
+      substitutionGroup: 'dips',
     ),
     Exercise(
       id: 'skullcrusher_ez',
@@ -688,6 +941,11 @@ class ExerciseDatabase {
       commonMistakes: ['Bajar a la nariz en vez de frente'],
       targetMuscles: ['Tríceps (Largo)'],
       secondaryMuscles: [],
+      mechanic: 'isolation',
+      timeCost: 3.0,
+      symmetryScore: 2,
+      primaryMechanism: 'tension',
+      substitutionGroup: 'overhead_extension_bar',
     ),
     Exercise(
       id: 'tricep_extension_overhead',
@@ -701,6 +959,11 @@ class ExerciseDatabase {
       commonMistakes: ['Arquear espalda'],
       targetMuscles: ['Tríceps Largo'],
       secondaryMuscles: [],
+      mechanic: 'isolation',
+      timeCost: 3.0,
+      symmetryScore: 6,
+      primaryMechanism: 'damage',
+      substitutionGroup: 'overhead_extension_db',
     ),
     Exercise(
       id: 'dips_bench',
@@ -714,6 +977,11 @@ class ExerciseDatabase {
       commonMistakes: ['Alejarse mucho'],
       targetMuscles: ['Tríceps'],
       secondaryMuscles: ['Hombros'],
+      mechanic: 'compound',
+      timeCost: 2.5,
+      symmetryScore: 5,
+      primaryMechanism: 'metabolic',
+      substitutionGroup: 'dips_bodyweight',
     ),
     Exercise(
       id: 'pushdown_cable',
@@ -727,6 +995,11 @@ class ExerciseDatabase {
       commonMistakes: ['Usar muñecas'],
       targetMuscles: ['Tríceps'],
       secondaryMuscles: [],
+      mechanic: 'isolation',
+      timeCost: 2.5,
+      symmetryScore: 4,
+      primaryMechanism: 'tension',
+      substitutionGroup: 'pushdown',
     ),
     Exercise(
       id: 'kickback_db',
@@ -740,6 +1013,12 @@ class ExerciseDatabase {
       commonMistakes: ['Bajar el codo'],
       targetMuscles: ['Tríceps'],
       secondaryMuscles: [],
+      isBilateral: false,
+      mechanic: 'isolation',
+      timeCost: 3.5,
+      symmetryScore: 9,
+      primaryMechanism: 'metabolic',
+      substitutionGroup: 'tricep_kickback',
     ),
   ];
 
@@ -759,6 +1038,11 @@ class ExerciseDatabase {
       commonMistakes: ['Despegar talones', 'No bajar suficiente'],
       targetMuscles: ['Cuádriceps'],
       secondaryMuscles: ['Glúteos'],
+      mechanic: 'compound',
+      timeCost: 4.5,
+      symmetryScore: 4,
+      primaryMechanism: 'tension',
+      substitutionGroup: 'squat_machine',
     ),
     Exercise(
       id: 'squat_front',
@@ -772,6 +1056,11 @@ class ExerciseDatabase {
       commonMistakes: ['Dejar caer codos', 'Inclinarse adelante'],
       targetMuscles: ['Cuádriceps'],
       secondaryMuscles: ['Core'],
+      mechanic: 'compound',
+      timeCost: 5.0,
+      symmetryScore: 1,
+      primaryMechanism: 'tension',
+      substitutionGroup: 'squat_barbell',
     ),
     Exercise(
       id: '45_degree_leg_press',
@@ -785,6 +1074,11 @@ class ExerciseDatabase {
       commonMistakes: ['Ayudarse con manos', 'Rango muy corto'],
       targetMuscles: ['Cuádriceps', 'Glúteos'],
       secondaryMuscles: ['Aductores'],
+      mechanic: 'compound',
+      timeCost: 4.5,
+      symmetryScore: 4,
+      primaryMechanism: 'tension',
+      substitutionGroup: 'leg_press',
     ),
     Exercise(
       id: 'machine_hip_adduction',
@@ -798,6 +1092,11 @@ class ExerciseDatabase {
       commonMistakes: ['Usar inercia'],
       targetMuscles: ['Aductores'],
       secondaryMuscles: [],
+      mechanic: 'isolation',
+      timeCost: 2.5,
+      symmetryScore: 5,
+      primaryMechanism: 'metabolic',
+      substitutionGroup: 'adductors',
     ),
     Exercise(
       id: 'copenhagen_plank',
@@ -811,6 +1110,11 @@ class ExerciseDatabase {
       commonMistakes: ['Cadera caída'],
       targetMuscles: ['Aductores'],
       secondaryMuscles: ['Core'],
+      mechanic: 'isolation',
+      timeCost: 3.0,
+      symmetryScore: 10,
+      primaryMechanism: 'tension',
+      substitutionGroup: 'adductors',
     ),
     Exercise(
       id: 'squat_barbell',
@@ -824,6 +1128,11 @@ class ExerciseDatabase {
       commonMistakes: ['Rodillas hacia adentro (valgo)'],
       targetMuscles: ['Cuádriceps', 'Glúteos'],
       secondaryMuscles: ['Core'],
+      mechanic: 'compound',
+      timeCost: 5.5, // El ejercicio más demandante
+      symmetryScore: 1,
+      primaryMechanism: 'tension',
+      substitutionGroup: 'squat_barbell',
     ),
     Exercise(
       id: 'leg_press',
@@ -837,6 +1146,11 @@ class ExerciseDatabase {
       commonMistakes: ['Bloquear rodillas'],
       targetMuscles: ['Cuádriceps'],
       secondaryMuscles: ['Glúteos'],
+      mechanic: 'compound',
+      timeCost: 4.0,
+      symmetryScore: 4,
+      primaryMechanism: 'tension',
+      substitutionGroup: 'leg_press',
     ),
     Exercise(
       id: 'lunge_barbell',
@@ -850,6 +1164,12 @@ class ExerciseDatabase {
       commonMistakes: ['Golpear rodilla'],
       targetMuscles: ['Cuádriceps', 'Glúteos'],
       secondaryMuscles: [],
+      isBilateral: false,
+      mechanic: 'compound',
+      timeCost: 5.0, // Unilateral
+      symmetryScore: 10,
+      primaryMechanism: 'damage',
+      substitutionGroup: 'lunges',
     ),
     Exercise(
       id: 'leg_extension',
@@ -863,6 +1183,11 @@ class ExerciseDatabase {
       commonMistakes: ['Patear rápido'],
       targetMuscles: ['Cuádriceps'],
       secondaryMuscles: [],
+      mechanic: 'isolation',
+      timeCost: 3.0,
+      symmetryScore: 7, // Muchas máquinas permiten hacerlo a una pierna
+      primaryMechanism: 'metabolic',
+      substitutionGroup: 'quad_extension',
     ),
     Exercise(
       id: 'squat_goblet',
@@ -876,6 +1201,11 @@ class ExerciseDatabase {
       commonMistakes: ['Despegar talones'],
       targetMuscles: ['Cuádriceps'],
       secondaryMuscles: ['Core'],
+      mechanic: 'compound',
+      timeCost: 4.0,
+      symmetryScore: 3,
+      primaryMechanism: 'tension',
+      substitutionGroup: 'squat_light',
     ),
     Exercise(
       id: 'bulgarian_split_squat',
@@ -889,6 +1219,12 @@ class ExerciseDatabase {
       commonMistakes: ['Perder equilibrio'],
       targetMuscles: ['Cuádriceps', 'Glúteos'],
       secondaryMuscles: [],
+      isBilateral: false,
+      mechanic: 'compound',
+      timeCost: 5.5, // Lento y doloroso
+      symmetryScore: 10, // EL REY DE LA SIMETRÍA
+      primaryMechanism: 'damage',
+      substitutionGroup: 'unilateral_squat',
     ),
     Exercise(
       id: 'step_up',
@@ -902,6 +1238,12 @@ class ExerciseDatabase {
       commonMistakes: ['Usar un cajón muy alto (peligroso)'],
       targetMuscles: ['Glúteos', 'Cuádriceps'],
       secondaryMuscles: [],
+      isBilateral: false,
+      mechanic: 'compound',
+      timeCost: 4.5,
+      symmetryScore: 10,
+      primaryMechanism: 'tension',
+      substitutionGroup: 'step_ups',
     ),
     Exercise(
       id: 'sissy_squat',
@@ -915,6 +1257,11 @@ class ExerciseDatabase {
       commonMistakes: ['Doblar la cadera'],
       targetMuscles: ['Cuádriceps'],
       secondaryMuscles: [],
+      mechanic: 'isolation',
+      timeCost: 3.5,
+      symmetryScore: 4,
+      primaryMechanism: 'damage',
+      substitutionGroup: 'quad_stretch',
     ),
   ];
 
@@ -934,6 +1281,11 @@ class ExerciseDatabase {
       commonMistakes: ['Rango muy corto'],
       targetMuscles: ['Glúteo Medio', 'Glúteo Menor'],
       secondaryMuscles: [],
+      mechanic: 'isolation',
+      timeCost: 2.5,
+      symmetryScore: 5,
+      primaryMechanism: 'metabolic',
+      substitutionGroup: 'abduction',
     ),
     Exercise(
       id: 'hip_thrust_barbell',
@@ -947,6 +1299,11 @@ class ExerciseDatabase {
       commonMistakes: ['Usar espalda baja'],
       targetMuscles: ['Glúteo Mayor'],
       secondaryMuscles: ['Isquios'],
+      mechanic: 'compound',
+      timeCost: 4.5,
+      symmetryScore: 2,
+      primaryMechanism: 'tension', // Mejor ejercicio de tensión glútea
+      substitutionGroup: 'hip_thrust',
     ),
     Exercise(
       id: 'glute_bridge',
@@ -960,6 +1317,11 @@ class ExerciseDatabase {
       commonMistakes: ['Arquear lumbar'],
       targetMuscles: ['Glúteos'],
       secondaryMuscles: [],
+      mechanic: 'isolation',
+      timeCost: 2.5,
+      symmetryScore: 5,
+      primaryMechanism: 'metabolic',
+      substitutionGroup: 'glute_bridge',
     ),
     Exercise(
       id: 'donkey_kick',
@@ -973,6 +1335,12 @@ class ExerciseDatabase {
       commonMistakes: ['Impulsar con la espalda', 'Movimiento muy rápido'],
       targetMuscles: ['Glúteo Mayor'],
       secondaryMuscles: ['Isquios'],
+      isBilateral: false,
+      mechanic: 'isolation',
+      timeCost: 3.0,
+      symmetryScore: 8,
+      primaryMechanism: 'metabolic',
+      substitutionGroup: 'glute_kickback',
     ),
     Exercise(
       id: 'cable_glute_kickback',
@@ -986,6 +1354,12 @@ class ExerciseDatabase {
       commonMistakes: ['Arquear la espalda baja', 'Usar impulso'],
       targetMuscles: ['Glúteo Mayor'],
       secondaryMuscles: ['Isquios'],
+      isBilateral: false,
+      mechanic: 'isolation',
+      timeCost: 3.5,
+      symmetryScore: 9,
+      primaryMechanism: 'damage',
+      substitutionGroup: 'glute_kickback',
     ),
     Exercise(
       id: 'sumo_squat',
@@ -999,6 +1373,11 @@ class ExerciseDatabase {
       commonMistakes: ['Cerrar las rodillas al subir'],
       targetMuscles: ['Aductores', 'Glúteo Mayor'],
       secondaryMuscles: ['Cuádriceps'],
+      mechanic: 'compound',
+      timeCost: 4.0,
+      symmetryScore: 3,
+      primaryMechanism: 'tension',
+      substitutionGroup: 'squat_sumo',
     ),
     Exercise(
       id: 'clamshell',
@@ -1012,6 +1391,12 @@ class ExerciseDatabase {
       commonMistakes: ['Rodar la cadera hacia atrás'],
       targetMuscles: ['Glúteo Medio'],
       secondaryMuscles: [],
+      isBilateral: false,
+      mechanic: 'isolation',
+      timeCost: 3.0,
+      symmetryScore: 9,
+      primaryMechanism: 'metabolic',
+      substitutionGroup: 'abduction_unilateral',
     ),
     Exercise(
       id: 'curtsy_lunge',
@@ -1025,6 +1410,12 @@ class ExerciseDatabase {
       commonMistakes: ['Perder el equilibrio', 'Cruzar demasiado'],
       targetMuscles: ['Glúteo Medio', 'Glúteo Mayor'],
       secondaryMuscles: ['Cuádriceps'],
+      isBilateral: false,
+      mechanic: 'compound',
+      timeCost: 4.5,
+      symmetryScore: 8,
+      primaryMechanism: 'damage',
+      substitutionGroup: 'lunges',
     ),
   ];
 
@@ -1044,6 +1435,11 @@ class ExerciseDatabase {
       commonMistakes: ['Doblar espalda'],
       targetMuscles: ['Isquios', 'Glúteos'],
       secondaryMuscles: ['Espalda Baja'],
+      mechanic: 'compound',
+      timeCost: 4.5,
+      symmetryScore: 1,
+      primaryMechanism: 'damage', // Driver principal es el estiramiento
+      substitutionGroup: 'hinge_heavy',
     ),
     Exercise(
       id: 'leg_curl',
@@ -1057,6 +1453,11 @@ class ExerciseDatabase {
       commonMistakes: ['Levantar la cola'],
       targetMuscles: ['Isquiotibiales'],
       secondaryMuscles: [],
+      mechanic: 'isolation',
+      timeCost: 3.0,
+      symmetryScore: 7, // Generalmente se puede hacer a una pierna
+      primaryMechanism: 'metabolic',
+      substitutionGroup: 'leg_curl',
     ),
     Exercise(
       id: 'nordic_curl',
@@ -1070,6 +1471,11 @@ class ExerciseDatabase {
       commonMistakes: ['Doblar la cadera'],
       targetMuscles: ['Isquiotibiales'],
       secondaryMuscles: [],
+      mechanic: 'compound', // Mueve mucha masa corporal
+      timeCost: 4.0,
+      symmetryScore: 5,
+      primaryMechanism: 'damage', // Excéntrica brutal
+      substitutionGroup: 'nordic_curl',
     ),
     Exercise(
       id: 'good_morning',
@@ -1083,6 +1489,11 @@ class ExerciseDatabase {
       commonMistakes: ['Redondear espalda', 'Doblar demasiadas rodillas'],
       targetMuscles: ['Isquiotibiales', 'Espalda Baja'],
       secondaryMuscles: ['Glúteos'],
+      mechanic: 'compound',
+      timeCost: 4.5,
+      symmetryScore: 1,
+      primaryMechanism: 'damage',
+      substitutionGroup: 'hinge_heavy',
     ),
   ];
 
@@ -1102,6 +1513,11 @@ class ExerciseDatabase {
       commonMistakes: ['Usar impulso'],
       targetMuscles: ['Recto Abdominal', 'Flexores'],
       secondaryMuscles: [],
+      mechanic: 'isolation',
+      timeCost: 2.5,
+      symmetryScore: 5,
+      primaryMechanism: 'tension',
+      substitutionGroup: 'abs_lower',
     ),
     Exercise(
       id: 'woodchopper_cable',
@@ -1115,6 +1531,11 @@ class ExerciseDatabase {
       commonMistakes: ['Usar solo brazos'],
       targetMuscles: ['Oblicuos'],
       secondaryMuscles: ['Recto Abdominal'],
+      mechanic: 'compound',
+      timeCost: 3.5,
+      symmetryScore: 10,
+      primaryMechanism: 'metabolic',
+      substitutionGroup: 'abs_rotation',
     ),
     Exercise(
       id: 'plank',
@@ -1128,6 +1549,11 @@ class ExerciseDatabase {
       commonMistakes: ['Cadera baja o muy alta'],
       targetMuscles: ['Core Completo'],
       secondaryMuscles: [],
+      mechanic: 'isolation',
+      timeCost: 2.0,
+      symmetryScore: 5,
+      primaryMechanism: 'tension', // Isométrico
+      substitutionGroup: 'abs_iso',
     ),
     Exercise(
       id: 'crunch',
@@ -1141,6 +1567,11 @@ class ExerciseDatabase {
       commonMistakes: ['Jalar cuello'],
       targetMuscles: ['Recto Abdominal'],
       secondaryMuscles: [],
+      mechanic: 'isolation',
+      timeCost: 2.0,
+      symmetryScore: 5,
+      primaryMechanism: 'metabolic',
+      substitutionGroup: 'abs_upper',
     ),
     Exercise(
       id: 'russian_twist',
@@ -1154,6 +1585,11 @@ class ExerciseDatabase {
       commonMistakes: ['Poco rango', 'Mover solo brazos'],
       targetMuscles: ['Oblicuos'],
       secondaryMuscles: [],
+      mechanic: 'isolation',
+      timeCost: 2.5,
+      symmetryScore: 9,
+      primaryMechanism: 'metabolic',
+      substitutionGroup: 'abs_rotation',
     ),
     Exercise(
       id: 'hanging_leg_raise',
@@ -1167,6 +1603,11 @@ class ExerciseDatabase {
       commonMistakes: ['Balanceo'],
       targetMuscles: ['Abdominal Inferior'],
       secondaryMuscles: [],
+      mechanic: 'compound',
+      timeCost: 3.0,
+      symmetryScore: 5,
+      primaryMechanism: 'tension',
+      substitutionGroup: 'abs_lower',
     ),
     Exercise(
       id: 'ab_wheel',
@@ -1180,6 +1621,11 @@ class ExerciseDatabase {
       commonMistakes: ['Caer de panza'],
       targetMuscles: ['Core Completo'],
       secondaryMuscles: [],
+      mechanic: 'compound',
+      timeCost: 3.0,
+      symmetryScore: 5,
+      primaryMechanism: 'damage',
+      substitutionGroup: 'abs_anti',
     ),
     Exercise(
       id: 'bicycle_crunch',
@@ -1193,6 +1639,11 @@ class ExerciseDatabase {
       commonMistakes: ['Rapidez excesiva'],
       targetMuscles: ['Oblicuos', 'Recto Abdominal'],
       secondaryMuscles: [],
+      mechanic: 'isolation',
+      timeCost: 2.5,
+      symmetryScore: 8,
+      primaryMechanism: 'metabolic',
+      substitutionGroup: 'abs_rotation',
     ),
   ];
 
@@ -1212,6 +1663,11 @@ class ExerciseDatabase {
       commonMistakes: ['Peso excesivo'],
       targetMuscles: ['Flexores'],
       secondaryMuscles: [],
+      mechanic: 'isolation',
+      timeCost: 2.0,
+      symmetryScore: 8,
+      primaryMechanism: 'metabolic',
+      substitutionGroup: 'forearm_flex',
     ),
     Exercise(
       id: 'wrist_extension_db',
@@ -1225,6 +1681,11 @@ class ExerciseDatabase {
       commonMistakes: ['Usar el codo'],
       targetMuscles: ['Extensores'],
       secondaryMuscles: [],
+      mechanic: 'isolation',
+      timeCost: 2.0,
+      symmetryScore: 8,
+      primaryMechanism: 'metabolic',
+      substitutionGroup: 'forearm_ext',
     ),
     Exercise(
       id: 'farmers_walk',
@@ -1238,6 +1699,11 @@ class ExerciseDatabase {
       commonMistakes: ['Hombros caídos'],
       targetMuscles: ['Agarre', 'Trapecios'],
       secondaryMuscles: ['Core'],
+      mechanic: 'compound',
+      timeCost: 3.5,
+      symmetryScore: 8,
+      primaryMechanism: 'tension',
+      substitutionGroup: 'carry',
     ),
   ];
 
@@ -1254,6 +1720,11 @@ class ExerciseDatabase {
       commonMistakes: ['Rebote'],
       targetMuscles: ['Gastrocnemio'],
       secondaryMuscles: [],
+      mechanic: 'isolation',
+      timeCost: 2.5,
+      symmetryScore: 4,
+      primaryMechanism: 'metabolic',
+      substitutionGroup: 'calf_straight',
     ),
     Exercise(
       id: 'calf_raise_seated',
@@ -1267,6 +1738,11 @@ class ExerciseDatabase {
       commonMistakes: ['Poco peso'],
       targetMuscles: ['Sóleo'],
       secondaryMuscles: [],
+      mechanic: 'isolation',
+      timeCost: 2.5,
+      symmetryScore: 4,
+      primaryMechanism: 'metabolic',
+      substitutionGroup: 'calf_bent',
     ),
     Exercise(
       id: 'calf_raise_leg_press',
@@ -1280,6 +1756,11 @@ class ExerciseDatabase {
       commonMistakes: ['Rango corto'],
       targetMuscles: ['Gastrocnemio'],
       secondaryMuscles: [],
+      mechanic: 'isolation',
+      timeCost: 3.0,
+      symmetryScore: 4,
+      primaryMechanism: 'damage',
+      substitutionGroup: 'calf_straight',
     ),
   ];
 
@@ -1296,6 +1777,11 @@ class ExerciseDatabase {
       commonMistakes: ['Mala postura'],
       targetMuscles: ['Corazón', 'Piernas'],
       secondaryMuscles: [],
+      mechanic: 'compound',
+      timeCost: 15.0, // Sesión promedio
+      symmetryScore: 5,
+      primaryMechanism: 'metabolic',
+      substitutionGroup: 'cardio_machine',
     ),
     Exercise(
       id: 'elliptical',
@@ -1309,6 +1795,11 @@ class ExerciseDatabase {
       commonMistakes: ['Rebotar'],
       targetMuscles: ['Corazón'],
       secondaryMuscles: [],
+      mechanic: 'compound',
+      timeCost: 15.0,
+      symmetryScore: 5,
+      primaryMechanism: 'metabolic',
+      substitutionGroup: 'cardio_machine',
     ),
     Exercise(
       id: 'cycling',
@@ -1322,6 +1813,11 @@ class ExerciseDatabase {
       commonMistakes: ['Asiento muy bajo'],
       targetMuscles: ['Cuádriceps', 'Corazón'],
       secondaryMuscles: [],
+      mechanic: 'compound',
+      timeCost: 15.0,
+      symmetryScore: 5,
+      primaryMechanism: 'metabolic',
+      substitutionGroup: 'cardio_machine',
     ),
   ];
 
@@ -1338,6 +1834,11 @@ class ExerciseDatabase {
       commonMistakes: ['Jalar fuerte'],
       targetMuscles: ['Cuello'],
       secondaryMuscles: [],
+      mechanic: 'isolation',
+      timeCost: 2.0,
+      symmetryScore: 5,
+      primaryMechanism: 'tension',
+      substitutionGroup: 'neck',
     ),
     Exercise(
       id: 'band_pull_apart',
@@ -1351,6 +1852,11 @@ class ExerciseDatabase {
       commonMistakes: ['Doblar codos'],
       targetMuscles: ['Deltoides Posterior'],
       secondaryMuscles: ['Romboides'],
+      mechanic: 'isolation',
+      timeCost: 2.0,
+      symmetryScore: 5,
+      primaryMechanism: 'metabolic',
+      substitutionGroup: 'rear_delt',
     ),
     Exercise(
       id: 'external_rotation_cable',
@@ -1364,6 +1870,11 @@ class ExerciseDatabase {
       commonMistakes: ['Despegar el codo'],
       targetMuscles: ['Manguito Rotador'],
       secondaryMuscles: [],
+      mechanic: 'isolation',
+      timeCost: 2.0,
+      symmetryScore: 8,
+      primaryMechanism: 'tension',
+      substitutionGroup: 'rotator_cuff',
     ),
   ];
 }

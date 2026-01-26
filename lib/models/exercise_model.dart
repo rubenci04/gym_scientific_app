@@ -44,14 +44,41 @@ class Exercise extends HiveObject {
   List<String> variations; // IDs de variaciones del ejercicio
 
   @HiveField(13, defaultValue: true)
-  bool isBilateral; // ¿Es bilateral o unilateral?
+  bool isBilateral; // TRUE = Barra/Máquina (dos lados a la vez). FALSE = Unilateral (Mancuerna/Banda).
 
   @HiveField(14, defaultValue: '')
-  String alternativeExercise; // Ejercicio alternativo si no hay equipo
+  String alternativeExercise; // Ejercicio alternativo simple
 
-  // --- NUEVO CAMPO PARA IMÁGENES DE USUARIO ---
   @HiveField(15, defaultValue: null)
-  String? localImagePath; // Ruta local de la imagen personalizada (si el usuario sube una)
+  String? localImagePath; // Ruta local de la imagen personalizada
+
+  // --- NUEVOS CAMPOS DEL INFORME TÉCNICO MAESTRO ---
+
+  // // NOTA PARA MI: Define si es 'compound' (multiarticular) o 'isolation' (monoarticular).
+  // // Vital para saber qué ejercicios NO quitar cuando hay poco tiempo.
+  @HiveField(16, defaultValue: 'compound')
+  String mechanic; 
+
+  // // NOTA PARA MI: Tiempo estimado en MINUTOS (Ejecución + Descanso).
+  // // Ej: Sentadilla = 5.0 min, Curl = 2.5 min. Usado por el 'Cronómetro Algorítmico'.
+  @HiveField(17, defaultValue: 3.0)
+  double timeCost;
+
+  // // NOTA PARA MI: Puntuación del 0 al 10 sobre qué tan bueno es para corregir asimetrías.
+  // // Sentadilla Barra = 0. Sentadilla Búlgara = 10.
+  @HiveField(18, defaultValue: 0)
+  int symmetryScore;
+
+  // // NOTA PARA MI: Driver principal de hipertrofia (Sección 2.1 del informe).
+  // // Values: 'tension' (Cargas altas), 'metabolic' (Bombeo), 'damage' (Estiramiento bajo carga).
+  @HiveField(19, defaultValue: 'tension')
+  String primaryMechanism;
+
+  // // NOTA PARA MI: Grupo de sustitución biomecánica estricta.
+  // // Ej: 'horizontal_press' agrupa (Press Banca, Press Mancuernas, Máquina Pecho).
+  // // Sirve para reemplazar ejercicios sin romper la lógica de la rutina.
+  @HiveField(20, defaultValue: null)
+  String? substitutionGroup;
 
   Exercise({
     required this.id,
@@ -69,6 +96,12 @@ class Exercise extends HiveObject {
     this.variations = const [],
     this.isBilateral = true,
     this.alternativeExercise = '',
-    this.localImagePath, // Agregado al constructor
+    this.localImagePath,
+    // Nuevos parámetros con defaults seguros
+    this.mechanic = 'compound',
+    this.timeCost = 3.0,
+    this.symmetryScore = 0,
+    this.primaryMechanism = 'tension',
+    this.substitutionGroup,
   });
 }

@@ -1,3 +1,4 @@
+import 'dart:math';
 import 'package:hive/hive.dart';
 import '../models/user_model.dart';
 import '../models/exercise_model.dart';
@@ -5,8 +6,7 @@ import '../models/routine_model.dart';
 
 class RoutineGeneratorService {
   
-  // // NOTA PARA MÍ: Función principal que orquesta la creación y guardado.
-  // // Recibe el 'focusArea' que ahora puede ser un músculo específico.
+  // Función principal para generar y guardar
   static Future<void> generateAndSaveRoutine(
     UserProfile user, {
     String focusArea = 'Full Body',
@@ -23,477 +23,444 @@ class RoutineGeneratorService {
     final exerciseBox = Hive.box<Exercise>('exerciseBox');
     final allExercises = exerciseBox.values.toList();
 
-    // // NOTA PARA MÍ: Primero filtro qué ejercicios tiene disponibles el usuario (Gym o Casa)
-    final availableExercises = _filterExercisesByLocation(
-      allExercises,
-      user.location,
-    );
+    // 1. Filtrar por Ubicación (Casa vs Gym)
+    final availableExercises = _filterExercisesByLocation(allExercises, user.location);
 
-    // // NOTA PARA MÍ: Aquí determino la estructura. Si el usuario eligió un músculo específico
-    // // (ej: 'Bíceps'), llamo a _getFocusedStructure que contiene la nueva lógica detallada.
+    // 2. Determinar Estructura (Splits Científicos)
     List<Map<String, dynamic>> structure;
-    if (focusArea != 'Full Body' && focusArea != 'Upper/Lower' && focusArea != 'Push/Pull/Legs') {
+    
+    // Si el usuario pide un foco específico (ej: "Pectoral"), usamos lógica de especialización.
+    // Si no, usamos los splits periodizados (Full Body, Upper/Lower, PPL).
+    if (_isSpecificFocus(focusArea)) {
       structure = _getFocusedStructure(user.daysPerWeek, focusArea);
     } else {
-      // Si es una división clásica (Full Body, Torso/Pierna, etc)
-      structure = _getSplitStructure(user.daysPerWeek, user.goal);
+      structure = _getScientificSplitStructure(user.daysPerWeek, user.experience);
     }
 
     List<RoutineDay> generatedDays = [];
+    List<String> routineNotes = []; // Notas generales para la rutina
 
+    // 3. Construir Días (El Motor Principal)
     for (var i = 0; i < structure.length; i++) {
       var dayTemplate = structure[i];
       List<RoutineExercise> selectedExercises = [];
-      Set<String> usedIds = {};
+      Set<String> usedIds = {}; // Evitar duplicados en el mismo día
+      double estimatedDuration = 0.0; // Cronómetro en minutos
 
-      // // NOTA PARA MÍ: Ajusto series y reps según el objetivo científico.
-      int sets;
-      String reps;
+      // --- A. SELECCIÓN DE EJERCICIOS ---
+      for (var slot in dayTemplate['slots']) {
+        Exercise? selected;
 
-      switch (user.goal) {
-        case TrainingGoal.strength:
-          sets = 4;
-          reps = "3-6";
-          break;
-        case TrainingGoal.hypertrophy:
-          sets = 3; // Volumen estándar para hipertrofia
-          reps = "8-12";
-          break;
-        case TrainingGoal.endurance:
-          sets = 3;
-          reps = "15-20";
-          break;
-        default:
-          sets = 3;
-          reps = "8-12";
-      }
-
-      // // NOTA PARA MÍ: Este es el motor de selección. Itera sobre los "patrones" requeridos
-      // // para el día y busca ejercicios que coincidan en la base de datos.
-      for (var pattern in dayTemplate['patterns']) {
-        var candidates = availableExercises.where((ex) {
-          // 1. Filtro básico: ¿Ya se usó este ejercicio?
-          if (usedIds.contains(ex.id)) return false;
-
-          // 2. Lógica Específica "Aislamiento Músculo" (ej: 'Aislamiento Tríceps')
-          if (pattern.startsWith('Aislamiento ') && pattern.split(' ').length > 1) {
-             var target = pattern.split(' ')[1]; // Extrae "Tríceps"
-             // Coincidencia laxa para encontrar el músculo
-             return ex.muscleGroup.contains(target) || ex.targetMuscles.contains(target);
-          }
-          
-          // 3. Lógica para Patrones Generales
-          // Si el día tiene músculos definidos, priorizamos esos músculos
-          bool matchesMuscle = false;
-          if (dayTemplate['muscles'].contains('Todo')) {
-             matchesMuscle = true;
-          } else {
-             matchesMuscle = dayTemplate['muscles'].contains(ex.muscleGroup);
-          }
-          
-          if (pattern == 'Aislamiento') {
-             // Priorizar ejercicios monoarticulares si es posible
-             return matchesMuscle && (ex.movementPattern == 'Aislamiento' || ex.movementPattern == 'Extensión' || ex.movementPattern == 'Flexión');
-          }
-          
-          if (pattern == 'Core') {
-             return ex.muscleGroup == 'Core';
-          }
-
-          // Coincidencia estricta de patrón (ej: 'Sentadilla') O coincidencia de grupo muscular si es genérico
-          bool matchesPattern = ex.movementPattern == pattern;
-          
-          return matchesPattern && matchesMuscle;
-        }).toList();
-
-        // Si la búsqueda estricta falla, intentamos una búsqueda más amplia (Fallback)
-        if (candidates.isEmpty) {
-           candidates = availableExercises.where((ex) {
-             if (usedIds.contains(ex.id)) return false;
-             if (dayTemplate['muscles'].contains('Todo')) return true;
-             return dayTemplate['muscles'].contains(ex.muscleGroup);
-           }).toList();
+        // ESTRATEGIA DE SELECCIÓN (Informe Sección 5: Simetría)
+        // 1. Si el usuario tiene asimetría, intentamos buscar una variante UNILATERAL del patrón requerido.
+        if (user.hasAsymmetry) {
+           selected = _findSymmetryVariant(availableExercises, slot, usedIds);
         }
 
-        if (candidates.isNotEmpty) {
-          // Barajar para dar variedad
-          candidates.shuffle();
-          final selected = candidates.first;
-          
-          // // NOTA PARA MÍ: Ajuste fino. Si es un ejercicio compuesto pesado (Sentadilla, Peso Muerto),
-          // // aumento los sets y bajo reps si el objetivo es fuerza/hipertrofia.
-          int currentSets = sets;
-          String currentReps = reps;
-          
-          if (['Sentadilla', 'Peso Muerto', 'Press Banca'].any((name) => selected.name.contains(name))) {
-             currentSets = (user.goal == TrainingGoal.strength) ? 5 : 4;
-             currentReps = (user.goal == TrainingGoal.strength) ? "3-5" : "6-8";
+        // 2. Si no hay asimetría o no se encontró variante unilateral, buscamos el ejercicio estándar.
+        if (selected == null) {
+           selected = _findStandardExercise(availableExercises, slot, usedIds);
+        }
+
+        if (selected != null) {
+          // --- B. CÁLCULO DE VOLUMEN (Informe Sección 2: Fisiología) ---
+          var volumeData = _calculateVolumeAndIntensity(
+            user, 
+            selected, 
+            dayTemplate['type'] ?? 'Standard'
+          );
+
+          // Calcular Costo Temporal (Sección 4.1 del Informe)
+          double slotTime = selected.timeCost * (volumeData['sets'] as int);
+          estimatedDuration += slotTime;
+
+          // Generar Instrucción Personalizada
+          String instruction = volumeData['note'];
+          if (user.hasAsymmetry && selected.symmetryScore >= 7) {
+            instruction = "⚠️ LEY DEL LADO DÉBIL: Empieza con tu pierna/brazo IZQUIERDO. Haz las reps hasta el fallo, luego iguala con el derecho sin pasarte.";
           }
 
           selectedExercises.add(
             RoutineExercise(
               exerciseId: selected.id, 
-              sets: currentSets, 
-              reps: currentReps
+              sets: volumeData['sets'], 
+              reps: volumeData['reps'],
+              rpe: volumeData['rpe'],
+              restTimeSeconds: volumeData['rest'],
+              note: instruction,
             ),
           );
           usedIds.add(selected.id);
         }
       }
 
+      // --- C. GESTIÓN DEL TIEMPO (Informe Sección 4.2: Compresión) ---
+      bool timeCompressed = false;
+      if (estimatedDuration > user.timeAvailable) {
+        // Nivel 1 de Compresión: Superseries en accesorios/aislamiento
+        for (var exRoutine in selectedExercises) {
+           var exData = availableExercises.firstWhere((e) => e.id == exRoutine.exerciseId);
+           // Si es aislamiento, reducimos descanso drásticamente
+           if (exData.mechanic == 'isolation') {
+             exRoutine.restTimeSeconds = 30; 
+             exRoutine.note = (exRoutine.note ?? "") + " [SUPERSERIE: Descanso corto para ahorrar tiempo]";
+           }
+        }
+        timeCompressed = true;
+      }
+
       generatedDays.add(
         RoutineDay(
           id: "day_${DateTime.now().millisecondsSinceEpoch}_$i",
-          name: dayTemplate['name'], // Nombre corregido para que se vea bien
-          targetMuscles: List<String>.from(dayTemplate['muscles']), // Aseguramos tipo correcto
+          name: dayTemplate['name'] + (timeCompressed ? " (Optimizado)" : ""),
+          targetMuscles: List<String>.from(dayTemplate['muscles']),
           exercises: selectedExercises,
         ),
       );
     }
 
+    // --- D. NOTAS FINALES DE LA RUTINA ---
+    if (user.hasAsymmetry) {
+      routineNotes.add("✅ Protocolo de Simetría Activo: Se han priorizado ejercicios unilaterales.");
+    }
+    if (user.timeAvailable < 60) {
+      routineNotes.add("⏱️ Protocolo de Tiempo: Rutina condensada para encajar en ${user.timeAvailable} min.");
+    }
+
+    // Generar nombre descriptivo
+    String routineName = _generateRoutineName(user.daysPerWeek, focusArea, user.goal);
+
     return WeeklyRoutine(
       id: "routine_${DateTime.now().millisecondsSinceEpoch}",
-      name: "Plan Científico: $focusArea",
+      name: routineName,
       days: generatedDays,
       createdAt: DateTime.now(),
       isActive: true,
+      // Podrías agregar un campo 'description' al modelo WeeklyRoutine en el futuro para guardar routineNotes.join('\n')
     );
   }
 
-  static String _getGoalName(TrainingGoal goal) {
-    switch (goal) {
-      case TrainingGoal.hypertrophy: return "Hipertrofia";
-      case TrainingGoal.strength: return "Fuerza";
-      case TrainingGoal.endurance: return "Resistencia";
-      default: return "General";
+  // ==========================================
+  // MOTORES DE BÚSQUEDA Y LÓGICA (PRIVATE)
+  // ==========================================
+
+  // Busca variantes con alto puntaje de simetría (Unilaterales)
+  static Exercise? _findSymmetryVariant(List<Exercise> all, dynamic slot, Set<String> used) {
+    String patternNeeded = "";
+    String muscleNeeded = "";
+
+    // Decodificar qué patrón buscamos
+    if (slot is String) {
+       // Si el slot pide un ID (ej: 'squat_barbell'), buscamos qué patrón tiene ese ID
+       var original = all.firstWhere((e) => e.id == slot, orElse: () => all.first);
+       patternNeeded = original.movementPattern;
+       muscleNeeded = original.muscleGroup;
+    } else if (slot is Map) {
+       patternNeeded = slot['pattern'] ?? "";
+       muscleNeeded = slot['muscle'] ?? "";
     }
+
+    // Buscar sustituto UNILATERAL (SymmetryScore >= 8)
+    var candidates = all.where((ex) => 
+      (ex.movementPattern == patternNeeded || (patternNeeded.isEmpty && ex.muscleGroup == muscleNeeded)) &&
+      ex.muscleGroup == muscleNeeded &&
+      ex.symmetryScore >= 8 && // FILTRO CRÍTICO
+      !used.contains(ex.id)
+    ).toList();
+
+    if (candidates.isNotEmpty) {
+      // Priorizar compuestos si existen (ej: Búlgara antes que Extensión Unilateral)
+      candidates.sort((a, b) => b.mechanic == 'compound' ? 1 : -1);
+      return candidates.first;
+    }
+    return null;
   }
 
-  static List<Exercise> _filterExercisesByLocation(
-    List<Exercise> all,
-    TrainingLocation location,
+  // Búsqueda estándar (Intenta ID exacto, luego Patrón, luego Grupo Muscular)
+  static Exercise? _findStandardExercise(List<Exercise> all, dynamic slot, Set<String> used) {
+     if (slot is String) {
+        try {
+          // Intento 1: ID Exacto disponible
+          return all.firstWhere((e) => e.id == slot && !used.contains(e.id));
+        } catch (e) {
+          // Intento 2: Sustituto por Patrón (ej: No tengo barra, busco mancuerna)
+          var original = all.firstWhere((e) => e.id == slot, orElse: () => all.first);
+          return _findSubstitute(all, original.movementPattern, original.muscleGroup, used);
+        }
+     } else if (slot is Map) {
+        // Intento 3: Slot genérico (ej: "Empuje Horizontal")
+        return _findSubstitute(all, slot['pattern'], slot['muscle'], used);
+     }
+     return null;
+  }
+
+  static Exercise? _findSubstitute(List<Exercise> available, String? pattern, String muscle, Set<String> used) {
+    // 1. Coincidencia Perfecta
+    var candidates = available.where((ex) => 
+      ex.movementPattern == pattern && 
+      ex.muscleGroup == muscle && 
+      !used.contains(ex.id)
+    ).toList();
+
+    // 2. Coincidencia solo de Músculo (si no hay patrón exacto, ej: máquina rara)
+    if (candidates.isEmpty) {
+      candidates = available.where((ex) => 
+        ex.muscleGroup == muscle && 
+        !used.contains(ex.id)
+      ).toList();
+    }
+
+    if (candidates.isNotEmpty) {
+      // Ordenar: Compuestos primero, luego Aislamiento (Salvo que busquemos aislamiento explícitamente)
+      candidates.sort((a, b) {
+         if (a.mechanic == 'compound' && b.mechanic == 'isolation') return -1;
+         if (a.mechanic == 'isolation' && b.mechanic == 'compound') return 1;
+         return 0;
+      });
+      return candidates.first;
+    }
+    return null;
+  }
+
+  // --- CÁLCULO CIENTÍFICO DE CARGA (Informe Sección 2.3) ---
+  static Map<String, dynamic> _calculateVolumeAndIntensity(
+    UserProfile user, 
+    Exercise exercise, 
+    String sessionType
   ) {
-    if (location == TrainingLocation.gym) return all;
-    return all.where((ex) {
-      return ex.equipment == 'Corporal' ||
-          ex.equipment == 'Mancuernas' ||
-          ex.equipment == 'Banda' || // Agregado Bandas
-          ex.equipment == 'Banco/Silla' ||
-          ex.equipment == 'Barra Dominadas';
-    }).toList();
-  }
+    int sets = 3;
+    String reps = "8-12";
+    String rpe = "8 (2 RIR)";
+    int rest = 90;
+    String note = "";
 
-  // // NOTA PARA MÍ: Aquí comienza la lógica nueva y masiva para los grupos musculares específicos.
-  // // He expandido los 'patterns' para asegurar entre 6 y 8 ejercicios por sesión.
-  static List<Map<String, dynamic>> _getFocusedStructure(int days, String focusArea) {
-    List<Map<String, dynamic>> result = [];
+    bool isCompound = exercise.mechanic == 'compound';
 
-    for (int i = 0; i < days; i++) {
-      String dayNameSuffix = days > 1 ? " (Día ${i + 1})" : "";
+    // LÓGICA DE FUERZA
+    if (user.goal == TrainingGoal.strength || sessionType == 'Strength') {
+      if (isCompound) {
+        sets = 4; // Volumen óptimo fuerza
+        reps = "3-6"; // Rango neural
+        rpe = "8.5 (1-2 RIR)";
+        rest = 180; // 3 min para resíntesis ATP
+        note = "Prioridad: Mover la carga rápido (Intención Explosiva).";
+      } else {
+        // Accesorios en día de fuerza
+        sets = 3;
+        reps = "8-10";
+        rest = 120;
+        note = "Apoyo para los levantamientos principales.";
+      }
+    } 
+    // LÓGICA DE HIPERTROFIA
+    else if (user.goal == TrainingGoal.hypertrophy || sessionType == 'Hypertrophy') {
+      if (isCompound) {
+        sets = (user.experience == Experience.advanced) ? 4 : 3;
+        reps = "6-10";
+        rpe = "8 (2 RIR)";
+        rest = 120; // 2 min
+        note = "Controla la fase excéntrica (bajada) durante 3 segundos.";
+      } else {
+        // Aislamiento / Metabólico
+        sets = 3;
+        reps = "12-15";
+        rpe = "9 (1 RIR)"; // Cerca del fallo
+        rest = 60; // Estrés metabólico
+        note = "Enfócate en la conexión mente-músculo y el bombeo.";
+      }
+    } 
+    // RESISTENCIA / METABÓLICO
+    else {
+        sets = 3;
+        reps = "15-20";
+        rest = 45;
+        rpe = "7-8";
+        note = "Ritmo constante, minimiza el descanso.";
+    }
 
-      switch (focusArea) {
-        // --- TREN SUPERIOR ---
-        case 'Pectoral': // PECHO
-          result.add({
-            'name': 'Pectoral Legendario$dayNameSuffix',
-            'muscles': ['Pecho', 'Tríceps'], // Incluyo tríceps como sinergista
-            'patterns': [
-              'Empuje Horizontal', // Press Banca o similar
-              'Empuje Inclinado', // Press Inclinado (Clavicular)
-              'Empuje Horizontal', // Máquina o variante
-              'Empuje Declinado', // O Fondos (Inferior)
-              'Aislamiento', // Aperturas/Cruce
-              'Aislamiento', // Pec Deck
-              'Aislamiento Tríceps', // Un toque de tríceps al final
-            ],
-          });
-          break;
-
-        case 'Dorsal': // ESPALDA
-          result.add({
-            'name': 'Espalda en V$dayNameSuffix',
-            'muscles': ['Espalda', 'Bíceps', 'Trapecio'],
-            'patterns': [
-              'Bisagra', // Peso Muerto o Rack Pull (Densidad)
-              'Tracción Vertical', // Dominadas o Jalones (Amplitud)
-              'Tracción Horizontal', // Remo con Barra (Densidad)
-              'Tracción Vertical', // Otro ángulo vertical
-              'Tracción Horizontal', // Remo unilateral o máquina
-              'Aislamiento Espalda', // Pullover o similar
-              'Elevación', // Trapecio (Shrugs)
-              'Aislamiento Bíceps', // Finalizador
-            ],
-          });
-          break;
-
-        case 'Hombros':
-          result.add({
-            'name': 'Hombros 3D$dayNameSuffix',
-            'muscles': ['Hombros', 'Trapecio'],
-            'patterns': [
-              'Empuje Vertical', // Press Militar pesado
-              'Empuje Vertical', // Press con mancuernas o Arnold
-              'Aislamiento', // Elevaciones Laterales
-              'Aislamiento', // Pájaros (Posterior)
-              'Aislamiento', // Frontales o variantes
-              'Tracción', // Face Pull (Salud del hombro)
-              'Elevación', // Trapecio
-            ],
-          });
-          break;
-
-        case 'Bíceps':
-          result.add({
-            'name': 'Bíceps Masivos$dayNameSuffix',
-            'muscles': ['Bíceps', 'Antebrazo', 'Espalda'], // Espalda para activar
-            'patterns': [
-              'Tracción Vertical', // Dominada Supina (Chin-up) - Gran constructor
-              'Flexión', // Curl con Barra (Pesado)
-              'Flexión', // Curl Martillo (Braquial)
-              'Aislamiento', // Curl Inclinado (Cabeza larga)
-              'Aislamiento', // Curl Predicador o Concentrado (Cabeza corta)
-              'Flexión', // Curl Invertido o Zottman
-              'Aislamiento Antebrazos', // Muñeca
-            ],
-          });
-          break;
-
-        case 'Tríceps':
-          result.add({
-            'name': 'Tríceps Herradura$dayNameSuffix',
-            'muscles': ['Tríceps', 'Pecho'], // Pecho cerrado para activar
-            'patterns': [
-              'Empuje Horizontal', // Press Banca Agarre Cerrado
-              'Empuje Vertical', // Fondos (Dips)
-              'Extensión', // Rompecráneos o Francés
-              'Empuje', // Polea (Pushdown)
-              'Extensión', // Copa o Trasnuca (Cabeza larga)
-              'Empuje', // Patada o Unilateral
-            ],
-          });
-          break;
-          
-        case 'Trapecio':
-           result.add({
-            'name': 'Yugo de Trapecio$dayNameSuffix',
-            'muscles': ['Trapecio', 'Hombros', 'Espalda'],
-            'patterns': [
-              'Bisagra', // Peso Muerto (Isométrico brutal para trapecio)
-              'Elevación', // Encogimientos con Barra (Pesado)
-              'Elevación', // Encogimientos con Mancuerna (Rango)
-              'Tracción', // Face Pull
-              'Transporte', // Paseo del Granjero (Farmer Walk)
-              'Tracción Horizontal', // Remo al mentón (Upright Row)
-            ],
-          });
-          break;
-
-        // --- TREN INFERIOR ---
-        case 'Cuádriceps':
-          result.add({
-            'name': 'Cuádriceps de Acero$dayNameSuffix',
-            'muscles': ['Cuádriceps', 'Glúteos'],
-            'patterns': [
-              'Sentadilla', // El rey
-              'Zancada', // Búlgara o Zancada
-              'Empuje', // Prensa
-              'Sentadilla', // Hack o Frontal
-              'Aislamiento', // Sillón de Cuádriceps
-              'Aislamiento', // Sillón (Altas reps)
-              'Aislamiento Gemelo', // Gemelos de pie
-            ],
-          });
-          break;
-
-        case 'Isquios': // FEMORAL
-          result.add({
-            'name': 'Isquios (Femoral)$dayNameSuffix',
-            'muscles': ['Isquiotibiales', 'Glúteos', 'Espalda Baja'],
-            'patterns': [
-              'Bisagra', // Peso Muerto Rumano (Pesado)
-              'Flexión', // Curl Femoral Tumbado
-              'Bisagra', // Buenos Días o PM Piernas Rígidas
-              'Flexión', // Curl Nórdico o Sentado
-              'Bisagra', // Hiperextensiones
-              'Aislamiento Glúteo', // Patada (Complemento)
-            ],
-          });
-          break;
-
-        case 'Glúteos':
-          result.add({
-            'name': 'Glúteos Focus$dayNameSuffix',
-            'muscles': ['Glúteos', 'Abductores', 'Isquiotibiales'],
-            'patterns': [
-              'Puente', // Hip Thrust (Pesado)
-              'Sentadilla', // Sentadilla Sumo
-              'Zancada', // Estocada Cruzada o Búlgara
-              'Bisagra', // Peso Muerto Rumano
-              'Extensión de Cadera', // Patada en Polea
-              'Abducción', // Máquina de abducción o Almeja
-              'Desplazamiento', // Monster Walk
-            ],
-          });
-          break;
-
-        case 'Gemelos':
-          result.add({
-            'name': 'Gemelos Diamante$dayNameSuffix',
-            'muscles': ['Gemelos'],
-            'patterns': [
-              'Extensión', // De pie (Pesado)
-              'Extensión', // Sentado (Sóleo)
-              'Extensión', // Prensa
-              'Salto', // Cuerda
-              'Extensión', // Unilateral
-            ],
-          });
-          break;
-          
-        case 'Aductores': // y Abductores
-           result.add({
-            'name': 'Pierna Interior/Exterior$dayNameSuffix',
-            'muscles': ['Aductores', 'Abductores', 'Glúteos'],
-            'patterns': [
-              'Sentadilla', // Sumo (Gran activación aductor)
-              'Aislamiento', // Máquina Aductora
-              'Isométrico', // Copenhagen Plank
-              'Abducción', // Máquina Abductora
-              'Desplazamiento', // Monster Walk
-              'Aislamiento', // Aductor Polea
-            ],
-          });
-          break;
-
-        // --- EXTRAS ---
-        case 'Abdominales': // CORE
-          result.add({
-            'name': 'Core de Piedra$dayNameSuffix',
-            'muscles': ['Core'],
-            'patterns': [
-              'Flexión', // Crunch o Elevación piernas
-              'Isométrico', // Plancha
-              'Rotación', // Giros Rusos o Leñador
-              'Anti-extensión', // Rueda abdominal
-              'Flexión', // Colgado
-              'Isométrico', // Vacío abdominal (si existiera) o Plancha lateral
-            ],
-          });
-          break;
-          
-        case 'Cardio':
-           result.add({
-            'name': 'Sesión Cardio$dayNameSuffix',
-            'muscles': ['Cardio', 'Core'],
-            'patterns': [
-              'Carrera', 
-              'Cíclico', 
-              'Pedaleo', 
-              'Core',
-              'Isométrico'
-            ],
-          });
-          break;
-
-        default: // FALLBACK
-          result.add({
-            'name': 'Entrenamiento General',
-            'muscles': ['Todo'],
-            'patterns': ['Sentadilla', 'Empuje Horizontal', 'Tracción Vertical', 'Bisagra', 'Empuje Vertical', 'Aislamiento'],
-          });
+    // Ajuste para Principiantes (Evitar daño muscular excesivo al inicio)
+    if (user.experience == Experience.beginner) {
+      if (exercise.primaryMechanism == 'damage') { // Ej: Peso Muerto Rumano
+         sets = 2; // Reducir volumen inicial
+         note += " Foco en técnica, no llegues al fallo total.";
       }
     }
-    return result;
+
+    return {'sets': sets, 'reps': reps, 'rpe': rpe, 'rest': rest, 'note': note};
   }
 
-  // // NOTA PARA MÍ: Mantengo la lógica de división clásica (Full body, Torso/Pierna) 
-  // // para cuando el usuario no pide un músculo específico.
-  static List<Map<String, dynamic>> _getSplitStructure(
-    int days,
-    TrainingGoal goal,
-  ) {
-    if (goal == TrainingGoal.strength) {
-       // Rutina de fuerza (Básicos, menos volumen de accesorios)
-       return _getStrengthStructure(days);
-    } else {
-       // Rutina de hipertrofia/general (Más volumen y variedad)
-       return _getHypertrophyStructure(days);
+  // ==========================================
+  // UTILIDADES
+  // ==========================================
+
+  static List<Exercise> _filterExercisesByLocation(List<Exercise> all, TrainingLocation location) {
+    if (location == TrainingLocation.gym) return all;
+    return all.where((ex) => 
+      ['Corporal', 'Mancuernas', 'Banda', 'Banco/Silla', 'Barra Dominadas', 'Mancuerna'].contains(ex.equipment)
+    ).toList();
+  }
+
+  static bool _isSpecificFocus(String focus) {
+    return !['Full Body', 'Upper/Lower', 'Push/Pull/Legs', 'Equilibrado'].contains(focus);
+  }
+
+  static String _generateRoutineName(int days, String focus, TrainingGoal goal) {
+    String goalStr = goal == TrainingGoal.strength ? "Fuerza" : "Hipertrofia";
+    if (_isSpecificFocus(focus)) return "Especialización $focus ($days Días)";
+    
+    switch (days) {
+      case 2: return "Minimalista A/B ($goalStr)";
+      case 3: return "Full Body Ondulante ($goalStr)";
+      case 4: return "Torso / Pierna ($goalStr)";
+      case 5: return "Híbrida Estética ($goalStr)";
+      case 6: return "PPL Alto Volumen ($goalStr)";
+      default: return "Plan Personalizado";
     }
   }
 
-  // Estructuras para Fuerza
-  static List<Map<String, dynamic>> _getStrengthStructure(int days) {
+  // ==========================================
+  // ESTRUCTURAS CIENTÍFICAS (CORE DEL INFORME)
+  // ==========================================
+  
+  static List<Map<String, dynamic>> _getScientificSplitStructure(int days, Experience level) {
+    // Estos templates usan IDs de ejercicios "Ideales".
+    // El algoritmo los sustituirá automáticamente si el usuario no tiene el equipo
+    // o si tiene asimetrías activadas.
     switch (days) {
       case 1:
-        return [
-          {'name': 'Full Body Fuerza', 'muscles': ['Todo'], 'patterns': ['Sentadilla', 'Empuje Horizontal', 'Tracción Horizontal', 'Bisagra', 'Empuje Vertical', 'Core']},
-        ];
       case 2:
-         return [
-          {'name': 'Torso Fuerza', 'muscles': ['Pecho', 'Espalda', 'Hombros'], 'patterns': ['Empuje Horizontal', 'Tracción Horizontal', 'Empuje Vertical', 'Tracción Vertical', 'Aislamiento']},
-          {'name': 'Pierna Fuerza', 'muscles': ['Cuádriceps', 'Isquios'], 'patterns': ['Sentadilla', 'Bisagra', 'Zancada', 'Puente', 'Core']},
+        // INFORME 5.1: "El Minimalista Eficiente" (Full Body A/B)
+        return [
+          {
+            'name': 'Día A: Sentadilla & Empuje',
+            'type': 'Strength',
+            'muscles': ['Cuádriceps', 'Pecho', 'Espalda', 'Hombros'],
+            'slots': [
+              'squat_barbell',         // Sentadilla (Patrón Knee Dominant)
+              'bench_press_barbell',   // Empuje Horizontal
+              'row_barbell',           // Tracción Horizontal
+              'ohp_barbell',           // Empuje Vertical
+              'calf_raise_standing'    // Accesorio
+            ]
+          },
+          {
+            'name': 'Día B: Bisagra & Tracción',
+            'type': 'Hypertrophy',
+            'muscles': ['Isquios', 'Cuádriceps', 'Espalda', 'Pecho'],
+            'slots': [
+              'deadlift_conv',         // Bisagra (Hip Dominant)
+              'bulgarian_split_squat', // Unilateral (Gran simetría)
+              'lat_pulldown',          // Tracción Vertical
+              'dips_bench',            // Empuje Vertical
+              'face_pull'              // Salud Hombro
+            ]
+          }
         ];
+
       case 3:
+        // INFORME 5.2: "Frecuencia Óptima" (Full Body Ondulante)
         return [
-          {'name': 'Full Body A', 'muscles': ['Todo'], 'patterns': ['Sentadilla', 'Empuje Horizontal', 'Tracción Vertical', 'Aislamiento', 'Aislamiento', 'Core']},
-          {'name': 'Full Body B', 'muscles': ['Todo'], 'patterns': ['Bisagra', 'Empuje Vertical', 'Tracción Horizontal', 'Aislamiento', 'Aislamiento', 'Core']},
-          {'name': 'Full Body C', 'muscles': ['Todo'], 'patterns': ['Zancada', 'Fondos', 'Dominadas', 'Core', 'Aislamiento', 'Cardio']},
+          {
+            'name': 'Día 1: Tensión (Pesado)',
+            'type': 'Strength',
+            'muscles': ['Todo'],
+            'slots': ['squat_barbell', 'bench_press_barbell', 'row_barbell', 'rdl_barbell', 'curl_barbell']
+          },
+          {
+            'name': 'Día 2: Hipertrofia A',
+            'type': 'Hypertrophy',
+            'muscles': ['Todo'],
+            'slots': ['leg_press', 'bench_press_incline', 'lat_pulldown', 'hip_thrust_barbell', 'pushdown_cable']
+          },
+          {
+            'name': 'Día 3: Hipertrofia B / Metabólico',
+            'type': 'Metabolic',
+            'muscles': ['Todo'],
+            'slots': ['lunge_barbell', 'ohp_db', 'row_seated', 'leg_extension', 'lat_raise']
+          }
         ];
-      case 4: // Upper/Lower x2
-         return [
-          {'name': 'Torso A', 'muscles': ['Pecho', 'Espalda'], 'patterns': ['Empuje Horizontal', 'Tracción Horizontal', 'Empuje Vertical', 'Aislamiento', 'Aislamiento', 'Core']},
-          {'name': 'Pierna A', 'muscles': ['Cuádriceps', 'Isquios'], 'patterns': ['Sentadilla', 'Bisagra', 'Aislamiento', 'Core', 'Aislamiento Gemelo']},
-          {'name': 'Torso B', 'muscles': ['Hombros', 'Brazos'], 'patterns': ['Empuje Vertical', 'Tracción Vertical', 'Aislamiento', 'Aislamiento', 'Aislamiento', 'Core']},
-          {'name': 'Pierna B', 'muscles': ['Glúteos', 'Gemelo'], 'patterns': ['Puente', 'Zancada', 'Aislamiento', 'Core', 'Aislamiento Gemelo']},
+
+      case 4:
+        // INFORME 2.3.2: Upper / Lower
+        return [
+          {
+            'name': 'Lunes: Torso A (Fuerza)',
+            'type': 'Strength',
+            'muscles': ['Pecho', 'Espalda', 'Hombros'],
+            'slots': ['bench_press_barbell', 'row_barbell', 'ohp_barbell', 'pullup', 'skullcrusher_ez']
+          },
+          {
+            'name': 'Martes: Pierna A (Sentadilla)',
+            'type': 'Strength',
+            'muscles': ['Cuádriceps', 'Isquios'],
+            'slots': ['squat_barbell', 'rdl_barbell', 'leg_press', 'calf_raise_standing', 'plank']
+          },
+          {
+            'name': 'Jueves: Torso B (Hipertrofia)',
+            'type': 'Hypertrophy',
+            'muscles': ['Pecho', 'Espalda', 'Hombros'],
+            'slots': ['bench_press_incline', 'lat_pulldown', 'db_press_flat', 'row_db_one_arm', 'lat_raise']
+          },
+          {
+            'name': 'Viernes: Pierna B (Unilateral)',
+            'type': 'Hypertrophy',
+            'muscles': ['Glúteos', 'Isquios', 'Cuádriceps'],
+            'slots': ['deadlift_sumo', 'bulgarian_split_squat', 'leg_extension', 'leg_curl', 'hanging_leg_raise']
+          }
         ];
+
+      case 5:
+        // INFORME 5.3: "El Híbrido Estético" (Upper/Lower + PPL)
+        return [
+          {'name': 'Día 1: Torso (Fuerza)', 'type': 'Strength', 'muscles': ['Pecho', 'Espalda'], 'slots': ['ohp_barbell', 'pullup', 'bench_press_barbell', 'row_barbell']},
+          {'name': 'Día 2: Pierna (Fuerza)', 'type': 'Strength', 'muscles': ['Pierna'], 'slots': ['squat_barbell', 'rdl_barbell', 'leg_press', 'calf_raise_standing']},
+          {'name': 'Día 3: Empuje (Hipertrofia)', 'type': 'Hypertrophy', 'muscles': ['Pecho', 'Hombros', 'Tríceps'], 'slots': ['bench_press_incline', 'db_press_flat', 'lat_raise', 'tricep_pushdown_rope']},
+          {'name': 'Día 4: Tracción (Hipertrofia)', 'type': 'Hypertrophy', 'muscles': ['Espalda', 'Bíceps'], 'slots': ['lat_pulldown', 'row_seated', 'pullover_db', 'curl_db']},
+          {'name': 'Día 5: Pierna & Glúteo', 'type': 'Hypertrophy', 'muscles': ['Glúteos', 'Femoral'], 'slots': ['deadlift_sumo', 'hip_thrust_barbell', 'lunge_barbell', 'leg_curl']}
+        ];
+
+      case 6:
       default:
-        // Para 5+ días en fuerza, usar una PPL
-        return _getHypertrophyStructure(days); 
+        // INFORME 5.4: "PPL Alto Volumen"
+        return [
+          {'name': 'Push A', 'type': 'Strength', 'muscles': ['Pecho', 'Hombros'], 'slots': ['bench_press_barbell', 'ohp_barbell', 'dips_chest', 'skullcrusher_ez', 'lat_raise']},
+          {'name': 'Pull A', 'type': 'Strength', 'muscles': ['Espalda', 'Bíceps'], 'slots': ['deadlift_conv', 'pullup', 'row_barbell', 'curl_barbell', 'face_pull']},
+          {'name': 'Legs A', 'type': 'Strength', 'muscles': ['Cuádriceps'], 'slots': ['squat_barbell', 'leg_press', 'leg_extension', 'calf_raise_standing', 'plank']},
+          {'name': 'Push B', 'type': 'Hypertrophy', 'muscles': ['Pecho', 'Hombros'], 'slots': ['bench_press_incline', 'db_press_flat', 'arnold_press', 'tricep_pushdown_rope', 'lat_raise']},
+          {'name': 'Pull B', 'type': 'Hypertrophy', 'muscles': ['Espalda', 'Bíceps'], 'slots': ['lat_pulldown', 'row_db_one_arm', 'pullover_db', 'curl_incline_db', 'curl_hammer']},
+          {'name': 'Legs B', 'type': 'Hypertrophy', 'muscles': ['Isquios', 'Glúteo'], 'slots': ['rdl_barbell', 'bulgarian_split_squat', 'leg_curl', 'hip_thrust_barbell', 'calf_raise_seated']}
+        ];
     }
   }
 
-  // Estructuras para Hipertrofia (Standard)
-  static List<Map<String, dynamic>> _getHypertrophyStructure(int days) {
-    switch (days) {
-      case 1:
-        return [
-          {'name': 'Full Body', 'muscles': ['Todo'], 'patterns': ['Sentadilla', 'Empuje Horizontal', 'Tracción Vertical', 'Bisagra', 'Empuje Vertical', 'Aislamiento']},
-        ];
-      case 2:
-        return [
-          {'name': 'Torso', 'muscles': ['Pecho', 'Espalda', 'Hombros'], 'patterns': ['Empuje Horizontal', 'Tracción Vertical', 'Empuje Vertical', 'Tracción Horizontal', 'Aislamiento', 'Aislamiento']},
-          {'name': 'Pierna', 'muscles': ['Cuádriceps', 'Isquios', 'Gemelo'], 'patterns': ['Sentadilla', 'Bisagra', 'Zancada', 'Puente', 'Aislamiento', 'Aislamiento']},
-        ];
-      case 3: // PPL Básico
-        return [
-          {'name': 'Empuje (Push)', 'muscles': ['Pecho', 'Hombros', 'Tríceps'], 'patterns': ['Empuje Horizontal', 'Empuje Vertical', 'Empuje Inclinado', 'Aislamiento Hombro', 'Aislamiento Tríceps', 'Aislamiento']},
-          {'name': 'Tracción (Pull)', 'muscles': ['Espalda', 'Bíceps'], 'patterns': ['Tracción Vertical', 'Tracción Horizontal', 'Bisagra', 'Aislamiento Espalda', 'Aislamiento Bíceps', 'Core']},
-          {'name': 'Pierna (Legs)', 'muscles': ['Cuádriceps', 'Isquios', 'Gemelo'], 'patterns': ['Sentadilla', 'Prensa', 'Bisagra', 'Zancada', 'Aislamiento Gemelo', 'Core']},
-        ];
-      case 4: // Torso/Pierna Frecuencia 2
-        return [
-          {'name': 'Torso Hipertrofia A', 'muscles': ['Pecho', 'Espalda'], 'patterns': ['Empuje Horizontal', 'Tracción Vertical', 'Empuje Inclinado', 'Aislamiento Bíceps', 'Aislamiento Tríceps', 'Aislamiento']},
-          {'name': 'Pierna Hipertrofia A', 'muscles': ['Cuádriceps', 'Gemelo'], 'patterns': ['Sentadilla', 'Prensa', 'Zancada', 'Aislamiento Cuádriceps', 'Aislamiento Gemelo', 'Core']},
-          {'name': 'Torso Hipertrofia B', 'muscles': ['Hombros', 'Espalda'], 'patterns': ['Empuje Vertical', 'Tracción Horizontal', 'Elevación', 'Aislamiento Hombro', 'Aislamiento', 'Core']},
-          {'name': 'Pierna Hipertrofia B', 'muscles': ['Isquios', 'Glúteo'], 'patterns': ['Bisagra', 'Puente', 'Flexión', 'Aislamiento Glúteo', 'Core', 'Aislamiento Gemelo']},
-        ];
-      case 5: // PPL + Upper/Lower híbrido (Arnold Split modificado)
-        return [
-          {'name': 'Pecho y Espalda', 'muscles': ['Pecho', 'Espalda'], 'patterns': ['Empuje Horizontal', 'Tracción Horizontal', 'Empuje Inclinado', 'Tracción Vertical', 'Aislamiento', 'Aislamiento']},
-          {'name': 'Piernas', 'muscles': ['Cuádriceps', 'Isquios'], 'patterns': ['Sentadilla', 'Bisagra', 'Prensa', 'Zancada', 'Aislamiento', 'Aislamiento']},
-          {'name': 'Hombros y Brazos', 'muscles': ['Hombros', 'Brazos'], 'patterns': ['Empuje Vertical', 'Aislamiento Hombro', 'Aislamiento Bíceps', 'Aislamiento Tríceps', 'Elevación', 'Aislamiento']},
-          {'name': 'Torso Pump', 'muscles': ['Pecho', 'Espalda'], 'patterns': ['Empuje', 'Tracción', 'Aislamiento', 'Aislamiento', 'Core', 'Cardio']},
-          {'name': 'Pierna Pump', 'muscles': ['Pierna'], 'patterns': ['Sentadilla', 'Puente', 'Aislamiento', 'Aislamiento', 'Aislamiento', 'Core']},
-        ];
-      default: // 6 días PPL x2
-        return [
-          {'name': 'Push A', 'muscles': ['Pecho', 'Tríceps'], 'patterns': ['Empuje Horizontal', 'Empuje Vertical', 'Aislamiento Tríceps', 'Aislamiento Pecho', 'Aislamiento', 'Core']},
-          {'name': 'Pull A', 'muscles': ['Espalda', 'Bíceps'], 'patterns': ['Tracción Vertical', 'Tracción Horizontal', 'Aislamiento Bíceps', 'Aislamiento Espalda', 'Elevación', 'Core']},
-          {'name': 'Legs A', 'muscles': ['Cuádriceps'], 'patterns': ['Sentadilla', 'Zancada', 'Aislamiento Cuádriceps', 'Aislamiento Gemelo', 'Core', 'Cardio']},
-          {'name': 'Push B', 'muscles': ['Hombros', 'Pecho'], 'patterns': ['Empuje Vertical', 'Empuje Inclinado', 'Aislamiento Hombro', 'Aislamiento Tríceps', 'Aislamiento', 'Core']},
-          {'name': 'Pull B', 'muscles': ['Espalda', 'Trapecio'], 'patterns': ['Tracción Horizontal', 'Tracción Vertical', 'Elevación', 'Aislamiento Bíceps', 'Aislamiento Antebrazos', 'Core']},
-          {'name': 'Legs B', 'muscles': ['Isquios', 'Glúteo'], 'patterns': ['Bisagra', 'Puente', 'Flexión', 'Aislamiento Glúteo', 'Aislamiento Gemelo', 'Cardio']},
-        ];
-    }
+  // --- ESTRUCTURAS FOCALIZADAS (Especialización) ---
+  // Mapeamos los patrones antiguos al nuevo sistema de slots
+  static List<Map<String, dynamic>> _getFocusedStructure(int days, String focusArea) {
+     
+     // Ejemplo de lógica detallada para BÍCEPS (Como se solicitó antes)
+     if (focusArea == 'Bíceps') {
+       return List.generate(days, (i) => {
+         'name': 'Espec. Bíceps Día ${i+1}',
+         'type': 'Hypertrophy',
+         'muscles': ['Bíceps'],
+         'slots': [
+            'chinup', // Tracción vertical (Gran activador)
+            'curl_barbell', // Básico pesado
+            'curl_incline_db', // Cabeza larga (Estiramiento)
+            'curl_hammer', // Braquial
+            'preacher_curl', // Cabeza corta (Acortamiento)
+            'row_barbell', // Estímulo secundario
+         ]
+       });
+     }
+
+     // Fallback genérico para otros músculos: Creamos slots genéricos basados en el músculo
+     // Esto asegura que el algoritmo busque ejercicios de ese grupo.
+     return List.generate(days, (i) => {
+       'name': 'Foco en $focusArea (Día ${i+1})',
+       'type': 'Hypertrophy',
+       'muscles': [focusArea],
+       'slots': List.generate(6, (j) => {'pattern': '', 'muscle': focusArea})
+     });
   }
 }

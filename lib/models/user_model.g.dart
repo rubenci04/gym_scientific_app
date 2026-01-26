@@ -33,13 +33,15 @@ class UserProfileAdapter extends TypeAdapter<UserProfile> {
       focusArea: fields[12] as String,
       birthDate: fields[13] as DateTime?,
       experience: fields[14] as Experience,
+      timeAvailable: fields[16] == null ? 60 : fields[16] as int,
+      hasAsymmetry: fields[17] == null ? false : fields[17] as bool,
     );
   }
 
   @override
   void write(BinaryWriter writer, UserProfile obj) {
     writer
-      ..writeByte(16)
+      ..writeByte(18)
       ..writeByte(0)
       ..write(obj.name)
       ..writeByte(1)
@@ -71,7 +73,11 @@ class UserProfileAdapter extends TypeAdapter<UserProfile> {
       ..writeByte(14)
       ..write(obj.experience)
       ..writeByte(15)
-      ..write(obj.id);
+      ..write(obj.id)
+      ..writeByte(16)
+      ..write(obj.timeAvailable)
+      ..writeByte(17)
+      ..write(obj.hasAsymmetry);
   }
 
   @override

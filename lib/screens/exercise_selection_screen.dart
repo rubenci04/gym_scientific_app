@@ -4,7 +4,13 @@ import '../models/exercise_model.dart';
 import '../theme/app_colors.dart';
 
 class ExerciseSelectionScreen extends StatefulWidget {
-  const ExerciseSelectionScreen({super.key});
+  // // NOTA PARA MI: Aceptamos el grupo de sustitución para filtrar inteligentemente
+  final String? originalSubstitutionGroup; 
+
+  const ExerciseSelectionScreen({
+    super.key, 
+    this.originalSubstitutionGroup
+  });
 
   @override
   State<ExerciseSelectionScreen> createState() => _ExerciseSelectionScreenState();
@@ -14,6 +20,8 @@ class _ExerciseSelectionScreenState extends State<ExerciseSelectionScreen> {
   late Box<Exercise> _exerciseBox;
   List<Exercise> _allExercises = [];
   List<Exercise> _filteredExercises = [];
+  List<Exercise> _recommendedExercises = []; // Lista para sugerencias inteligentes
+  
   final TextEditingController _searchController = TextEditingController();
   String? _selectedFilter; 
 
@@ -22,8 +30,18 @@ class _ExerciseSelectionScreenState extends State<ExerciseSelectionScreen> {
     super.initState();
     _exerciseBox = Hive.box<Exercise>('exerciseBox');
     _allExercises = _exerciseBox.values.toList();
-    // Ordenamos alfabéticamente para que los nuevos se mezclen bien
     _allExercises.sort((a, b) => a.name.compareTo(b.name));
+    
+    // // NOTA PARA MI: Si hay un grupo de sustitución, precargo los recomendados
+    if (widget.originalSubstitutionGroup != null) {
+      _recommendedExercises = _allExercises
+          .where((e) => e.substitutionGroup == widget.originalSubstitutionGroup)
+          .toList();
+          
+      // Quito los recomendados de la lista general inicial para no duplicar visualmente
+      // (aunque al filtrar podrían reaparecer, visualmente ayuda a distinguir)
+    }
+
     _filteredExercises = _allExercises;
   }
 
@@ -126,7 +144,6 @@ class _ExerciseSelectionScreenState extends State<ExerciseSelectionScreen> {
                 onPressed: () {
                   if (nameCtrl.text.isEmpty) return;
                   
-                  // Crear el nuevo ejercicio
                   final newExercise = Exercise(
                     id: 'custom_${DateTime.now().millisecondsSinceEpoch}',
                     name: nameCtrl.text,
@@ -141,19 +158,15 @@ class _ExerciseSelectionScreenState extends State<ExerciseSelectionScreen> {
                     commonMistakes: [],
                   );
                   
-                  // Guardar en Hive permanentemente
                   _exerciseBox.put(newExercise.id, newExercise);
                   
-                  // Actualizar lista local
                   setState(() {
                     _allExercises.add(newExercise);
                     _allExercises.sort((a, b) => a.name.compareTo(b.name));
-                    _applyFilters(); // Refrescar filtro
+                    _applyFilters();
                   });
 
-                  Navigator.pop(ctx); // Cierra diálogo
-                  
-                  // Seleccionar automáticamente y volver a la rutina
+                  Navigator.pop(ctx);
                   Navigator.pop(context, newExercise); 
                   
                   ScaffoldMessenger.of(context).showSnackBar(
@@ -190,7 +203,6 @@ class _ExerciseSelectionScreenState extends State<ExerciseSelectionScreen> {
                   'assets/exercises/${exercise.id}.png',
                   height: 150,
                   fit: BoxFit.contain,
-                  // Si es personalizado, mostrará el icono por defecto
                   errorBuilder: (c, e, s) => const Icon(Icons.fitness_center, size: 50, color: Colors.grey),
                 ),
               ),
@@ -205,6 +217,9 @@ class _ExerciseSelectionScreenState extends State<ExerciseSelectionScreen> {
                 children: [
                   Chip(label: Text(exercise.muscleGroup), backgroundColor: AppColors.primary.withOpacity(0.2)),
                   Chip(label: Text(exercise.equipment), backgroundColor: Colors.white10),
+                  // Mostrar etiqueta si es unilateral (simetría)
+                  if (!exercise.isBilateral)
+                     const Chip(label: Text("Unilateral"), backgroundColor: Colors.purple, labelStyle: TextStyle(fontSize: 10)),
                 ],
               )
             ],
@@ -238,7 +253,6 @@ class _ExerciseSelectionScreenState extends State<ExerciseSelectionScreen> {
         title: const Text('Seleccionar Ejercicio'),
         backgroundColor: AppColors.surface,
       ),
-      // BOTÓN FLOTANTE PARA AGREGAR NUEVO
       floatingActionButton: FloatingActionButton(
         onPressed: _showAddCustomExerciseDialog,
         backgroundColor: AppColors.primary,
@@ -290,51 +304,98 @@ class _ExerciseSelectionScreenState extends State<ExerciseSelectionScreen> {
           ),
           
           Expanded(
-            child: ListView.builder(
-              itemCount: _filteredExercises.length,
-              // Dejamos espacio abajo para que el botón flotante no tape el último item
+            child: ListView(
               padding: const EdgeInsets.fromLTRB(10, 10, 10, 80),
-              itemBuilder: (context, index) {
-                final exercise = _filteredExercises[index];
-                final imagePath = 'assets/exercises/${exercise.id}.png';
-
-                return Card(
-                  color: AppColors.surface,
-                  margin: const EdgeInsets.only(bottom: 8),
-                  child: ListTile(
-                    contentPadding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
-                    leading: Container(
-                      width: 50, height: 50,
-                      padding: const EdgeInsets.all(2),
-                      decoration: BoxDecoration(
-                        color: Colors.white, 
-                        borderRadius: BorderRadius.circular(8)
-                      ),
-                      child: ClipRRect(
-                        borderRadius: BorderRadius.circular(6),
-                        child: Image.asset(
-                          imagePath,
-                          fit: BoxFit.contain,
-                          errorBuilder: (c,e,s) => Center(
-                            child: Text(exercise.name.isNotEmpty ? exercise.name[0].toUpperCase() : "E", 
-                              style: const TextStyle(fontWeight: FontWeight.bold, color: AppColors.primary))
-                          ),
+              children: [
+                // --- SECCIÓN DE RECOMENDADOS CIENTÍFICOS ---
+                // Solo aparece si hay un grupo de sustitución y no se está buscando texto
+                if (_recommendedExercises.isNotEmpty && _searchController.text.isEmpty && _selectedFilter == null) ...[
+                  const Padding(
+                    padding: EdgeInsets.symmetric(vertical: 8.0, horizontal: 4.0),
+                    child: Row(
+                      children: [
+                        Icon(Icons.science, color: Colors.greenAccent, size: 20),
+                        SizedBox(width: 8),
+                        Text(
+                          "RECOMENDADOS CIENTÍFICOS", 
+                          style: TextStyle(color: Colors.greenAccent, fontWeight: FontWeight.bold, fontSize: 13, letterSpacing: 1.0)
                         ),
-                      ),
+                      ],
                     ),
-                    title: Text(exercise.name, style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
-                    subtitle: Text('${exercise.muscleGroup} • ${exercise.equipment}', style: const TextStyle(color: Colors.white54, fontSize: 12)),
-                    trailing: IconButton(
-                      icon: const Icon(Icons.info_outline, color: AppColors.primary),
-                      onPressed: () => _showExerciseInfo(exercise),
-                    ),
-                    onTap: () => Navigator.pop(context, exercise),
                   ),
-                );
-              },
+                  ..._recommendedExercises.map((ex) => _buildExerciseCard(ex, isRecommended: true)),
+                  const Divider(color: Colors.white24, height: 30),
+                  const Padding(
+                    padding: EdgeInsets.symmetric(vertical: 8.0, horizontal: 4.0),
+                    child: Text(
+                      "BIBLIOTECA COMPLETA", 
+                      style: TextStyle(color: Colors.white54, fontWeight: FontWeight.bold, fontSize: 12)
+                    ),
+                  ),
+                ],
+
+                // --- LISTA GENERAL FILTRADA ---
+                ..._filteredExercises.map((ex) {
+                   // No repetir los recomendados si ya se mostraron arriba
+                   if (_recommendedExercises.contains(ex) && _searchController.text.isEmpty && _selectedFilter == null) {
+                     return const SizedBox.shrink();
+                   }
+                   return _buildExerciseCard(ex);
+                }),
+              ],
             ),
           ),
         ],
+      ),
+    );
+  }
+
+  Widget _buildExerciseCard(Exercise exercise, {bool isRecommended = false}) {
+    final imagePath = 'assets/exercises/${exercise.id}.png';
+    return Card(
+      color: isRecommended ? Colors.green.withOpacity(0.1) : AppColors.surface,
+      shape: isRecommended ? RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(12),
+        side: const BorderSide(color: Colors.greenAccent, width: 1)
+      ) : null,
+      margin: const EdgeInsets.only(bottom: 8),
+      child: ListTile(
+        contentPadding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+        leading: Container(
+          width: 50, height: 50,
+          padding: const EdgeInsets.all(2),
+          decoration: BoxDecoration(
+            color: Colors.white, 
+            borderRadius: BorderRadius.circular(8)
+          ),
+          child: ClipRRect(
+            borderRadius: BorderRadius.circular(6),
+            child: Image.asset(
+              imagePath,
+              fit: BoxFit.contain,
+              errorBuilder: (c,e,s) => Center(
+                child: Text(exercise.name.isNotEmpty ? exercise.name[0].toUpperCase() : "E", 
+                  style: const TextStyle(fontWeight: FontWeight.bold, color: AppColors.primary))
+              ),
+            ),
+          ),
+        ),
+        title: Text(exercise.name, style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
+        subtitle: Row(
+          children: [
+            Text('${exercise.muscleGroup} • ${exercise.equipment}', style: const TextStyle(color: Colors.white54, fontSize: 12)),
+            if (isRecommended) ...[
+              const SizedBox(width: 5),
+              const Icon(Icons.check_circle, size: 12, color: Colors.greenAccent),
+              const Text(" Ideal", style: TextStyle(color: Colors.greenAccent, fontSize: 10)),
+            ]
+          ],
+        ),
+        trailing: IconButton(
+          icon: const Icon(Icons.info_outline, color: AppColors.primary),
+          onPressed: () => _showExerciseInfo(exercise),
+        ),
+        onTap: () => Navigator.pop(context, exercise),
       ),
     );
   }

@@ -36,13 +36,18 @@ class ExerciseAdapter extends TypeAdapter<Exercise> {
       isBilateral: fields[13] == null ? true : fields[13] as bool,
       alternativeExercise: fields[14] == null ? '' : fields[14] as String,
       localImagePath: fields[15] as String?,
+      mechanic: fields[16] == null ? 'compound' : fields[16] as String,
+      timeCost: fields[17] == null ? 3.0 : fields[17] as double,
+      symmetryScore: fields[18] == null ? 0 : fields[18] as int,
+      primaryMechanism: fields[19] == null ? 'tension' : fields[19] as String,
+      substitutionGroup: fields[20] as String?,
     );
   }
 
   @override
   void write(BinaryWriter writer, Exercise obj) {
     writer
-      ..writeByte(16)
+      ..writeByte(21)
       ..writeByte(0)
       ..write(obj.id)
       ..writeByte(1)
@@ -74,7 +79,17 @@ class ExerciseAdapter extends TypeAdapter<Exercise> {
       ..writeByte(14)
       ..write(obj.alternativeExercise)
       ..writeByte(15)
-      ..write(obj.localImagePath);
+      ..write(obj.localImagePath)
+      ..writeByte(16)
+      ..write(obj.mechanic)
+      ..writeByte(17)
+      ..write(obj.timeCost)
+      ..writeByte(18)
+      ..write(obj.symmetryScore)
+      ..writeByte(19)
+      ..write(obj.primaryMechanism)
+      ..writeByte(20)
+      ..write(obj.substitutionGroup);
   }
 
   @override

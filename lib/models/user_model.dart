@@ -77,7 +77,6 @@ class UserProfile extends HiveObject {
   @HiveField(8)
   double tdee;
 
-  // --- NUEVOS CAMPOS ---
   @HiveField(9)
   int daysPerWeek;
 
@@ -99,8 +98,20 @@ class UserProfile extends HiveObject {
   @HiveField(15)
   String id;
 
+  // --- NUEVOS CAMPOS PARA EL INFORME MAESTRO ---
+  
+  // // NOTA PARA MI: Tiempo en minutos disponible por sesión (45, 60, 90).
+  // // Usado por el 'Cronómetro Algorítmico' para decidir si usar superseries.
+  @HiveField(16, defaultValue: 60)
+  int timeAvailable; 
+
+  // // NOTA PARA MI: Si es true, el algoritmo prioriza ejercicios unilaterales (Score > 7).
+  // // Vital para corregir tu pierna izquierda.
+  @HiveField(17, defaultValue: false)
+  bool hasAsymmetry;
+
   UserProfile({
-    this.id = '', // Default empty or generate uuid
+    this.id = '', 
     required this.name,
     required this.age,
     required this.weight,
@@ -116,5 +127,7 @@ class UserProfile extends HiveObject {
     this.focusArea = 'Equilibrado',
     this.birthDate,
     this.experience = Experience.beginner,
+    this.timeAvailable = 60, // Por defecto 1 hora
+    this.hasAsymmetry = false,
   });
 }
