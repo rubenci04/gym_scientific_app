@@ -16,10 +16,15 @@ class HydrationSettings extends HiveObject {
   @HiveField(3)
   int endHour; // Hora de fin (0-23)
 
+  // CAMPO NUEVO AGREGADO
+  @HiveField(4)
+  double dailyGoalMl; 
+
   HydrationSettings({
     this.enabled = false,
     this.intervalMinutes = 60,
     this.startHour = 8,
     this.endHour = 22,
+    this.dailyGoalMl = 2000, // Valor por defecto
   });
 }

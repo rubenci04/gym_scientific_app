@@ -21,13 +21,14 @@ class HydrationSettingsAdapter extends TypeAdapter<HydrationSettings> {
       intervalMinutes: fields[1] as int,
       startHour: fields[2] as int,
       endHour: fields[3] as int,
+      dailyGoalMl: fields[4] as double,
     );
   }
 
   @override
   void write(BinaryWriter writer, HydrationSettings obj) {
     writer
-      ..writeByte(4)
+      ..writeByte(5)
       ..writeByte(0)
       ..write(obj.enabled)
       ..writeByte(1)
@@ -35,7 +36,9 @@ class HydrationSettingsAdapter extends TypeAdapter<HydrationSettings> {
       ..writeByte(2)
       ..write(obj.startHour)
       ..writeByte(3)
-      ..write(obj.endHour);
+      ..write(obj.endHour)
+      ..writeByte(4)
+      ..write(obj.dailyGoalMl);
   }
 
   @override

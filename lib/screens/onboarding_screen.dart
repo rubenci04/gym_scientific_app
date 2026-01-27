@@ -1,8 +1,10 @@
 import 'package:flutter/material.dart';
-import 'package:hive_flutter/hive_flutter.dart';
+import 'package:hive/hive.dart';
 import '../models/user_model.dart';
-import '../theme/app_colors.dart'; 
-import 'goal_selection_screen.dart';
+import '../models/hydration_settings_model.dart';
+import '../services/routine_generator_service.dart';
+import '../theme/app_colors.dart';
+import 'home_screen.dart';
 
 class OnboardingScreen extends StatefulWidget {
   const OnboardingScreen({super.key});
@@ -12,334 +14,372 @@ class OnboardingScreen extends StatefulWidget {
 }
 
 class _OnboardingScreenState extends State<OnboardingScreen> {
-  final _formKey = GlobalKey<FormState>();
-  final _nameCtrl = TextEditingController();
-  final _ageCtrl = TextEditingController();
-  final _weightCtrl = TextEditingController();
-  final _heightCtrl = TextEditingController();
-  final _wristCtrl = TextEditingController();
-  final _ankleCtrl = TextEditingController();
+  final PageController _pageController = PageController();
+  int _currentPage = 0;
 
-  String _gender = 'Masculino';
+  // Controladores
+  final _nameController = TextEditingController();
+  final _ageController = TextEditingController();
+  final _weightController = TextEditingController();
+  final _heightController = TextEditingController();
+  final _wristController = TextEditingController(); // Recuperado
+  final _ankleController = TextEditingController(); // Recuperado
 
-  Somatotype _calculateSomatotype(double bmi, double wrist, double height) {
-    double rIndex = height / wrist;
-    if (bmi < 19 && rIndex > 10.4) return Somatotype.ectomorph;
-    if (bmi > 25 && rIndex < 9.6) return Somatotype.endomorph;
-    return Somatotype.mesomorph;
-  }
+  // Estado
+  String _selectedGender = 'Masculino';
+  TrainingGoal _selectedGoal = TrainingGoal.hypertrophy;
+  TrainingLocation _selectedLocation = TrainingLocation.gym;
+  Experience _selectedExperience = Experience.beginner;
+  int _daysPerWeek = 3;
+  
+  // Variables Científicas
+  int _timeAvailable = 60;
+  String _focusArea = 'Cuerpo Completo'; // Traducido
+  bool _hasAsymmetry = false;
 
-  void _processData() {
-    if (!_formKey.currentState!.validate()) return;
+  final List<String> _focusOptions = [
+    'Cuerpo Completo', 
+    'Torso/Pierna', 
+    'Empuje/Tracción/Pierna', 
+    'Glúteos', 
+    'Pectoral', 
+    'Bíceps', 
+    'Hombros', 
+    'Espalda'
+  ];
 
-    final weight = double.parse(_weightCtrl.text);
-    final height = double.parse(_heightCtrl.text);
-    final wrist = double.parse(_wristCtrl.text);
-    final bmi = weight / ((height / 100) * (height / 100));
-
-    final somatotype = _calculateSomatotype(bmi, wrist, height);
-    _showResultDialog(somatotype);
-  }
-
-  void _showResultDialog(Somatotype type) {
-    String folder = _gender == 'Masculino' ? 'Male' : 'Female';
-    String fileName = '';
-    String title = '';
-    String description = '';
-    String features = '';
-
-    switch (type) {
-      case Somatotype.ectomorph:
-        fileName = '$folder-Ectomorfo.png';
-        title = 'Ectomorfo';
-        description = "Tu cuerpo tiende a ser delgado y ligero.";
-        features =
-            "• Dificultad para ganar peso y músculo.\n• Metabolismo rápido.\n• Estructura ósea estrecha (hombros y caderas).";
-        break;
-      case Somatotype.mesomorph:
-        fileName = '$folder-Mesomorfo.png';
-        title = 'Mesomorfo';
-        description = "Tienes una complexión atlética natural.";
-        features =
-            "• Ganas músculo con facilidad.\n• Postura erguida y hombros anchos.\n• Metabolismo equilibrado (ganas/pierdes peso fácil).";
-        break;
-      case Somatotype.endomorph:
-        fileName = '$folder-Endomorfo.png';
-        title = 'Endomorfo';
-        description = "Tu cuerpo tiende a acumular energía fácilmente.";
-        features =
-            "• Estructura ósea gruesa y fuerte.\n• Facilidad para ganar fuerza.\n• Metabolismo más lento, tendencia a almacenar grasa.";
-        break;
-      default:
-        fileName = '$folder-Mesomorfo.png';
-        title = 'Indefinido';
-    }
-
-    String imagePath = 'assets/images/somatotypes/$folder/$fileName';
-
-    showDialog(
-      context: context,
-      barrierDismissible: false,
-      builder: (ctx) => AlertDialog(
-        backgroundColor: AppColors.surface,
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(15)),
-        title: Center(
-          child: Text(
-            "Tu Somatotipo: $title",
-            style: const TextStyle(
-              color: Colors.white,
-              fontWeight: FontWeight.bold,
-            ),
-          ),
-        ),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      backgroundColor: AppColors.background,
+      body: SafeArea(
+        child: Column(
           children: [
-            Container(
-              padding: const EdgeInsets.all(10),
-              decoration: BoxDecoration(
-                color: Colors.white10,
-                borderRadius: BorderRadius.circular(10),
-              ),
-              child: Image.asset(
-                imagePath,
-                height: 180,
-                fit: BoxFit.contain,
-                errorBuilder: (c, o, s) =>
-                    const Icon(Icons.person, size: 80, color: Colors.grey),
-              ),
-            ),
-            const SizedBox(height: 15),
-            Text(
-              description,
-              textAlign: TextAlign.center,
-              style: const TextStyle(
-                color: Colors.white70,
-                fontStyle: FontStyle.italic,
+            Expanded(
+              child: PageView(
+                controller: _pageController,
+                physics: const NeverScrollableScrollPhysics(),
+                onPageChanged: (p) => setState(() => _currentPage = p),
+                children: [
+                  _buildPage1Personal(),
+                  _buildPage2Measurements(), // Nueva página para medidas específicas
+                  _buildPage3TrainingBase(),
+                  _buildPage4ScientificDetails(),
+                ],
               ),
             ),
-            const SizedBox(height: 15),
-            Container(
-              width: double.infinity,
-              padding: const EdgeInsets.all(12),
-              decoration: BoxDecoration(
-                border: Border.all(color: AppColors.primary.withOpacity(0.3)),
-                borderRadius: BorderRadius.circular(8),
-                color: AppColors.primary.withOpacity(0.1),
-              ),
-              child: Text(
-                features,
-                style: const TextStyle(
-                  fontSize: 13,
-                  color: Colors.white,
-                  height: 1.4,
-                ),
-              ),
-            ),
+            _buildBottomNav(),
           ],
         ),
-        actions: [
-          SizedBox(
-            width: double.infinity,
-            child: ElevatedButton(
-              style: ElevatedButton.styleFrom(
-                backgroundColor: AppColors.primary,
-                padding: const EdgeInsets.symmetric(vertical: 12),
-              ),
-              onPressed: () {
-                Navigator.pop(ctx);
-                _saveAndContinue(type);
-              },
-              child: const Text(
-                "CONTINUAR",
-                style: TextStyle(color: Colors.white),
-              ),
+      ),
+    );
+  }
+
+  // PÁGINA 1: DATOS PERSONALES + LOGO
+  Widget _buildPage1Personal() {
+    return SingleChildScrollView(
+      padding: const EdgeInsets.all(24.0),
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          // --- LOGO CORREGIDO ---
+          Container(
+            height: 120,
+            margin: const EdgeInsets.only(bottom: 20),
+            child: Image.asset(
+              'assets/logo/app_logo.png.png', // Ruta exacta según tus archivos
+              fit: BoxFit.contain,
+              errorBuilder: (c, e, s) => const Icon(Icons.fitness_center, size: 80, color: AppColors.primary),
             ),
+          ),
+          const Text("Bienvenido a Gym Scientific", style: TextStyle(color: Colors.white, fontSize: 22, fontWeight: FontWeight.bold)),
+          const SizedBox(height: 10),
+          const Text("Tu entrenador biomecánico personal", style: TextStyle(color: Colors.white54, fontSize: 14)),
+          const SizedBox(height: 30),
+          
+          _buildTextField("Nombre", _nameController),
+          const SizedBox(height: 15),
+          Row(children: [
+            Expanded(child: _buildTextField("Edad", _ageController, isNumber: true)),
+            const SizedBox(width: 15),
+            Expanded(child: _buildDropdown("Género", _selectedGender, ['Masculino', 'Femenino'], (val) => setState(() => _selectedGender = val!))),
+          ]),
+        ],
+      ),
+    );
+  }
+
+  // PÁGINA 2: MEDIDAS (MUÑECA/TOBILLO RECUPERADOS)
+  Widget _buildPage2Measurements() {
+    return SingleChildScrollView(
+      padding: const EdgeInsets.all(24.0),
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          const Icon(Icons.accessibility, size: 60, color: AppColors.secondary),
+          const SizedBox(height: 20),
+          const Text("Datos Corporales", style: TextStyle(color: Colors.white, fontSize: 24, fontWeight: FontWeight.bold)),
+          const Text("Necesario para calcular tu Somatotipo", style: TextStyle(color: Colors.white54)),
+          const SizedBox(height: 30),
+          
+          Row(children: [
+            Expanded(child: _buildTextField("Peso (kg)", _weightController, isNumber: true)),
+            const SizedBox(width: 15),
+            Expanded(child: _buildTextField("Altura (cm)", _heightController, isNumber: true)),
+          ]),
+          const SizedBox(height: 20),
+          const Divider(color: Colors.white24),
+          const SizedBox(height: 20),
+          
+          // --- CAMPOS RECUPERADOS ---
+          Row(children: [
+            Expanded(child: _buildTextField("Muñeca (cm)", _wristController, isNumber: true)),
+            const SizedBox(width: 15),
+            Expanded(child: _buildTextField("Tobillo (cm)", _ankleController, isNumber: true)),
+          ]),
+          const SizedBox(height: 10),
+          const Text(
+            "Mide la circunferencia del hueso de la muñeca y el tobillo para determinar tu estructura ósea.",
+            style: TextStyle(color: Colors.white30, fontSize: 12),
+            textAlign: TextAlign.center,
           ),
         ],
       ),
     );
   }
 
-  void _saveAndContinue(Somatotype type) async {
-    final age = int.tryParse(_ageCtrl.text) ?? 25;
-    final weight = double.tryParse(_weightCtrl.text) ?? 70.0;
-    final height = double.tryParse(_heightCtrl.text) ?? 170.0;
+  // PÁGINA 3: CONFIGURACIÓN ENTRENAMIENTO
+  Widget _buildPage3TrainingBase() {
+    return SingleChildScrollView(
+      padding: const EdgeInsets.all(24.0),
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          const Text("Objetivos y Lugar", style: TextStyle(color: Colors.white, fontSize: 24, fontWeight: FontWeight.bold)),
+          const SizedBox(height: 30),
+          
+          // Selector de Objetivo (Traducido visualmente)
+          _buildDropdownEnum<TrainingGoal>(
+            "Objetivo Principal", 
+            _selectedGoal, 
+            TrainingGoal.values, 
+            (val) => setState(() => _selectedGoal = val!),
+            labelMap: {
+              TrainingGoal.hypertrophy: "Ganar Músculo (Hipertrofia)",
+              TrainingGoal.strength: "Ganar Fuerza",
+              TrainingGoal.weightLoss: "Perder Grasa / Definir",
+              TrainingGoal.endurance: "Resistencia",
+              TrainingGoal.generalHealth: "Salud General"
+            }
+          ),
+          
+          const SizedBox(height: 20),
+          
+          _buildDropdownEnum<Experience>(
+            "Nivel de Experiencia", 
+            _selectedExperience, 
+            Experience.values, 
+            (val) => setState(() => _selectedExperience = val!),
+            labelMap: {
+              Experience.beginner: "Principiante (< 1 año)",
+              Experience.intermediate: "Intermedio (1-3 años)",
+              Experience.advanced: "Avanzado (> 3 años)"
+            }
+          ),
 
-    double bmr =
-        (10 * weight) +
-        (6.25 * height) -
-        (5 * age) +
-        (_gender == 'Masculino' ? 5 : -161);
+          const SizedBox(height: 20),
+          
+          _buildDropdownEnum<TrainingLocation>(
+            "Lugar de Entrenamiento", 
+            _selectedLocation, 
+            TrainingLocation.values, 
+            (val) => setState(() => _selectedLocation = val!),
+            labelMap: {
+              TrainingLocation.gym: "Gimnasio Comercial (Equipo Completo)",
+              TrainingLocation.home: "Casa (Mancuernas / Corporal)"
+            }
+          ),
 
-    final newUser = UserProfile(
-      name: _nameCtrl.text,
-      age: age,
-      weight: weight,
-      height: height,
-      gender: _gender,
-      wristCircumference: double.tryParse(_wristCtrl.text) ?? 17.0,
-      ankleCircumference: double.tryParse(_ankleCtrl.text) ?? 22.0,
-      somatotype: type,
-      tdee: bmr * 1.2,
-      goal: TrainingGoal.generalHealth, 
-      daysPerWeek: 3, 
-      experience: Experience.beginner 
+          const SizedBox(height: 30),
+          Text("Frecuencia: $_daysPerWeek días/semana", style: const TextStyle(color: AppColors.primary, fontWeight: FontWeight.bold)),
+          Slider(
+            value: _daysPerWeek.toDouble(),
+            min: 1, max: 6, divisions: 5,
+            activeColor: AppColors.primary,
+            label: "$_daysPerWeek días",
+            onChanged: (val) => setState(() => _daysPerWeek = val.toInt()),
+          ),
+        ],
+      ),
+    );
+  }
+
+  // PÁGINA 4: AJUSTES FINOS (CIENTÍFICO)
+  Widget _buildPage4ScientificDetails() {
+    return SingleChildScrollView(
+      padding: const EdgeInsets.all(24.0),
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          const Text("Personalización Avanzada", style: TextStyle(color: Colors.white, fontSize: 24, fontWeight: FontWeight.bold)),
+          const SizedBox(height: 10),
+          const Text("Ajusta el algoritmo a tus necesidades reales", style: TextStyle(color: Colors.white54, fontSize: 14)),
+          
+          const SizedBox(height: 30),
+          
+          const Align(alignment: Alignment.centerLeft, child: Text("Tiempo por Sesión", style: TextStyle(color: AppColors.textPrimary))),
+          const SizedBox(height: 10),
+          Wrap(
+            spacing: 10,
+            children: [30, 45, 60, 90].map((time) {
+              final isSelected = _timeAvailable == time;
+              return ChoiceChip(
+                label: Text("$time min"),
+                selected: isSelected,
+                selectedColor: AppColors.primary,
+                backgroundColor: AppColors.cardColor,
+                labelStyle: TextStyle(color: isSelected ? Colors.black : Colors.white),
+                onSelected: (val) => setState(() => _timeAvailable = time),
+              );
+            }).toList(),
+          ),
+
+          const SizedBox(height: 20),
+
+          _buildDropdown("Enfoque Prioritario", _focusArea, _focusOptions, (val) => setState(() => _focusArea = val!)),
+          if (_focusArea != 'Cuerpo Completo' && _focusArea != 'Torso/Pierna' && _focusArea != 'Empuje/Tracción/Pierna')
+             const Padding(
+               padding: EdgeInsets.only(top: 5),
+               child: Text("ℹ️ Se generará una rutina con énfasis en este grupo.", style: TextStyle(color: Colors.greenAccent, fontSize: 12)),
+             ),
+
+          const SizedBox(height: 20),
+
+          SwitchListTile(
+            title: const Text("Corrección de Asimetría", style: TextStyle(color: Colors.white)),
+            subtitle: const Text("Priorizar ejercicios unilaterales (ej: para pierna izquierda más débil).", style: TextStyle(color: Colors.white54, fontSize: 11)),
+            value: _hasAsymmetry,
+            activeColor: AppColors.primary,
+            contentPadding: EdgeInsets.zero,
+            onChanged: (val) => setState(() => _hasAsymmetry = val),
+          ),
+        ],
+      ),
+    );
+  }
+
+  void _finishOnboarding() async {
+    final user = UserProfile(
+      name: _nameController.text.isEmpty ? "Atleta" : _nameController.text,
+      age: int.tryParse(_ageController.text) ?? 25,
+      weight: double.tryParse(_weightController.text) ?? 70,
+      height: double.tryParse(_heightController.text) ?? 175,
+      wristCircumference: double.tryParse(_wristController.text) ?? 17.0, // GUARDADO
+      ankleCircumference: double.tryParse(_ankleController.text) ?? 22.0, // GUARDADO
+      gender: _selectedGender,
+      daysPerWeek: _daysPerWeek,
+      goal: _selectedGoal,
+      location: _selectedLocation,
+      experience: _selectedExperience,
+      timeAvailable: _timeAvailable,
+      focusArea: _focusArea, // Se guardará en español
+      hasAsymmetry: _hasAsymmetry,
     );
 
-    await Hive.box<UserProfile>('userBox').put('currentUser', newUser);
+    final userBox = Hive.box<UserProfile>('userBox');
+    await userBox.clear();
+    await userBox.add(user);
+
+    final hydrationBox = Hive.box<HydrationSettings>('hydrationBox');
+    if (hydrationBox.isEmpty) {
+      hydrationBox.add(HydrationSettings(dailyGoalMl: user.weight * 35));
+    }
+
+    // GENERACIÓN DE RUTINA
+    await RoutineGeneratorService.generateAndSaveRoutine(user, focusArea: _focusArea);
 
     if (mounted) {
-      Navigator.of(context).pushAndRemoveUntil(
-        MaterialPageRoute(builder: (_) => const GoalSelectionScreen()),
-        (Route<dynamic> route) => false,
-      );
+      Navigator.pushReplacement(context, MaterialPageRoute(builder: (_) => const HomeScreen()));
     }
   }
 
-  @override
-  Widget build(BuildContext context) {
-    return Scaffold(
-      backgroundColor: AppColors.background,
-      appBar: AppBar(
-        title: const Text('Tus Datos'),
-        backgroundColor: AppColors.surface,
-        elevation: 0,
-      ),
-      body: SafeArea(
-        child: Padding(
-          padding: const EdgeInsets.all(16.0),
-          child: Form(
-            key: _formKey,
-            child: ListView(
-              children: [
-                // --- HEADER CON LOGO GRANDE Y TEXTO ---
-                const SizedBox(height: 20),
-                Center(
-                  child: Column(
-                    children: [
-                      Container(
-                        padding: const EdgeInsets.all(15),
-                        decoration: BoxDecoration(
-                          shape: BoxShape.circle,
-                          color: AppColors.surface,
-                          boxShadow: [
-                            BoxShadow(
-                              color: AppColors.primary.withOpacity(0.3),
-                              blurRadius: 20,
-                              spreadRadius: 2,
-                            )
-                          ]
-                        ),
-                        child: Image.asset(
-                          // CORRECCIÓN: Usamos el logo principal grande
-                          'assets/logo/app_logo.png.png', 
-                          height: 120, // Más grande para destacar
-                          errorBuilder: (c, e, s) => const Icon(Icons.fitness_center, size: 80, color: AppColors.primary),
-                        ),
-                      ),
-                      const SizedBox(height: 20),
-                      const Text(
-                        'GYM SCIENTIFIC',
-                        style: TextStyle(
-                          fontSize: 26,
-                          fontWeight: FontWeight.w900,
-                          color: Colors.white,
-                          letterSpacing: 2.5,
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-                const SizedBox(height: 35),
-
-                // Inputs estilizados
-                _buildInput(_nameCtrl, 'Nombre'),
-                _buildRowInput(_ageCtrl, 'Edad', _weightCtrl, 'Peso (kg)'),
-                _buildRowInput(
-                  _heightCtrl,
-                  'Altura (cm)',
-                  _wristCtrl,
-                  'Muñeca (cm)',
-                ),
-                _buildInput(_ankleCtrl, 'Tobillo (cm)', isNumber: true),
-
-                Padding(
-                  padding: const EdgeInsets.only(bottom: 20),
-                  child: DropdownButtonFormField(
-                    value: _gender,
-                    dropdownColor: AppColors.surface,
-                    style: const TextStyle(color: Colors.white),
-                    items: ['Masculino', 'Femenino']
-                        .map((v) => DropdownMenuItem(value: v, child: Text(v)))
-                        .toList(),
-                    onChanged: (v) => setState(() => _gender = v.toString()),
-                    decoration: const InputDecoration(
-                      labelText: 'Sexo',
-                      labelStyle: TextStyle(color: Colors.white70),
-                      filled: true,
-                      fillColor: AppColors.surface,
-                      border: OutlineInputBorder(),
-                      enabledBorder: OutlineInputBorder(borderSide: BorderSide(color: Colors.white24)),
-                    ),
-                  ),
-                ),
-                
-                const SizedBox(height: 15),
-                ElevatedButton(
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: AppColors.primary,
-                    padding: const EdgeInsets.symmetric(vertical: 16),
-                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
-                  ),
-                  onPressed: _processData,
-                  child: const Text(
-                    'CALCULAR SOMATOTIPO', 
-                    style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: Colors.white)
-                  ),
-                ),
-                const SizedBox(height: 20),
-              ],
-            ),
-          ),
-        ),
+  // WIDGETS AUXILIARES
+  Widget _buildTextField(String label, TextEditingController controller, {bool isNumber = false}) {
+    return TextField(
+      controller: controller,
+      style: const TextStyle(color: Colors.white),
+      keyboardType: isNumber ? TextInputType.number : TextInputType.text,
+      decoration: InputDecoration(
+        labelText: label,
+        labelStyle: const TextStyle(color: Colors.white54),
+        enabledBorder: const OutlineInputBorder(borderSide: BorderSide(color: Colors.white24)),
+        focusedBorder: const OutlineInputBorder(borderSide: BorderSide(color: AppColors.primary)),
       ),
     );
   }
 
-  Widget _buildInput(
-    TextEditingController c,
-    String label, {
-    bool isNumber = false,
-  }) => Padding(
-    padding: const EdgeInsets.only(bottom: 15),
-    child: TextFormField(
-      controller: c,
-      keyboardType: isNumber ? TextInputType.number : TextInputType.text,
+  Widget _buildDropdown(String label, String value, List<String> items, Function(String?) onChanged) {
+    return DropdownButtonFormField<String>(
+      value: value,
+      items: items.map((e) => DropdownMenuItem(value: e, child: Text(e))).toList(),
+      onChanged: onChanged,
+      dropdownColor: AppColors.surface,
       style: const TextStyle(color: Colors.white),
       decoration: InputDecoration(
         labelText: label,
-        labelStyle: const TextStyle(color: Colors.white70),
-        filled: true,
-        fillColor: AppColors.surface,
-        border: const OutlineInputBorder(),
+        labelStyle: const TextStyle(color: Colors.white54),
         enabledBorder: const OutlineInputBorder(borderSide: BorderSide(color: Colors.white24)),
-        focusedBorder: const OutlineInputBorder(borderSide: BorderSide(color: AppColors.primary)),
       ),
-      validator: (v) => v!.isEmpty ? 'Requerido' : null,
-    ),
-  );
+    );
+  }
 
-  Widget _buildRowInput(
-    TextEditingController c1,
-    String l1,
-    TextEditingController c2,
-    String l2,
-  ) => Row(
-    children: [
-      Expanded(child: _buildInput(c1, l1, isNumber: true)),
-      const SizedBox(width: 15),
-      Expanded(child: _buildInput(c2, l2, isNumber: true)),
-    ],
-  );
+  Widget _buildDropdownEnum<T>(String label, T value, List<T> values, Function(T?) onChanged, {Map<T, String>? labelMap}) {
+    return DropdownButtonFormField<T>(
+      value: value,
+      items: values.map((e) => DropdownMenuItem(
+        value: e, 
+        child: Text(labelMap != null ? labelMap[e]! : e.toString().split('.').last.toUpperCase(), overflow: TextOverflow.ellipsis)
+      )).toList(),
+      onChanged: onChanged,
+      dropdownColor: AppColors.surface,
+      style: const TextStyle(color: Colors.white),
+      decoration: InputDecoration(
+        labelText: label,
+        labelStyle: const TextStyle(color: Colors.white54),
+        enabledBorder: const OutlineInputBorder(borderSide: BorderSide(color: Colors.white24)),
+      ),
+    );
+  }
+
+  Widget _buildBottomNav() {
+    return Padding(
+      padding: const EdgeInsets.all(20),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+        children: [
+          if (_currentPage > 0)
+            TextButton(
+              onPressed: () => _pageController.previousPage(duration: const Duration(milliseconds: 300), curve: Curves.ease),
+              child: const Text("Atrás", style: TextStyle(color: Colors.white54)),
+            )
+          else
+            const SizedBox(),
+          ElevatedButton(
+            style: ElevatedButton.styleFrom(
+              backgroundColor: AppColors.primary,
+              padding: const EdgeInsets.symmetric(horizontal: 40, vertical: 15),
+            ),
+            onPressed: () {
+              if (_currentPage < 3) { // Ahora son 4 páginas (índices 0,1,2,3)
+                _pageController.nextPage(duration: const Duration(milliseconds: 300), curve: Curves.ease);
+              } else {
+                _finishOnboarding();
+              }
+            },
+            child: Text(_currentPage < 3 ? "Siguiente" : "CREAR PLAN", style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
+          ),
+        ],
+      ),
+    );
+  }
 }

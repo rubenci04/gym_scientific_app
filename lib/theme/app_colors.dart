@@ -5,6 +5,9 @@ class AppColors {
   static const Color background = Color(0xFF121212);
   static const Color surface = Color(0xFF1E1E1E);
   static const Color cardBackground = Color(0xFF252525);
+  
+  // ALIAS PARA COMPATIBILIDAD CON CÓDIGO NUEVO
+  static const Color cardColor = cardBackground; 
 
   // Primary theme colors
   static const Color primary = Color(0xFF2196F3); // Azul científico
@@ -13,9 +16,7 @@ class AppColors {
 
   // Text colors - IMPROVED CONTRAST
   static const Color textPrimary = Color(0xFFFFFFFF);
-  static const Color textSecondary = Color(
-    0xFFCCCCCC,
-  ); // Was #B3B3B3, now brighter
+  static const Color textSecondary = Color(0xFFCCCCCC); 
   static const Color textDisabled = Color(0xFF888888);
 
   // Input/Form colors
@@ -33,7 +34,7 @@ class AppColors {
   static const Color muscleRecovering = Color(0xFFFFC107);
   static const Color muscleFatigued = Color(0xFFFF5252);
 
-  // Button text (for elevated buttons with colored backgrounds)
+  // Button text
   static const Color buttonTextLight = Color(0xFFFFFFFF);
   static const Color buttonTextDark = Color(0xFF000000);
 }
