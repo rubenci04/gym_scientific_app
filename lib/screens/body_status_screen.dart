@@ -1,12 +1,14 @@
 import 'package:flutter/material.dart';
 import 'package:hive_flutter/hive_flutter.dart';
 import 'package:provider/provider.dart';
-import '../main.dart'; // Para acceder al ThemeProvider
+import '../main.dart'; // Para ThemeProvider
 import '../models/user_model.dart';
 import '../models/muscle_data.dart';
 import '../theme/app_colors.dart';
 import '../services/fatigue_service.dart';
 import '../widgets/interactive_body_map.dart';
+// Asegúrate de importar OnboardingScreen si quieres redirigir
+import 'onboarding_screen.dart'; 
 
 class BodyStatusScreen extends StatefulWidget {
   const BodyStatusScreen({super.key});
@@ -18,25 +20,61 @@ class BodyStatusScreen extends StatefulWidget {
 class _BodyStatusScreenState extends State<BodyStatusScreen> {
   bool _isFrontView = true;
 
-  // SE HA ELIMINADO LA FUNCIÓN _showEditProfileDialog DE AQUÍ
-
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final themeProvider = Provider.of<ThemeProvider>(context);
     final isDark = themeProvider.isDarkMode;
 
+    // Protección: Si la caja no está abierta, mostrar carga
+    if (!Hive.isBoxOpen('userBox')) {
+      return const Scaffold(body: Center(child: CircularProgressIndicator()));
+    }
+
     return ValueListenableBuilder(
       valueListenable: Hive.box<UserProfile>('userBox').listenable(),
       builder: (context, Box<UserProfile> box, _) {
-        final currentUser = box.get('currentUser');
-        if (currentUser == null) return const Center(child: Text("Sin usuario"));
+        
+        // 1. INTENTO ROBUSTO DE OBTENER USUARIO
+        UserProfile? currentUser = box.get('currentUser');
+        
+        // Fallback: Si no hay 'currentUser' pero la caja tiene datos, coge el primero
+        if (currentUser == null && box.isNotEmpty) {
+           currentUser = box.values.first;
+        }
 
-        // Calculo la fatiga real
+        // 2. ESTADO SIN USUARIO (Actionable)
+        if (currentUser == null) {
+          return Scaffold(
+            body: Center(
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  const Icon(Icons.person_off, size: 60, color: Colors.grey),
+                  const SizedBox(height: 20),
+                  const Text("No se encontró perfil de usuario."),
+                  const SizedBox(height: 20),
+                  ElevatedButton(
+                    onPressed: () {
+                      // Navegar al onboarding para crear perfil
+                      Navigator.pushReplacement(
+                        context, 
+                        MaterialPageRoute(builder: (_) => const OnboardingScreen())
+                      );
+                    },
+                    child: const Text("Crear Perfil"),
+                  )
+                ],
+              ),
+            ),
+          );
+        }
+
+        // 3. CÁLCULOS (Solo si hay usuario)
         final fatigueMap = FatigueService.calculateMuscleFatigue(currentUser);
         final svgFatigueMap = _mapGenericFatigueToSvg(fatigueMap);
 
-        // --- CÁLCULO CIENTÍFICO DE RECUPERACIÓN (READINESS) ---
+        // Cálculo de Readiness
         double totalFatigue = 0;
         int count = 0;
         fatigueMap.forEach((_, val) {
@@ -61,8 +99,6 @@ class _BodyStatusScreenState extends State<BodyStatusScreen> {
             elevation: 0,
             iconTheme: theme.iconTheme,
             actions: [
-              // SE HA ELIMINADO EL BOTÓN DE EDITAR DE AQUÍ
-              
               // Botón de Girar Cuerpo
               IconButton(
                 icon: Icon(_isFrontView ? Icons.flip_to_back : Icons.flip_to_front),
@@ -155,7 +191,14 @@ class _BodyStatusScreenState extends State<BodyStatusScreen> {
                         child: ListView(
                           physics: const BouncingScrollPhysics(),
                           children: musclesToShow.map((muscleName) {
-                            String sampleId = allMuscleParts.firstWhere((m) => m.name == muscleName).id;
+                            // Buscar ID de muestra para el mapa
+                            String sampleId = "";
+                            try {
+                               sampleId = allMuscleParts.firstWhere((m) => m.name == muscleName).id;
+                            } catch (e) {
+                               return const SizedBox.shrink();
+                            }
+                            
                             double val = svgFatigueMap[sampleId] ?? 0.0;
                             
                             if (val > 0.05) return _buildMuscleBar(muscleName, val, theme);
@@ -257,6 +300,7 @@ class _BodyStatusScreenState extends State<BodyStatusScreen> {
       }
     }
 
+    // Mapeo exhaustivo para cubrir todas las partes del cuerpo
     assign('Pectorales', ['pec_der', 'pec_izq']);
     assign('Abdominales', ['abd_der', 'abd_izq']);
     assign('Oblicuos', ['oblicuo_der', 'oblicuo_izq']);

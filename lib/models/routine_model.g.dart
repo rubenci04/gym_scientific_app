@@ -19,8 +19,8 @@ class RoutineDayAdapter extends TypeAdapter<RoutineDay> {
     return RoutineDay(
       id: fields[0] as String,
       name: fields[1] as String,
-      targetMuscles: (fields[3] as List).cast<String>(),
-      exercises: (fields[2] as List).cast<RoutineExercise>(),
+      targetMuscles: (fields[2] as List).cast<String>(),
+      exercises: (fields[3] as List).cast<RoutineExercise>(),
     );
   }
 
@@ -33,9 +33,9 @@ class RoutineDayAdapter extends TypeAdapter<RoutineDay> {
       ..writeByte(1)
       ..write(obj.name)
       ..writeByte(2)
-      ..write(obj.exercises)
+      ..write(obj.targetMuscles)
       ..writeByte(3)
-      ..write(obj.targetMuscles);
+      ..write(obj.exercises);
   }
 
   @override
@@ -65,13 +65,14 @@ class WeeklyRoutineAdapter extends TypeAdapter<WeeklyRoutine> {
       days: (fields[2] as List).cast<RoutineDay>(),
       createdAt: fields[3] as DateTime,
       isActive: fields[4] as bool,
+      description: fields[5] as String,
     );
   }
 
   @override
   void write(BinaryWriter writer, WeeklyRoutine obj) {
     writer
-      ..writeByte(5)
+      ..writeByte(6)
       ..writeByte(0)
       ..write(obj.id)
       ..writeByte(1)
@@ -81,7 +82,9 @@ class WeeklyRoutineAdapter extends TypeAdapter<WeeklyRoutine> {
       ..writeByte(3)
       ..write(obj.createdAt)
       ..writeByte(4)
-      ..write(obj.isActive);
+      ..write(obj.isActive)
+      ..writeByte(5)
+      ..write(obj.description);
   }
 
   @override
@@ -109,9 +112,9 @@ class RoutineExerciseAdapter extends TypeAdapter<RoutineExercise> {
       exerciseId: fields[0] as String,
       sets: fields[1] as int,
       reps: fields[2] as String,
-      rpe: fields[3] as String?,
-      restTimeSeconds: fields[4] as int?,
-      note: fields[5] as String?,
+      rpe: fields[3] as String,
+      restTimeSeconds: fields[4] as int,
+      note: fields[5] as String,
     );
   }
 

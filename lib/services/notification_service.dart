@@ -1,3 +1,4 @@
+import 'dart:io';
 import 'package:flutter/foundation.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import 'package:timezone/data/latest_all.dart' as tz;
@@ -10,31 +11,33 @@ class NotificationService {
       FlutterLocalNotificationsPlugin();
   static bool _initialized = false;
 
+  // ID del canal constante para asegurar consistencia
+  static const String _channelId = 'hydration_channel_id';
+  static const String _channelName = 'Hidratación y Recordatorios';
+  static const String _channelDesc = 'Recordatorios programados para beber agua';
+
   static Future<void> initialize() async {
     if (_initialized) return;
 
     try {
-      // Inicializar timezone
+      // 1. Inicializar Timezones
       tz.initializeTimeZones();
-      // Nota para mí: Dejo fijo Buenos Aires como pidió el usuario.
       try {
+        // Intentar configurar zona horaria de Argentina como pidió el usuario
         tz.setLocalLocation(tz.getLocation('America/Argentina/Buenos_Aires'));
       } catch (e) {
-        // Fallback por si falla la location específica
+        // Fallback a la zona local del dispositivo si falla
         tz.setLocalLocation(tz.local);
       }
 
-      // Configurar Android
-      // Nota: Asegúrate de que el icono 'ic_launcher' exista en android/app/src/main/res/mipmap-*
-      const androidSettings = AndroidInitializationSettings(
-        '@mipmap/ic_launcher',
-      );
+      // 2. Configuración Android
+      const androidSettings = AndroidInitializationSettings('@mipmap/ic_launcher');
 
-      // Configurar iOS (opcional)
+      // 3. Configuración iOS
       const iosSettings = DarwinInitializationSettings(
-        requestAlertPermission: true,
-        requestBadgePermission: true,
-        requestSoundPermission: true,
+        requestAlertPermission: false, // Lo pediremos manualmente después
+        requestBadgePermission: false,
+        requestSoundPermission: false,
       );
 
       const initSettings = InitializationSettings(
@@ -45,138 +48,171 @@ class NotificationService {
       await _notifications.initialize(
         initSettings,
         onDidReceiveNotificationResponse: (details) {
-          // Handle notification tap
+          debugPrint("🔔 Notificación tocada: ${details.payload}");
         },
       );
 
+      // 4. CREAR CANAL DE NOTIFICACIONES (Crítico para Android 8+)
+      if (Platform.isAndroid) {
+        final androidImplementation = _notifications.resolvePlatformSpecificImplementation<
+            AndroidFlutterLocalNotificationsPlugin>();
+            
+        await androidImplementation?.createNotificationChannel(
+          const AndroidNotificationChannel(
+            _channelId,
+            _channelName,
+            description: _channelDesc,
+            importance: Importance.max, // Máxima prioridad para que suene
+            playSound: true,
+          ),
+        );
+      }
+
       _initialized = true;
+      debugPrint("✅ NotificationService inicializado correctamente.");
     } catch (e) {
-      // Logueamos el error pero no dejamos que crashee la app
-      debugPrint("⚠️ NotificationService initialization failed: $e");
+      debugPrint("⚠️ Error fatal inicializando notificaciones: $e");
     }
   }
 
   static Future<void> scheduleHydrationReminders() async {
     await initialize();
 
+    // Abrir caja de configuración
     final box = await Hive.openBox<HydrationSettings>('hydrationBox');
     final settings = box.get('settings') ?? HydrationSettings();
 
-    // Cancel all existing notifications para evitar duplicados
-    await _notifications.cancelAll();
+    // 1. Cancelar todo lo anterior para evitar duplicados
+    await cancelAllNotifications();
 
-    if (!settings.enabled) return;
+    // Si está desactivado, salimos después de cancelar
+    if (!settings.enabled) {
+      debugPrint("🔕 Notificaciones de hidratación desactivadas.");
+      return;
+    }
 
-    // Schedule notifications for each interval
+    // Validación de seguridad para evitar bucles infinitos
+    if (settings.intervalMinutes < 15) {
+      debugPrint("⚠️ Intervalo muy corto (${settings.intervalMinutes} min). Forzando a 60 min.");
+      settings.intervalMinutes = 60; 
+    }
+
     final now = DateTime.now();
-
-    // Construimos la hora de inicio para "HOY"
+    
+    // Crear fechas base para HOY
     final startTime = DateTime(
-      now.year,
-      now.month,
-      now.day,
-      settings.startHour,
+      now.year, now.month, now.day, settings.startHour, 0,
+    );
+    final endTime = DateTime(
+      now.year, now.month, now.day, settings.endHour, 0,
     );
 
-    // Construimos la hora de fin para "HOY"
-    final endTime = DateTime(now.year, now.month, now.day, settings.endHour);
+    int id = 100; // ID base para hidratación
+    DateTime nextSchedule = startTime;
 
-    int id = 0;
-    DateTime scheduledTime = startTime;
+    debugPrint("📅 Programando hidratación de ${settings.startHour}:00 a ${settings.endHour}:00 cada ${settings.intervalMinutes} min.");
 
-    // Nota para mí: Aquí estaba el error. Si 'scheduledTime' es menor a 'endTime',
-    // iteramos por los bloques de tiempo.
-    while (scheduledTime.isBefore(endTime)) {
-      DateTime notificationDate = scheduledTime;
-
-      // CORRECCIÓN CLAVE:
-      // Si la hora calculada ya pasó hoy (ej: son las 4pm y el turno era a las 10am),
-      // lo programamos para MAÑANA a las 10am.
-      // Si no hacemos esto, flutter_local_notifications no crea la repetición diaria.
-      if (notificationDate.isBefore(now)) {
-        notificationDate = notificationDate.add(const Duration(days: 1));
+    // Bucle de programación
+    while (nextSchedule.isBefore(endTime)) {
+      
+      // Ajuste de fecha:
+      // Queremos programar una alerta recurrente diaria a esta HORA.
+      // tz.TZDateTime maneja la fecha exacta. 
+      // Si la hora ya pasó hoy, scheduledDate debe ser mañana para la primera ejecución,
+      // PERO como usamos matchDateTimeComponents: DateTimeComponents.time,
+      // lo importante es la HORA.
+      
+      tz.TZDateTime scheduledDate = tz.TZDateTime.from(nextSchedule, tz.local);
+      
+      // Si la fecha calculada ya pasó hoy, la librería a veces falla si no le damos futuro.
+      // Le sumamos un día si ya pasó, para que la primera sea mañana.
+      if (scheduledDate.isBefore(tz.TZDateTime.now(tz.local))) {
+        scheduledDate = scheduledDate.add(const Duration(days: 1));
       }
 
       await _scheduleNotification(
         id: id,
-        title: '💧 Hidratación',
-        body:
-            '¡Recuerda beber agua! Mantente hidratado para un mejor rendimiento.',
-        scheduledTime: notificationDate,
+        title: '💧 Hora de Hidratarse',
+        body: 'Tu cuerpo necesita agua para rendir al máximo. ¡Bebe un vaso!',
+        scheduledTime: scheduledDate,
       );
 
       id++;
-
-      // Avanzamos al siguiente intervalo
-      scheduledTime = scheduledTime.add(
-        Duration(minutes: settings.intervalMinutes),
-      );
+      nextSchedule = nextSchedule.add(Duration(minutes: settings.intervalMinutes));
     }
+    
+    debugPrint("✅ Se programaron ${id - 100} alarmas de hidratación.");
   }
 
   static Future<void> _scheduleNotification({
     required int id,
     required String title,
     required String body,
-    required DateTime scheduledTime,
+    required tz.TZDateTime scheduledTime,
   }) async {
-    const androidDetails = AndroidNotificationDetails(
-      'hydration_channel',
-      'Hidratación',
-      channelDescription: 'Recordatorios para beber agua',
-      importance: Importance.high,
-      priority: Priority.high,
-      playSound: true,
-    );
-
-    const iosDetails = DarwinNotificationDetails();
-
-    const details = NotificationDetails(
-      android: androidDetails,
-      iOS: iosDetails,
-    );
-
-    // Nota para mí: matchDateTimeComponents: DateTimeComponents.time
-    // hace que se repita todos los días a la misma hora.
-    await _notifications.zonedSchedule(
-      id,
-      title,
-      body,
-      tz.TZDateTime.from(scheduledTime, tz.local),
-      details,
-      androidScheduleMode: AndroidScheduleMode.exactAllowWhileIdle,
-      uiLocalNotificationDateInterpretation:
-          UILocalNotificationDateInterpretation.absoluteTime,
-      matchDateTimeComponents: DateTimeComponents.time,
-    );
+    try {
+      await _notifications.zonedSchedule(
+        id,
+        title,
+        body,
+        scheduledTime,
+        const NotificationDetails(
+          android: AndroidNotificationDetails(
+            _channelId,
+            _channelName,
+            channelDescription: _channelDesc,
+            importance: Importance.max,
+            priority: Priority.high,
+            playSound: true,
+            // Icono grande opcional si tienes assets, si no usa el default
+          ),
+          iOS: DarwinNotificationDetails(
+            presentAlert: true,
+            presentSound: true,
+            presentBanner: true,
+          ),
+        ),
+        androidScheduleMode: AndroidScheduleMode.exactAllowWhileIdle, // Crítico para que suene aunque el móvil duerma
+        uiLocalNotificationDateInterpretation:
+            UILocalNotificationDateInterpretation.absoluteTime,
+        matchDateTimeComponents: DateTimeComponents.time, // REPETIR DIARIAMENTE A ESTA HORA
+      );
+    } catch (e) {
+      debugPrint("❌ Error programando notificación ID $id: $e");
+    }
   }
 
   static Future<bool> requestPermissions() async {
     await initialize();
 
-    final android = _notifications
-        .resolvePlatformSpecificImplementation<
-          AndroidFlutterLocalNotificationsPlugin
-        >();
-
-    if (android != null) {
-      // Pedimos permiso explícito en Android 13+
-      await android.requestNotificationsPermission();
+    if (Platform.isAndroid) {
+      final androidImplementation = _notifications.resolvePlatformSpecificImplementation<
+          AndroidFlutterLocalNotificationsPlugin>();
+      
+      // Permiso de Notificaciones (Android 13+)
+      final bool? grantedNotif = await androidImplementation?.requestNotificationsPermission();
+      
+      // Permiso de Alarmas Exactas (Android 12+) - A veces requiere ir a ajustes, 
+      // pero requestExactAlarmsPermission no existe en todas las versiones del plugin.
+      // Normalmente se maneja en el AndroidManifest.xml con <uses-permission android:name="android.permission.SCHEDULE_EXACT_ALARM" />
+      
+      return grantedNotif ?? false;
+    } else if (Platform.isIOS) {
+      final iosImplementation = _notifications.resolvePlatformSpecificImplementation<
+          IOSFlutterLocalNotificationsPlugin>();
+          
+      final bool? granted = await iosImplementation?.requestPermissions(
+        alert: true,
+        badge: true,
+        sound: true,
+      );
+      return granted ?? false;
     }
-
-    final ios = _notifications
-        .resolvePlatformSpecificImplementation<
-          IOSFlutterLocalNotificationsPlugin
-        >();
-
-    if (ios != null) {
-      await ios.requestPermissions(alert: true, badge: true, sound: true);
-    }
-
-    return true;
+    return false;
   }
 
   static Future<void> cancelAllNotifications() async {
     await _notifications.cancelAll();
+    debugPrint("🗑️ Todas las notificaciones canceladas.");
   }
 }

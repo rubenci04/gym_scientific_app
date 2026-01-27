@@ -30,7 +30,7 @@ class _DayEditorScreenState extends State<DayEditorScreen> {
   // Acepta un ejercicio "original" opcional para activar el modo de reemplazo inteligente.
   void _addOrReplaceExercise({int? replaceIndex}) async {
     String? substitutionGroup;
-    
+
     // Si estamos reemplazando, buscamos el grupo del ejercicio original
     if (replaceIndex != null) {
       final originalId = _exercises[replaceIndex].exerciseId;
@@ -56,8 +56,11 @@ class _DayEditorScreenState extends State<DayEditorScreen> {
                 'Buscar en biblioteca',
                 style: TextStyle(color: Colors.white),
               ),
-              subtitle: replaceIndex != null 
-                  ? const Text("Ver sugerencias inteligentes", style: TextStyle(color: Colors.greenAccent, fontSize: 12))
+              subtitle: replaceIndex != null
+                  ? const Text(
+                      "Ver sugerencias inteligentes",
+                      style: TextStyle(color: Colors.greenAccent, fontSize: 12),
+                    )
                   : null,
               onTap: () => Navigator.pop(context, 'search'),
             ),
@@ -136,9 +139,9 @@ class _DayEditorScreenState extends State<DayEditorScreen> {
     final ex = _exercises[index];
     final setsController = TextEditingController(text: ex.sets.toString());
     final repsController = TextEditingController(text: ex.reps);
-    final rpeController = TextEditingController(text: ex.rpe ?? "");
+    final rpeController = TextEditingController(text: ex.rpe);
     final restController = TextEditingController(
-      text: ex.restTimeSeconds?.toString() ?? "",
+      text: ex.restTimeSeconds.toString(),
     );
 
     showDialog(
@@ -158,7 +161,9 @@ class _DayEditorScreenState extends State<DayEditorScreen> {
               decoration: const InputDecoration(
                 labelText: 'Series',
                 labelStyle: TextStyle(color: AppColors.textSecondary),
-                enabledBorder: UnderlineInputBorder(borderSide: BorderSide(color: Colors.white24)),
+                enabledBorder: UnderlineInputBorder(
+                  borderSide: BorderSide(color: Colors.white24),
+                ),
               ),
               keyboardType: TextInputType.number,
             ),
@@ -168,7 +173,9 @@ class _DayEditorScreenState extends State<DayEditorScreen> {
               decoration: const InputDecoration(
                 labelText: 'Reps',
                 labelStyle: TextStyle(color: AppColors.textSecondary),
-                enabledBorder: UnderlineInputBorder(borderSide: BorderSide(color: Colors.white24)),
+                enabledBorder: UnderlineInputBorder(
+                  borderSide: BorderSide(color: Colors.white24),
+                ),
               ),
             ),
             TextField(
@@ -177,7 +184,9 @@ class _DayEditorScreenState extends State<DayEditorScreen> {
               decoration: const InputDecoration(
                 labelText: 'RPE (Esfuerzo 1-10)',
                 labelStyle: TextStyle(color: AppColors.textSecondary),
-                enabledBorder: UnderlineInputBorder(borderSide: BorderSide(color: Colors.white24)),
+                enabledBorder: UnderlineInputBorder(
+                  borderSide: BorderSide(color: Colors.white24),
+                ),
               ),
             ),
             TextField(
@@ -186,7 +195,9 @@ class _DayEditorScreenState extends State<DayEditorScreen> {
               decoration: const InputDecoration(
                 labelText: 'Descanso (seg)',
                 labelStyle: TextStyle(color: AppColors.textSecondary),
-                enabledBorder: UnderlineInputBorder(borderSide: BorderSide(color: Colors.white24)),
+                enabledBorder: UnderlineInputBorder(
+                  borderSide: BorderSide(color: Colors.white24),
+                ),
               ),
               keyboardType: TextInputType.number,
             ),
@@ -195,7 +206,10 @@ class _DayEditorScreenState extends State<DayEditorScreen> {
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context),
-            child: const Text('Cancelar', style: TextStyle(color: Colors.white54)),
+            child: const Text(
+              'Cancelar',
+              style: TextStyle(color: Colors.white54),
+            ),
           ),
           TextButton(
             onPressed: () {
@@ -203,11 +217,14 @@ class _DayEditorScreenState extends State<DayEditorScreen> {
                 ex.sets = int.tryParse(setsController.text) ?? 3;
                 ex.reps = repsController.text;
                 ex.rpe = rpeController.text;
-                ex.restTimeSeconds = int.tryParse(restController.text);
+                ex.restTimeSeconds = int.tryParse(restController.text) ?? 90;
               });
               Navigator.pop(context);
             },
-            child: const Text('Guardar', style: TextStyle(color: AppColors.primary)),
+            child: const Text(
+              'Guardar',
+              style: TextStyle(color: AppColors.primary),
+            ),
           ),
         ],
       ),
@@ -239,7 +256,9 @@ class _DayEditorScreenState extends State<DayEditorScreen> {
       body: Column(
         children: [
           // Banner informativo si hay notas especiales
-          if (widget.day.exercises.any((e) => e.note != null && e.note!.contains("LADO DÉBIL")))
+          if (widget.day.exercises.any(
+            (e) => e.note != null && e.note!.contains("LADO DÉBIL"),
+          ))
             Container(
               width: double.infinity,
               padding: const EdgeInsets.all(8),
@@ -273,16 +292,20 @@ class _DayEditorScreenState extends State<DayEditorScreen> {
               },
               itemBuilder: (context, index) {
                 final routineEx = _exercises[index];
-                final hasNote = routineEx.note != null && routineEx.note!.isNotEmpty;
+                final hasNote =
+                    routineEx.note != null && routineEx.note!.isNotEmpty;
 
                 return Card(
-                  key: ValueKey(routineEx.hashCode), 
+                  key: ValueKey(routineEx.hashCode),
                   color: AppColors.surface,
                   margin: const EdgeInsets.only(bottom: 12),
                   child: Column(
                     children: [
                       ListTile(
-                        contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                        contentPadding: const EdgeInsets.symmetric(
+                          horizontal: 16,
+                          vertical: 8,
+                        ),
                         leading: const Icon(
                           Icons.fitness_center,
                           color: AppColors.primary,
@@ -300,42 +323,69 @@ class _DayEditorScreenState extends State<DayEditorScreen> {
                             const SizedBox(height: 4),
                             Text(
                               '${routineEx.sets} x ${routineEx.reps} @ RPE ${routineEx.rpe ?? "-"}',
-                              style: const TextStyle(color: AppColors.textSecondary),
+                              style: const TextStyle(
+                                color: AppColors.textSecondary,
+                              ),
                             ),
                             if (hasNote) ...[
                               const SizedBox(height: 4),
                               Text(
                                 "📝 ${routineEx.note}",
-                                style: const TextStyle(color: Colors.greenAccent, fontSize: 11, fontStyle: FontStyle.italic),
+                                style: const TextStyle(
+                                  color: Colors.greenAccent,
+                                  fontSize: 11,
+                                  fontStyle: FontStyle.italic,
+                                ),
                                 maxLines: 2,
                                 overflow: TextOverflow.ellipsis,
                               ),
-                            ]
+                            ],
                           ],
                         ),
                         // Al tocar el cuerpo, permitimos reemplazar el ejercicio
                         onTap: () => _addOrReplaceExercise(replaceIndex: index),
-                        trailing: const Icon(Icons.swap_horiz, color: Colors.white24),
+                        trailing: const Icon(
+                          Icons.swap_horiz,
+                          color: Colors.white24,
+                        ),
                       ),
-                      
+
                       // Botones de acción inferiores
                       Divider(color: Colors.white.withOpacity(0.1), height: 1),
                       Row(
                         mainAxisAlignment: MainAxisAlignment.spaceEvenly,
                         children: [
                           TextButton.icon(
-                            icon: const Icon(Icons.edit, size: 18, color: Colors.blue),
-                            label: const Text("Editar", style: TextStyle(color: Colors.blue)),
+                            icon: const Icon(
+                              Icons.edit,
+                              size: 18,
+                              color: Colors.blue,
+                            ),
+                            label: const Text(
+                              "Editar",
+                              style: TextStyle(color: Colors.blue),
+                            ),
                             onPressed: () => _editExercise(index),
                           ),
-                          Container(width: 1, height: 20, color: Colors.white10),
+                          Container(
+                            width: 1,
+                            height: 20,
+                            color: Colors.white10,
+                          ),
                           TextButton.icon(
-                            icon: const Icon(Icons.delete, size: 18, color: Colors.red),
-                            label: const Text("Borrar", style: TextStyle(color: Colors.red)),
+                            icon: const Icon(
+                              Icons.delete,
+                              size: 18,
+                              color: Colors.red,
+                            ),
+                            label: const Text(
+                              "Borrar",
+                              style: TextStyle(color: Colors.red),
+                            ),
                             onPressed: () => _removeExercise(index),
                           ),
                         ],
-                      )
+                      ),
                     ],
                   ),
                 );

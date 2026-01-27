@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:hive_flutter/hive_flutter.dart';
-import 'package:provider/provider.dart'; // Necesario para el botón de tema
-import '../main.dart'; // Para acceder al ThemeProvider
+import 'package:provider/provider.dart';
+import '../main.dart';
 import '../models/user_model.dart';
 import '../models/routine_model.dart';
 import '../services/progressive_overload_service.dart';
@@ -39,6 +39,8 @@ class _HomeScreenState extends State<HomeScreen> {
   }
 
   Future<void> _loadDataAndApplyProgression() async {
+    if (!Hive.isBoxOpen('userBox')) await Hive.openBox<UserProfile>('userBox');
+
     final userBox = Hive.box<UserProfile>('userBox');
     _currentUser = userBox.get('currentUser');
     _currentRoutine = RoutineRepository.getActiveRoutine();
@@ -56,31 +58,76 @@ class _HomeScreenState extends State<HomeScreen> {
     }
   }
 
-  void _logout() async {
+  String _getLanguage() {
+    if (!Hive.isBoxOpen('settingsBox')) return 'es';
+    return Hive.box('settingsBox').get('language', defaultValue: 'es');
+  }
+
+  void _toggleLanguage() async {
+    if (!Hive.isBoxOpen('settingsBox')) await Hive.openBox('settingsBox');
+    final box = Hive.box('settingsBox');
+    final current = box.get('language', defaultValue: 'es');
+    box.put('language', current == 'es' ? 'en' : 'es');
+  }
+
+  Map<String, String> _getTexts(String lang) {
+    if (lang == 'en') {
+      return {
+        'welcome': 'Hello',
+        'subtitle': 'Your training, backed by science.',
+        'tools': 'TOOLS',
+        'today_plan': 'YOUR PLAN TODAY',
+        'edit_plan': 'Edit Plan',
+        'no_plan': 'No active plan',
+        'no_plan_sub': 'Create a new one or select a template.',
+        'go_routines': 'Go to My Routines',
+        'logout_title': 'Log Out?',
+        'logout_msg': 'Your data will be removed from this device.',
+        'cancel': 'Cancel',
+        'logout': 'Log Out',
+        'exercises': 'Exercises',
+        'focus': 'Focus',
+      };
+    }
+    return {
+      'welcome': 'Hola',
+      'subtitle': 'Tu entrenamiento, respaldado por ciencia.',
+      'tools': 'HERRAMIENTAS',
+      'today_plan': 'TU PLAN DE HOY',
+      'edit_plan': 'Editar Plan',
+      'no_plan': 'No tienes un plan activo',
+      'no_plan_sub': 'Crea uno nuevo o selecciona una plantilla.',
+      'go_routines': 'Ir a Mis Rutinas',
+      'logout_title': '¿Cerrar Sesión?',
+      'logout_msg': 'Se borrarán tus datos de este dispositivo.',
+      'cancel': 'Cancelar',
+      'logout': 'Cerrar Sesión',
+      'exercises': 'Ejercicios',
+      'focus': 'Enfoque',
+    };
+  }
+
+  void _logout(String lang) async {
     final theme = Theme.of(context);
+    final texts = _getTexts(lang);
+
     bool confirm =
         await showDialog(
           context: context,
           builder: (ctx) => AlertDialog(
             backgroundColor: theme.cardColor,
-            title: Text("¿Cerrar Sesión?", style: theme.textTheme.titleLarge),
-            content: Text(
-              "Se borrarán tus datos de este dispositivo para que otra persona pueda usarlo.",
-              style: theme.textTheme.bodyMedium,
-            ),
+            title: Text(texts['logout_title']!),
+            content: Text(texts['logout_msg']!),
             actions: [
               TextButton(
                 onPressed: () => Navigator.pop(ctx, false),
-                child: Text(
-                  "Cancelar",
-                  style: TextStyle(color: theme.textTheme.bodyMedium?.color),
-                ),
+                child: Text(texts['cancel']!),
               ),
               TextButton(
                 onPressed: () => Navigator.pop(ctx, true),
-                child: const Text(
-                  "Cerrar Sesión",
-                  style: TextStyle(color: Colors.redAccent),
+                child: Text(
+                  texts['logout']!,
+                  style: const TextStyle(color: Colors.red),
                 ),
               ),
             ],
@@ -91,7 +138,6 @@ class _HomeScreenState extends State<HomeScreen> {
     if (confirm) {
       final userBox = Hive.box<UserProfile>('userBox');
       await userBox.delete('currentUser');
-
       if (mounted) {
         Navigator.of(context).pushAndRemoveUntil(
           MaterialPageRoute(builder: (_) => const OnboardingScreen()),
@@ -103,294 +149,194 @@ class _HomeScreenState extends State<HomeScreen> {
 
   @override
   Widget build(BuildContext context) {
-    // Obtenemos el tema y el proveedor para cambios dinámicos
     final theme = Theme.of(context);
     final themeProvider = Provider.of<ThemeProvider>(context);
     final isDark = themeProvider.isDarkMode;
 
-    return Scaffold(
-      backgroundColor: theme.scaffoldBackgroundColor,
-      body: _isLoading
-          ? const Center(child: CircularProgressIndicator())
-          : SafeArea(
-              child: SingleChildScrollView(
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 20,
-                  vertical: 10,
-                ),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.center,
-                  children: [
-                    // --- CABECERA MEJORADA CON TEMA ---
-                    Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                      children: [
-                        // Logo y Nombre
-                        Expanded(
-                          child: Row(
-                            children: [
-                              Container(
-                                padding: const EdgeInsets.all(8),
-                                decoration: BoxDecoration(
-                                  color: theme.cardColor,
-                                  borderRadius: BorderRadius.circular(12),
-                                  boxShadow: [
-                                    if (!isDark) // Sombra sutil en modo claro
-                                      BoxShadow(
-                                        color: Colors.black.withOpacity(0.05),
-                                        blurRadius: 5,
-                                      ),
-                                  ],
-                                ),
-                                child: Image.asset(
-                                  'assets/logo/app_logo.png.png',
-                                  height: 40,
-                                  errorBuilder: (c, e, s) => const Icon(
-                                    Icons.fitness_center,
-                                    color: AppColors.primary,
-                                  ),
-                                ),
-                              ),
-                              const SizedBox(width: 12),
-                              Flexible(
-                                child: Text(
-                                  'GYM SCIENTIFIC',
-                                  style: theme.textTheme.titleLarge?.copyWith(
-                                    fontWeight: FontWeight.bold,
-                                    letterSpacing: 1.2,
-                                  ),
-                                  overflow: TextOverflow.ellipsis,
-                                ),
-                              ),
-                            ],
-                          ),
-                        ),
+    return ValueListenableBuilder(
+      valueListenable: Hive.box('settingsBox').listenable(keys: ['language']),
+      builder: (context, Box box, _) {
+        final String lang = box.get('language', defaultValue: 'es');
+        final texts = _getTexts(lang);
 
-                        // Botones de Acción (Tema + Logout)
+        return Scaffold(
+          backgroundColor: theme.scaffoldBackgroundColor,
+          body: _isLoading
+              ? const Center(child: CircularProgressIndicator())
+              : SafeArea(
+                  child: SingleChildScrollView(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 20,
+                      vertical: 10,
+                    ),
+                    child: Column(
+                      children: [
+                        // HEADER
                         Row(
-                          mainAxisSize: MainAxisSize.min,
+                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
                           children: [
-                            // NUEVO: BOTÓN DE TEMA
-                            IconButton(
-                              onPressed: themeProvider.toggleTheme,
-                              icon: Icon(
-                                isDark ? Icons.light_mode : Icons.dark_mode,
-                                color: isDark
-                                    ? Colors.orangeAccent
-                                    : Colors.indigo,
-                              ),
-                              tooltip: "Cambiar Tema",
+                            Row(
+                              children: [
+                                const Icon(
+                                  Icons.fitness_center,
+                                  color: AppColors.primary,
+                                ),
+                                const SizedBox(width: 10),
+                                Text(
+                                  'GYM SCIENTIFIC',
+                                  style: theme.textTheme.titleLarge,
+                                ),
+                              ],
                             ),
-                            // Botón de Logout
-                            IconButton(
-                              onPressed: _logout,
-                              icon: Icon(
-                                Icons.logout_rounded,
-                                color: theme.iconTheme.color?.withOpacity(0.7),
-                              ),
-                              tooltip: "Cerrar Sesión",
+                            Row(
+                              children: [
+                                IconButton(
+                                  icon: const Icon(Icons.language),
+                                  onPressed: _toggleLanguage,
+                                ),
+                                IconButton(
+                                  icon: Icon(
+                                    isDark ? Icons.light_mode : Icons.dark_mode,
+                                  ),
+                                  onPressed: themeProvider.toggleTheme,
+                                ),
+                                IconButton(
+                                  icon: const Icon(Icons.logout),
+                                  onPressed: () => _logout(lang),
+                                ),
+                              ],
                             ),
                           ],
                         ),
-                      ],
-                    ),
+                        const SizedBox(height: 20),
 
-                    const SizedBox(height: 25),
+                        // WELCOME
+                        _buildWelcomeCard(_currentUser, texts),
+                        const SizedBox(height: 20),
 
-                    // --- TARJETA DE BIENVENIDA (Gradient branding se mantiene) ---
-                    _buildWelcomeCard(_currentUser),
-
-                    const SizedBox(height: 30),
-
-                    // --- SECCIÓN DE HERRAMIENTAS ---
-                    Align(
-                      alignment: Alignment.centerLeft,
-                      child: Text(
-                        "HERRAMIENTAS",
-                        style: TextStyle(
-                          color: theme.textTheme.bodySmall?.color?.withOpacity(
-                            0.6,
-                          ),
-                          fontSize: 12,
-                          letterSpacing: 1.5,
-                          fontWeight: FontWeight.bold,
-                        ),
-                      ),
-                    ),
-                    const SizedBox(height: 15),
-                    _buildToolsGrid(context, theme),
-
-                    const SizedBox(height: 30),
-
-                    // --- SECCIÓN DE RUTINA ACTIVA ---
-                    Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                      children: [
-                        Text(
-                          "TU PLAN DE HOY",
-                          style: TextStyle(
-                            color: theme.textTheme.bodySmall?.color
-                                ?.withOpacity(0.6),
-                            fontSize: 12,
-                            letterSpacing: 1.5,
-                            fontWeight: FontWeight.bold,
+                        // TOOLS
+                        Align(
+                          alignment: Alignment.centerLeft,
+                          child: Text(
+                            texts['tools']!,
+                            style: const TextStyle(fontWeight: FontWeight.bold),
                           ),
                         ),
-                        if (_currentRoutine != null)
-                          GestureDetector(
-                            onTap: () async {
-                              await Navigator.push(
-                                context,
-                                MaterialPageRoute(
-                                  builder: (_) => RoutineEditorScreen(
-                                    routine: _currentRoutine!,
-                                  ),
-                                ),
-                              );
-                              _loadDataAndApplyProgression();
-                            },
-                            child: const Text(
-                              "Editar Plan",
-                              style: TextStyle(
-                                color: AppColors.primary,
+                        const SizedBox(height: 10),
+                        _buildToolsGrid(context, theme, lang),
+                        const SizedBox(height: 20),
+
+                        // PLAN
+                        Row(
+                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                          children: [
+                            Text(
+                              texts['today_plan']!,
+                              style: const TextStyle(
                                 fontWeight: FontWeight.bold,
-                                fontSize: 14,
                               ),
                             ),
-                          ),
+                            if (_currentRoutine != null)
+                              TextButton(
+                                onPressed: () {
+                                  Navigator.push(
+                                    context,
+                                    MaterialPageRoute(
+                                      builder: (_) => RoutineEditorScreen(
+                                        routine: _currentRoutine!,
+                                      ),
+                                    ),
+                                  );
+                                },
+                                child: Text(texts['edit_plan']!),
+                              ),
+                          ],
+                        ),
+                        const SizedBox(height: 10),
+
+                        if (_currentRoutine != null)
+                          _buildRoutineList(
+                            context,
+                            _currentRoutine!,
+                            theme,
+                            texts,
+                          )
+                        else
+                          _buildEmptyRoutineState(context, theme, texts),
                       ],
                     ),
-                    const SizedBox(height: 15),
-
-                    if (_currentRoutine != null)
-                      _buildRoutineList(context, _currentRoutine!, theme)
-                    else
-                      _buildEmptyRoutineState(context, theme),
-
-                    const SizedBox(height: 20),
-                    Center(
-                      child: Text(
-                        "© Creado por Rubén Albarracín 2025, derechos reservados",
-                        style: theme.textTheme.bodySmall?.copyWith(
-                          color: theme.disabledColor,
-                          fontSize: 11,
-                        ),
-                        textAlign: TextAlign.center,
-                      ),
-                    ),
-                    const SizedBox(height: 20),
-                  ],
+                  ),
                 ),
-              ),
-            ),
+        );
+      },
     );
   }
 
-  Widget _buildWelcomeCard(UserProfile? user) {
+  Widget _buildWelcomeCard(UserProfile? user, Map<String, String> texts) {
     return Container(
       width: double.infinity,
-      padding: const EdgeInsets.all(24),
+      padding: const EdgeInsets.all(20),
       decoration: BoxDecoration(
-        gradient: const LinearGradient(
-          colors: [AppColors.primary, Color(0xFF2E86C1)],
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-        ),
-        borderRadius: BorderRadius.circular(24),
-        boxShadow: [
-          BoxShadow(
-            color: AppColors.primary.withOpacity(0.4),
-            blurRadius: 15,
-            offset: const Offset(0, 8),
-          ),
-        ],
+        color: AppColors.primary,
+        borderRadius: BorderRadius.circular(20),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      'Hola, ${user?.name ?? "Atleta"}',
-                      style: const TextStyle(
-                        fontSize: 26,
-                        color: Colors.white,
-                        fontWeight: FontWeight.bold,
-                      ),
-                    ),
-                    const SizedBox(height: 8),
-                    const Text(
-                      "Tu entrenamiento, respaldado por ciencia.",
-                      style: TextStyle(color: Colors.white70, fontSize: 14),
-                    ),
-                  ],
-                ),
-              ),
-              GestureDetector(
-                onTap: () => Navigator.push(
-                  context,
-                  MaterialPageRoute(
-                    builder: (c) => const SomatotypeInfoScreen(),
-                  ),
-                ),
-                child: Container(
-                  padding: const EdgeInsets.all(10),
-                  decoration: BoxDecoration(
-                    color: Colors.white.withOpacity(0.2),
-                    borderRadius: BorderRadius.circular(12),
-                  ),
-                  child: const Icon(Icons.person, color: Colors.white),
-                ),
-              ),
-            ],
+          Text(
+            '${texts['welcome']}, ${user?.name ?? "User"}',
+            style: const TextStyle(
+              color: Colors.white,
+              fontSize: 22,
+              fontWeight: FontWeight.bold,
+            ),
+          ),
+          Text(
+            texts['subtitle']!,
+            style: const TextStyle(color: Colors.white70),
           ),
         ],
       ),
     );
   }
 
-  Widget _buildToolsGrid(BuildContext context, ThemeData theme) {
-    final tools = [
+  Widget _buildToolsGrid(BuildContext context, ThemeData theme, String lang) {
+    // Definimos nombres directos para evitar líos con el mapa
+    final items = [
       {
         'icon': Icons.menu_book,
-        'label': 'Ejercicios',
-        'route': const ExerciseLibraryScreen(),
+        'text': lang == 'es' ? 'Ejercicios' : 'Exercises',
+        'page': const ExerciseLibraryScreen(),
         'color': Colors.orange,
       },
       {
         'icon': Icons.list_alt,
-        'label': 'Rutinas',
-        'route': const MyRoutinesScreen(),
+        'text': lang == 'es' ? 'Rutinas' : 'Routines',
+        'page': const MyRoutinesScreen(),
         'color': Colors.purple,
       },
       {
         'icon': Icons.show_chart,
-        'label': 'Progreso',
-        'route': const ProgressScreen(),
+        'text': lang == 'es' ? 'Progreso' : 'Progress',
+        'page': const ProgressScreen(),
         'color': Colors.green,
       },
       {
         'icon': Icons.accessibility_new,
-        'label': 'Fatiga',
-        'route': const BodyStatusScreen(),
-        'color': Colors.redAccent,
+        'text': lang == 'es' ? 'Fatiga' : 'Fatigue',
+        'page': const BodyStatusScreen(),
+        'color': Colors.red,
       },
       {
-        'icon': Icons.restaurant_menu,
-        'label': 'Nutrición',
-        'route': const NutritionScreen(),
+        'icon': Icons.restaurant,
+        'text': lang == 'es' ? 'Nutrición' : 'Nutrition',
+        'page': const NutritionScreen(),
         'color': Colors.teal,
       },
       {
         'icon': Icons.water_drop,
-        'label': 'Hidratación',
-        'route': const HydrationSettingsScreen(),
+        'text': lang == 'es' ? 'Hidratación' : 'Hydration',
+        'page': const HydrationSettingsScreen(),
         'color': Colors.blue,
       },
     ];
@@ -398,54 +344,31 @@ class _HomeScreenState extends State<HomeScreen> {
     return GridView.builder(
       shrinkWrap: true,
       physics: const NeverScrollableScrollPhysics(),
-      itemCount: tools.length,
       gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
         crossAxisCount: 3,
-        crossAxisSpacing: 15,
-        mainAxisSpacing: 15,
         childAspectRatio: 1.1,
       ),
-      itemBuilder: (context, index) {
-        final tool = tools[index];
-        final isDark = theme.brightness == Brightness.dark;
-
-        return Material(
-          color: theme.cardColor,
-          elevation: isDark ? 0 : 2, // Pequeña elevación en modo claro
-          shadowColor: Colors.black12,
-          borderRadius: BorderRadius.circular(20),
+      itemCount: items.length,
+      itemBuilder: (c, i) {
+        final item = items[i];
+        return Card(
           child: InkWell(
-            borderRadius: BorderRadius.circular(20),
             onTap: () {
               Navigator.push(
                 context,
-                MaterialPageRoute(builder: (c) => tool['route'] as Widget),
+                MaterialPageRoute(builder: (_) => item['page'] as Widget),
               );
-              if (tool['label'] == 'Rutinas') _loadDataAndApplyProgression();
+              if (item['text'].toString().contains('Rutin'))
+                _loadDataAndApplyProgression();
             },
             child: Column(
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
-                Container(
-                  padding: const EdgeInsets.all(12),
-                  decoration: BoxDecoration(
-                    color: (tool['color'] as Color).withOpacity(0.1),
-                    shape: BoxShape.circle,
-                  ),
-                  child: Icon(
-                    tool['icon'] as IconData,
-                    color: tool['color'] as Color,
-                    size: 26,
-                  ),
-                ),
-                const SizedBox(height: 10),
+                Icon(item['icon'] as IconData, color: item['color'] as Color),
+                const SizedBox(height: 5),
                 Text(
-                  tool['label'] as String,
-                  style: theme.textTheme.bodyMedium?.copyWith(
-                    fontWeight: FontWeight.w500,
-                    fontSize: 12,
-                  ),
-                  textAlign: TextAlign.center,
+                  item['text'] as String,
+                  style: const TextStyle(fontSize: 12),
                 ),
               ],
             ),
@@ -459,70 +382,30 @@ class _HomeScreenState extends State<HomeScreen> {
     BuildContext context,
     WeeklyRoutine routine,
     ThemeData theme,
+    Map<String, String> texts,
   ) {
-    final isDark = theme.brightness == Brightness.dark;
-
-    return ListView.separated(
+    return ListView.builder(
       shrinkWrap: true,
       physics: const NeverScrollableScrollPhysics(),
       itemCount: routine.days.length,
-      separatorBuilder: (c, i) => const SizedBox(height: 12),
       itemBuilder: (context, index) {
         final day = routine.days[index];
-        return Container(
-          decoration: BoxDecoration(
-            color: theme.cardColor,
-            borderRadius: BorderRadius.circular(18),
-            // Borde sutil solo en dark mode para separación
-            border: isDark
-                ? Border.all(color: Colors.white.withOpacity(0.05))
-                : null,
-            boxShadow: isDark
-                ? []
-                : [
-                    BoxShadow(
-                      color: Colors.grey.withOpacity(0.1),
-                      blurRadius: 4,
-                      offset: const Offset(0, 2),
-                    ),
-                  ],
-          ),
+        return Card(
+          margin: const EdgeInsets.only(bottom: 10),
           child: ListTile(
-            contentPadding: const EdgeInsets.symmetric(
-              horizontal: 20,
-              vertical: 12,
-            ),
             title: Text(
               day.name,
-              style: theme.textTheme.titleMedium?.copyWith(
-                fontWeight: FontWeight.bold,
-                fontSize: 16,
-              ),
+              style: const TextStyle(fontWeight: FontWeight.bold),
             ),
-            subtitle: Padding(
-              padding: const EdgeInsets.only(top: 6.0),
-              child: Text(
-                "${day.exercises.length} Ejercicios • Enfoque: ${day.targetMuscles.join(", ")}",
-                style: theme.textTheme.bodySmall,
-              ),
+            subtitle: Text(
+              "${day.exercises.length} ${texts['exercises']} - ${texts['focus']}: ${day.targetMuscles.join(', ')}",
             ),
-            trailing: Container(
-              padding: const EdgeInsets.all(10),
-              decoration: BoxDecoration(
-                color: AppColors.primary.withOpacity(0.15),
-                shape: BoxShape.circle,
-              ),
-              child: const Icon(
-                Icons.play_arrow_rounded,
-                color: AppColors.primary,
-                size: 24,
-              ),
-            ),
+            trailing: const Icon(Icons.play_arrow, color: AppColors.primary),
             onTap: () {
               Navigator.push(
                 context,
                 MaterialPageRoute(
-                  builder: (context) => WorkoutScreen(
+                  builder: (_) => WorkoutScreen(
                     dayName: day.name,
                     routineExercises: day.exercises,
                     routineDayId: day.id,
@@ -536,61 +419,33 @@ class _HomeScreenState extends State<HomeScreen> {
     );
   }
 
-  Widget _buildEmptyRoutineState(BuildContext context, ThemeData theme) {
+  Widget _buildEmptyRoutineState(
+    BuildContext context,
+    ThemeData theme,
+    Map<String, String> texts,
+  ) {
     return Center(
-      child: Container(
-        margin: const EdgeInsets.only(top: 20),
-        padding: const EdgeInsets.all(30),
-        decoration: BoxDecoration(
-          color: theme.cardColor,
-          borderRadius: BorderRadius.circular(20),
-          border: Border.all(color: theme.dividerColor.withOpacity(0.1)),
-        ),
-        child: Column(
-          children: [
-            Icon(Icons.fitness_center, size: 50, color: theme.disabledColor),
-            const SizedBox(height: 15),
-            Text(
-              "No tienes un plan activo",
-              style: theme.textTheme.titleMedium?.copyWith(
-                fontWeight: FontWeight.bold,
-              ),
+      child: Column(
+        children: [
+          const Icon(Icons.fitness_center, size: 40, color: Colors.grey),
+          const SizedBox(height: 10),
+          Text(
+            texts['no_plan']!,
+            style: const TextStyle(fontWeight: FontWeight.bold),
+          ),
+          Text(
+            texts['no_plan_sub']!,
+            style: const TextStyle(color: Colors.grey),
+          ),
+          const SizedBox(height: 10),
+          ElevatedButton(
+            onPressed: () => Navigator.push(
+              context,
+              MaterialPageRoute(builder: (_) => const MyRoutinesScreen()),
             ),
-            const SizedBox(height: 5),
-            Text(
-              "Crea uno nuevo o selecciona una plantilla.",
-              textAlign: TextAlign.center,
-              style: theme.textTheme.bodyMedium?.copyWith(color: Colors.grey),
-            ),
-            const SizedBox(height: 20),
-            ElevatedButton(
-              style: ElevatedButton.styleFrom(
-                backgroundColor: AppColors.primary,
-                elevation: 0,
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(12),
-                ),
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 25,
-                  vertical: 12,
-                ),
-              ),
-              onPressed: () {
-                Navigator.push(
-                  context,
-                  MaterialPageRoute(builder: (c) => const MyRoutinesScreen()),
-                );
-              },
-              child: const Text(
-                "Ir a Mis Rutinas",
-                style: TextStyle(
-                  color: Colors.white,
-                  fontWeight: FontWeight.bold,
-                ),
-              ),
-            ),
-          ],
-        ),
+            child: Text(texts['go_routines']!),
+          ),
+        ],
       ),
     );
   }
