@@ -1,6 +1,6 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart'; // Necesario para HapticFeedback y Sonidos de sistema
+import 'package:flutter/services.dart'; // Para HapticFeedback y Sonidos
 import 'package:hive_flutter/hive_flutter.dart';
 import '../models/exercise_model.dart';
 import '../models/history_model.dart';
@@ -31,8 +31,10 @@ class _WorkoutScreenState extends State<WorkoutScreen> with WidgetsBindingObserv
   late Box<Exercise> exerciseBox;
   late List<RoutineExercise> currentExercises;
 
+  // Estructuras de datos
   final Map<String, List<WorkoutSet>> _sessionData = {};
   final Map<String, Exercise> _exerciseDefs = {};
+  // Controladores de texto (se limpian en dispose)
   final Map<String, List<TextEditingController>> _weightControllers = {};
   final Map<String, List<TextEditingController>> _repsControllers = {};
   final Map<String, List<TextEditingController>> _rpeControllers = {}; 
@@ -47,9 +49,10 @@ class _WorkoutScreenState extends State<WorkoutScreen> with WidgetsBindingObserv
   @override
   void initState() {
     super.initState();
-    WidgetsBinding.instance.addObserver(this);
+    WidgetsBinding.instance.addObserver(this); // Escuchar ciclo de vida de la app
     exerciseBox = Hive.box<Exercise>('exerciseBox');
     
+    // Copia local para poder modificarla (agregar/quitar ejercicios)
     currentExercises = List.from(widget.routineExercises);
 
     _initializeDataStructures();
@@ -75,45 +78,57 @@ class _WorkoutScreenState extends State<WorkoutScreen> with WidgetsBindingObserv
       (e) => e.id == id,
       orElse: () => Exercise(
         id: id,
-        name: 'Desconocido',
-        muscleGroup: '',
-        equipment: '',
-        movementPattern: '',
+        name: id.toUpperCase(), // Fallback nombre
+        muscleGroup: 'General',
+        equipment: 'Varios',
+        movementPattern: 'Mixto',
       ),
     );
   }
 
+  // Restaurar si la app se cerró a medias
   Future<void> _restoreSession() async {
     final savedSession = await CurrentWorkoutService.getSession();
     if (savedSession != null) {
+      // Verificar si la sesión guardada corresponde a esta rutina
       if (savedSession['routineId'] == widget.routineDayId ||
-          (widget.routineDayId.isEmpty &&
-              savedSession['dayName'] == widget.dayName)) {
+          (widget.routineDayId.isEmpty && savedSession['dayName'] == widget.dayName)) {
+        
         setState(() {
           final Map<String, List<WorkoutSet>> data = savedSession['sessionData'];
           
           data.forEach((exId, sets) {
-            if (_sessionData.containsKey(exId)) {
-              _sessionData[exId] = sets;
-              _weightControllers[exId] = [];
-              _repsControllers[exId] = [];
-              _rpeControllers[exId] = [];
-              for (var set in sets) {
-                _weightControllers[exId]!.add(TextEditingController(text: set.weight.toString()));
-                _repsControllers[exId]!.add(TextEditingController(text: set.reps.toString()));
-                _rpeControllers[exId]!.add(TextEditingController(text: set.rpe.toString()));
-              }
+            // Asegurarnos de que el ejercicio exista en la UI
+            if (!_sessionData.containsKey(exId)) {
+               // Si es un ejercicio nuevo que no estaba en la rutina base, lo añadimos
+               final tempExercise = RoutineExercise(exerciseId: exId, sets: 3, reps: '10');
+               currentExercises.add(tempExercise);
+               _initSingleExerciseData(tempExercise);
+            }
+
+            _sessionData[exId] = sets;
+            
+            // Regenerar controladores
+            _weightControllers[exId] = [];
+            _repsControllers[exId] = [];
+            _rpeControllers[exId] = [];
+            
+            for (var set in sets) {
+              _weightControllers[exId]!.add(TextEditingController(text: set.weight == 0 ? '' : set.weight.toString()));
+              _repsControllers[exId]!.add(TextEditingController(text: set.reps == 0 ? '' : set.reps.toString()));
+              _rpeControllers[exId]!.add(TextEditingController(text: set.rpe.toString()));
             }
           });
         });
-        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Sesión anterior restaurada')));
+        
+        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('🔄 Sesión anterior restaurada')));
       }
     }
   }
 
   void _autoSave() {
     if (_saveDebouncer?.isActive ?? false) _saveDebouncer!.cancel();
-    _saveDebouncer = Timer(const Duration(seconds: 2), () {
+    _saveDebouncer = Timer(const Duration(seconds: 1), () {
       CurrentWorkoutService.saveSession(
         routineId: widget.routineDayId,
         dayName: widget.dayName,
@@ -128,16 +143,12 @@ class _WorkoutScreenState extends State<WorkoutScreen> with WidgetsBindingObserv
       dayName: widget.dayName,
       sessionData: _sessionData,
     );
-    
-    // Feedback táctil al guardar
     HapticFeedback.mediumImpact();
-    
     ScaffoldMessenger.of(context).showSnackBar(
       const SnackBar(
-        content: Text('✅ Progreso guardado correctamente'),
+        content: Text('✅ Progreso guardado'),
         backgroundColor: Colors.green,
-        duration: Duration(milliseconds: 1500),
-        behavior: SnackBarBehavior.floating,
+        duration: Duration(milliseconds: 1000),
       ),
     );
   }
@@ -147,12 +158,14 @@ class _WorkoutScreenState extends State<WorkoutScreen> with WidgetsBindingObserv
     WidgetsBinding.instance.removeObserver(this);
     _timer?.cancel();
     _saveDebouncer?.cancel();
+    // Limpiar controladores
     for (var list in _weightControllers.values) { for (var c in list) c.dispose(); }
     for (var list in _repsControllers.values) { for (var c in list) c.dispose(); }
     for (var list in _rpeControllers.values) { for (var c in list) c.dispose(); }
     super.dispose();
   }
 
+  // Guardado de emergencia al minimizar la app
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
     if (state == AppLifecycleState.paused || state == AppLifecycleState.inactive) {
@@ -164,6 +177,8 @@ class _WorkoutScreenState extends State<WorkoutScreen> with WidgetsBindingObserv
     }
   }
 
+  // --- LÓGICA DE EJERCICIOS ---
+
   void _addNewExercise() async {
     final Exercise? selected = await Navigator.push(
       context,
@@ -172,6 +187,9 @@ class _WorkoutScreenState extends State<WorkoutScreen> with WidgetsBindingObserv
 
     if (selected != null) {
       setState(() {
+        // Si ya existe, no lo duplicamos, solo scrolleamos hacia él (pendiente implementar scroll)
+        if (_sessionData.containsKey(selected.id)) return;
+
         final newRoutineEx = RoutineExercise(
           exerciseId: selected.id,
           sets: 3, 
@@ -194,7 +212,25 @@ class _WorkoutScreenState extends State<WorkoutScreen> with WidgetsBindingObserv
 
     if (selected != null) {
       setState(() {
-        currentExercises[index].exerciseId = selected.id;
+        // Guardamos los datos viejos si queremos migrar, por ahora reseteamos
+        String oldId = currentExercises[index].exerciseId;
+        
+        // Limpiar controladores viejos
+        if (_weightControllers[oldId] != null) {
+           for (var c in _weightControllers[oldId]!) c.dispose();
+           _weightControllers.remove(oldId);
+           _repsControllers.remove(oldId);
+           _rpeControllers.remove(oldId);
+           _sessionData.remove(oldId);
+        }
+
+        currentExercises[index] = RoutineExercise(
+           exerciseId: selected.id, 
+           sets: currentExercises[index].sets, 
+           reps: currentExercises[index].reps,
+           restTimeSeconds: currentExercises[index].restTimeSeconds
+        );
+        
         _initSingleExerciseData(currentExercises[index]);
       });
       _autoSave();
@@ -213,6 +249,8 @@ class _WorkoutScreenState extends State<WorkoutScreen> with WidgetsBindingObserv
           TextButton(
             onPressed: () {
               setState(() {
+                String id = currentExercises[index].exerciseId;
+                _sessionData.remove(id); // Borrar datos
                 currentExercises.removeAt(index);
               });
               Navigator.pop(ctx);
@@ -225,27 +263,26 @@ class _WorkoutScreenState extends State<WorkoutScreen> with WidgetsBindingObserv
     );
   }
 
-  // --- TEMPORIZADOR CON SONIDO Y HAPTICS ---
+  // --- TEMPORIZADOR ---
 
   void _startRestTimer(double rpe, String exerciseId) {
     _timer?.cancel();
-    
-    // Feedback táctil al iniciar descanso
     HapticFeedback.lightImpact();
-    SystemSound.play(SystemSoundType.click);
+    // SystemSound puede crashear en algunos Android antiguos, lo envolvemos en try
+    try { SystemSound.play(SystemSoundType.click); } catch (_) {}
 
     final ex = _exerciseDefs[exerciseId];
     int baseRest = 90; 
 
+    // Lógica inteligente de descanso
     if (ex != null) {
       if (ex.movementPattern.contains('Squat') ||
           ex.movementPattern.contains('Deadlift') ||
           ex.movementPattern.contains('Press')) {
-        baseRest = 180;
+        baseRest = 180; // Compuestos pesados = 3 min
       }
     }
-    if (rpe >= 9) baseRest += 60;
-    else if (rpe < 6) baseRest -= 30;
+    if (rpe >= 9) baseRest += 30; // Si fue muy duro, añade tiempo
 
     setState(() {
       _secondsRest = 0;
@@ -255,14 +292,14 @@ class _WorkoutScreenState extends State<WorkoutScreen> with WidgetsBindingObserv
     });
 
     _timer = Timer.periodic(const Duration(seconds: 1), (timer) {
+      if (!mounted) return;
       setState(() {
         _secondsRest++;
         _timerProgress = (_secondsRest / _suggestedRest).clamp(0.0, 1.0);
         
-        // Alerta al terminar
         if (_secondsRest == _suggestedRest) {
-          HapticFeedback.heavyImpact(); // Vibración fuerte
-          SystemSound.play(SystemSoundType.alert); // Sonido de sistema
+          HapticFeedback.heavyImpact();
+          try { SystemSound.play(SystemSoundType.alert); } catch (_) {}
         }
       });
     });
@@ -285,9 +322,12 @@ class _WorkoutScreenState extends State<WorkoutScreen> with WidgetsBindingObserv
   String _calculate1RM(double weight, int reps) {
     if (reps == 0 || weight == 0) return "-";
     if (reps == 1) return "${weight.toInt()}";
+    // Fórmula Epley
     double oneRM = weight * (1 + reps / 30);
     return "${oneRM.toInt()}";
   }
+
+  // --- DIÁLOGOS DE AYUDA ---
 
   void _showEducationalDialog(String title, String content) {
     showDialog(
@@ -300,16 +340,6 @@ class _WorkoutScreenState extends State<WorkoutScreen> with WidgetsBindingObserv
           TextButton(onPressed: () => Navigator.pop(context), child: const Text('Entendido')),
         ],
       ),
-    );
-  }
-
-  void _showWarmupGuide() {
-    _showEducationalDialog(
-      "Calentamiento General",
-      "Antes de empezar:\n\n"
-      "1. Movilidad Articular (3 min): Rota muñecas, hombros, caderas y tobillos.\n"
-      "2. Activación (5 min): Cinta o bici suave para elevar temperatura corporal.\n"
-      "3. Series de Aproximación: Haz 1-2 series con la barra vacía o peso muy ligero en el primer ejercicio.",
     );
   }
 
@@ -327,24 +357,8 @@ class _WorkoutScreenState extends State<WorkoutScreen> with WidgetsBindingObserv
               crossAxisAlignment: CrossAxisAlignment.start,
               mainAxisSize: MainAxisSize.min,
               children: [
-                Container(
-                  height: 200,
-                  width: double.infinity,
-                  padding: const EdgeInsets.all(10),
-                  decoration: BoxDecoration(
-                    color: Colors.white, // Siempre blanco para ver bien la imagen
-                    borderRadius: BorderRadius.circular(10),
-                    border: Border.all(color: Colors.black12)
-                  ),
-                  child: Image.asset(
-                    'assets/exercises/${exercise.id}.png',
-                    fit: BoxFit.contain,
-                    errorBuilder: (c,e,s) => const Center(child: Icon(Icons.fitness_center, color: Colors.grey, size: 50)),
-                  ),
-                ),
-                const SizedBox(height: 15),
                 if (exercise.description.isNotEmpty) ...[
-                  const Text("Biomecánica:", style: TextStyle(color: AppColors.primary, fontWeight: FontWeight.bold)),
+                  const Text("Técnica:", style: TextStyle(color: AppColors.primary, fontWeight: FontWeight.bold)),
                   const SizedBox(height: 5),
                   Text(exercise.description, style: theme.textTheme.bodyMedium),
                   const SizedBox(height: 15),
@@ -367,45 +381,55 @@ class _WorkoutScreenState extends State<WorkoutScreen> with WidgetsBindingObserv
     );
   }
 
+  // --- PROTECCIÓN DE SALIDA ---
   Future<bool> _onWillPop() async {
+    // Si no hay datos, salir directo
     bool hasData = _sessionData.values.any((sets) => sets.isNotEmpty);
     if (!hasData) return true;
 
     final theme = Theme.of(context);
-    return (await showDialog(
-          context: context,
-          builder: (context) => AlertDialog(
-            backgroundColor: theme.cardColor,
-            title: Text('¿Pausar entrenamiento?', style: theme.textTheme.titleLarge),
-            content: Text('Tu progreso se guardará automáticamente.', style: theme.textTheme.bodyMedium),
-            actions: [
-              TextButton(onPressed: () => Navigator.of(context).pop(false), child: const Text('Cancelar')),
-              TextButton(
-                onPressed: () {
-                  CurrentWorkoutService.saveSession(
-                    routineId: widget.routineDayId,
-                    dayName: widget.dayName,
-                    sessionData: _sessionData,
-                  );
-                  Navigator.of(context).pop(true);
-                },
-                child: const Text('Salir y Guardar', style: TextStyle(color: AppColors.primary)),
-              ),
-            ],
+    
+    // Mostrar diálogo de confirmación
+    final shouldPop = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        backgroundColor: theme.cardColor,
+        title: Text('¿Pausar entrenamiento?', style: theme.textTheme.titleLarge),
+        content: Text('Tu progreso se guardará localmente y podrás retomarlo luego.', style: theme.textTheme.bodyMedium),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(false), // No salir
+            child: const Text('Cancelar'),
           ),
-        )) ??
-        false;
+          TextButton(
+            onPressed: () {
+              // Guardar explícitamente antes de salir
+              CurrentWorkoutService.saveSession(
+                routineId: widget.routineDayId,
+                dayName: widget.dayName,
+                sessionData: _sessionData,
+              );
+              Navigator.of(context).pop(true); // Salir
+            },
+            child: const Text('Guardar y Salir', style: TextStyle(color: AppColors.primary, fontWeight: FontWeight.bold)),
+          ),
+        ],
+      ),
+    );
+
+    return shouldPop ?? false;
   }
 
   void _finishWorkout() async {
-    // Vibración de éxito
     HapticFeedback.mediumImpact();
 
     List<WorkoutExercise> exercisesDone = [];
     double totalVolume = 0;
     int totalSets = 0;
 
+    // Procesar datos
     _sessionData.forEach((exId, sets) {
+      // Sincronizar datos de controladores a modelos
       for (int i = 0; i < sets.length; i++) {
         sets[i].weight = double.tryParse(_weightControllers[exId]![i].text) ?? 0;
         sets[i].reps = int.tryParse(_repsControllers[exId]![i].text) ?? 0;
@@ -426,7 +450,7 @@ class _WorkoutScreenState extends State<WorkoutScreen> with WidgetsBindingObserv
     });
 
     if (exercisesDone.isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text("Registra al menos una serie para guardar.")));
+      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text("Registra al menos una serie para terminar.")));
       return;
     }
 
@@ -435,29 +459,16 @@ class _WorkoutScreenState extends State<WorkoutScreen> with WidgetsBindingObserv
       context: context,
       builder: (context) => AlertDialog(
         backgroundColor: theme.cardColor,
-        title: Text('Resumen Científico', style: theme.textTheme.titleLarge),
+        title: Text('Resumen Sesión', style: theme.textTheme.titleLarge),
         content: Column(
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Text('Ejercicios: ${exercisesDone.length}', style: theme.textTheme.bodyMedium),
             Text('Series Totales: $totalSets', style: theme.textTheme.bodyMedium),
-            Text('Tonelaje: ${totalVolume.toStringAsFixed(0)} kg', style: theme.textTheme.bodyMedium),
-            const SizedBox(height: 10),
-            
-            Container(
-              padding: const EdgeInsets.all(10),
-              decoration: BoxDecoration(color: Colors.blue.withOpacity(0.1), borderRadius: BorderRadius.circular(8)),
-              child: const Row(
-                children: [
-                  Icon(Icons.accessibility_new, color: Colors.blue, size: 20),
-                  SizedBox(width: 10),
-                  Expanded(child: Text("¡No olvides estirar! Dedica 5 min a relajar los músculos trabajados.", style: TextStyle(color: Colors.blue, fontSize: 12, fontWeight: FontWeight.bold))),
-                ],
-              ),
-            ),
-            const SizedBox(height: 10),
-            Text('¿Finalizar sesión?', style: theme.textTheme.titleMedium?.copyWith(fontWeight: FontWeight.bold)),
+            Text('Volumen Total: ${totalVolume.toStringAsFixed(0)} kg', style: theme.textTheme.bodyMedium),
+            const SizedBox(height: 15),
+            const Text('¿Finalizar y guardar en historial?', style: TextStyle(fontWeight: FontWeight.bold)),
           ],
         ),
         actions: [
@@ -473,19 +484,22 @@ class _WorkoutScreenState extends State<WorkoutScreen> with WidgetsBindingObserv
 
     if (confirm != true) return;
 
+    // Guardar en Historial Permanente
     final session = WorkoutSession(
       date: DateTime.now(),
       routineName: widget.dayName,
       exercises: exercisesDone,
-      durationInMinutes: 60, 
+      durationInMinutes: 60, // Pendiente: Calcular real
     );
 
     final historyBox = await Hive.openBox<WorkoutSession>('historyBox');
     await historyBox.add(session);
+    
+    // Limpiar sesión temporal
     await CurrentWorkoutService.clearSession();
 
     if (mounted) {
-      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('¡Entrenamiento Guardado!')));
+      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('¡Entrenamiento Guardado! 💪')));
       Navigator.of(context).pushAndRemoveUntil(
         MaterialPageRoute(builder: (context) => const HomeScreen()),
         (route) => false,
@@ -500,15 +514,18 @@ class _WorkoutScreenState extends State<WorkoutScreen> with WidgetsBindingObserv
       int lastReps = 0;
       double lastRpe = 8.0;
 
+      // Copiar valores de la serie anterior para agilizar
       if (_sessionData[exId]!.isNotEmpty) {
         lastWeight = _sessionData[exId]!.last.weight;
         lastReps = _sessionData[exId]!.last.reps;
         lastRpe = _sessionData[exId]!.last.rpe;
       }
 
+      // Crear nueva serie vacía
       final newSet = WorkoutSet(weight: lastWeight, reps: lastReps, rpe: lastRpe);
       _sessionData[exId]!.add(newSet);
 
+      // Crear controladores
       _weightControllers[exId]!.add(TextEditingController(text: lastWeight == 0 ? '' : lastWeight.toString()));
       _repsControllers[exId]!.add(TextEditingController(text: lastReps == 0 ? '' : lastReps.toString()));
       _rpeControllers[exId]!.add(TextEditingController(text: lastRpe.toString()));
@@ -519,10 +536,14 @@ class _WorkoutScreenState extends State<WorkoutScreen> with WidgetsBindingObserv
   void _removeSet(String exId, int index) {
     setState(() {
       _sessionData[exId]!.removeAt(index);
+      
+      // Eliminar y liberar controladores
       _weightControllers[exId]![index].dispose();
       _weightControllers[exId]!.removeAt(index);
+      
       _repsControllers[exId]![index].dispose();
       _repsControllers[exId]!.removeAt(index);
+      
       _rpeControllers[exId]![index].dispose();
       _rpeControllers[exId]!.removeAt(index);
     });
@@ -538,69 +559,54 @@ class _WorkoutScreenState extends State<WorkoutScreen> with WidgetsBindingObserv
     final theme = Theme.of(context);
     final isDark = theme.brightness == Brightness.dark;
 
-    return WillPopScope(
+    return WillPopScope( // Widget que captura el botón "Atrás"
       onWillPop: _onWillPop,
       child: Scaffold(
         backgroundColor: theme.scaffoldBackgroundColor,
         appBar: AppBar(
           leading: IconButton(
             icon: Icon(Icons.arrow_back, color: theme.iconTheme.color),
-            onPressed: () async { if (await _onWillPop()) if (mounted) Navigator.of(context).pop(); },
+            onPressed: () async { 
+              // Disparar la misma lógica que el botón físico
+              if (await _onWillPop()) {
+                if (mounted) Navigator.of(context).pop();
+              }
+            },
           ),
           title: Text(widget.dayName, style: theme.appBarTheme.titleTextStyle),
-          backgroundColor: theme.appBarTheme.backgroundColor,
+          backgroundColor: _isResting ? AppColors.secondary.withOpacity(0.9) : theme.appBarTheme.backgroundColor,
           elevation: 0,
           actions: [
             IconButton(
-              icon: const Icon(Icons.save, color: AppColors.secondary),
+              icon: const Icon(Icons.save_outlined, color: AppColors.secondary),
               onPressed: _saveProgressOnly,
               tooltip: "Guardar Progreso",
             ),
-            IconButton(icon: const Icon(Icons.calculate, color: Colors.orange), onPressed: () => _openCalculator(0)),
+            IconButton(icon: const Icon(Icons.calculate_outlined, color: Colors.orange), onPressed: () => _openCalculator(0)),
           ],
         ),
         body: Stack(
           children: [
-            // Calentamiento
-            Positioned(
-              top: 0, left: 0, right: 0,
-              child: GestureDetector(
-                onTap: _showWarmupGuide,
-                child: Container(
-                  color: Colors.orangeAccent.withOpacity(0.15),
-                  padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 16),
-                  child: const Row(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
-                      Icon(Icons.local_fire_department, color: Colors.orange, size: 18),
-                      SizedBox(width: 8),
-                      Text("Ver Calentamiento Sugerido", style: TextStyle(color: Colors.orange, fontWeight: FontWeight.bold)),
-                    ],
-                  ),
-                ),
-              ),
-            ),
-
+            // LISTA DE EJERCICIOS
             Padding(
-              padding: const EdgeInsets.only(top: 40), 
+              padding: const EdgeInsets.only(top: 10), 
               child: ListView.builder(
-                padding: const EdgeInsets.only(bottom: 120),
+                padding: const EdgeInsets.only(bottom: 120), // Espacio para botones flotantes
                 itemCount: currentExercises.length + 1,
                 itemBuilder: (context, index) {
                   // --- BOTÓN AGREGAR EJERCICIO (Al final) ---
                   if (index == currentExercises.length) {
                     return Padding(
                       padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 20),
-                      child: ElevatedButton.icon(
-                        style: ElevatedButton.styleFrom(
-                          backgroundColor: AppColors.primary,
-                          foregroundColor: Colors.white,
+                      child: OutlinedButton.icon(
+                        style: OutlinedButton.styleFrom(
                           padding: const EdgeInsets.symmetric(vertical: 15),
+                          side: const BorderSide(color: AppColors.primary, width: 1.5),
                           shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10))
                         ),
                         onPressed: _addNewExercise,
-                        icon: const Icon(Icons.add, color: Colors.white),
-                        label: const Text("AGREGAR EJERCICIO", style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 16)),
+                        icon: const Icon(Icons.add, color: AppColors.primary),
+                        label: const Text("AÑADIR EJERCICIO EXTRA", style: TextStyle(color: AppColors.primary, fontWeight: FontWeight.bold)),
                       ),
                     );
                   }
@@ -611,62 +617,60 @@ class _WorkoutScreenState extends State<WorkoutScreen> with WidgetsBindingObserv
                   final exercise = _exerciseDefs[exId]!;
                   final sets = _sessionData[exId] ?? [];
                   
-                  final imagePath = 'assets/exercises/${exercise.id}.png';
-
                   return Card(
                     color: theme.cardColor,
-                    margin: const EdgeInsets.all(8),
-                    elevation: isDark ? 1 : 2,
+                    margin: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                    elevation: isDark ? 1 : 3,
                     shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
                     child: Padding(
                       padding: const EdgeInsets.all(12),
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          // HEADER DE LA TARJETA
+                          // 1. CABECERA
                           Row(
+                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
                             children: [
-                              GestureDetector(
-                                onTap: () => _showExerciseInfo(exercise),
-                                child: Container(
-                                  width: 60, height: 60,
-                                  margin: const EdgeInsets.only(right: 12),
-                                  padding: const EdgeInsets.all(4),
-                                  decoration: BoxDecoration(
-                                    color: Colors.white, // Fondo blanco para la imagen siempre
-                                    borderRadius: BorderRadius.circular(8),
-                                    border: Border.all(color: Colors.black12)
-                                  ),
-                                  child: ClipRRect(
-                                    borderRadius: BorderRadius.circular(6),
-                                    child: Image.asset(
-                                      imagePath,
-                                      fit: BoxFit.contain,
-                                      errorBuilder: (c,e,s) => const Center(child: Text("IMG", style: TextStyle(color: Colors.black, fontWeight: FontWeight.bold))),
-                                    ),
-                                  ),
-                                ),
-                              ),
                               Expanded(
-                                child: Column(
-                                  crossAxisAlignment: CrossAxisAlignment.start,
-                                  children: [
-                                    GestureDetector(
-                                      onTap: () => _showExerciseInfo(exercise),
-                                      child: Text(
-                                        exercise.name,
-                                        style: theme.textTheme.titleMedium?.copyWith(fontWeight: FontWeight.bold),
-                                        maxLines: 2,
+                                child: GestureDetector(
+                                  onTap: () => _showExerciseInfo(exercise),
+                                  child: Row(
+                                    children: [
+                                      // Imagen pequeña (Thumbnail)
+                                      Container(
+                                        width: 50, height: 50,
+                                        margin: const EdgeInsets.only(right: 12),
+                                        padding: const EdgeInsets.all(2),
+                                        decoration: BoxDecoration(
+                                          color: Colors.white,
+                                          borderRadius: BorderRadius.circular(8),
+                                          border: Border.all(color: Colors.grey.withOpacity(0.3))
+                                        ),
+                                        child: Image.asset(
+                                          'assets/exercises/${exercise.id}.png',
+                                          fit: BoxFit.contain,
+                                          errorBuilder: (c,e,s) => const Icon(Icons.fitness_center, color: Colors.grey),
+                                        ),
                                       ),
-                                    ),
-                                    Text(
-                                      "${exercise.muscleGroup} • ${exercise.equipment}",
-                                      style: theme.textTheme.bodySmall,
-                                    ),
-                                  ],
+                                      Expanded(
+                                        child: Column(
+                                          crossAxisAlignment: CrossAxisAlignment.start,
+                                          children: [
+                                            Text(
+                                              exercise.name,
+                                              style: theme.textTheme.titleMedium?.copyWith(fontWeight: FontWeight.bold),
+                                              maxLines: 2,
+                                            ),
+                                            if (routineExercise.note.isNotEmpty)
+                                              Text("📝 ${routineExercise.note}", style: TextStyle(color: Colors.amber[800], fontSize: 11, fontStyle: FontStyle.italic)),
+                                          ],
+                                        ),
+                                      ),
+                                    ],
+                                  ),
                                 ),
                               ),
-                              // MENÚ DE OPCIONES
+                              // Menú
                               PopupMenuButton<String>(
                                 icon: Icon(Icons.more_vert, color: theme.iconTheme.color),
                                 color: theme.cardColor,
@@ -676,62 +680,77 @@ class _WorkoutScreenState extends State<WorkoutScreen> with WidgetsBindingObserv
                                   if (value == 'delete') _removeExerciseFromSession(index);
                                 },
                                 itemBuilder: (context) => [
-                                  PopupMenuItem(value: 'info', child: Row(children: [Icon(Icons.info_outline, size: 18, color: theme.iconTheme.color), const SizedBox(width: 8), Text("Ver Detalles", style: theme.textTheme.bodyMedium)])),
-                                  PopupMenuItem(value: 'swap', child: Row(children: [Icon(Icons.swap_horiz, size: 18, color: theme.iconTheme.color), const SizedBox(width: 8), Text("Reemplazar", style: theme.textTheme.bodyMedium)])),
-                                  PopupMenuItem(value: 'delete', child: Row(children: [const Icon(Icons.delete_outline, size: 18, color: Colors.red), const SizedBox(width: 8), const Text("Eliminar", style: TextStyle(color: Colors.red))])),
+                                  const PopupMenuItem(value: 'info', child: Text("Ver Detalles")),
+                                  const PopupMenuItem(value: 'swap', child: Text("Reemplazar Ejercicio")),
+                                  const PopupMenuItem(value: 'delete', child: Text("Eliminar", style: TextStyle(color: Colors.red))),
                                 ],
                               )
                             ],
                           ),
-                          const SizedBox(height: 15),
+                          
+                          const SizedBox(height: 10),
 
-                          // LISTA DE SERIES
-                          if (sets.isNotEmpty)
-                            Padding(
-                              padding: const EdgeInsets.only(bottom: 8.0),
-                              child: Row(
-                                children: [
-                                  SizedBox(width: 30, child: Text("#", style: TextStyle(color: theme.textTheme.bodySmall?.color))),
-                                  Expanded(child: Text("KG", style: TextStyle(color: theme.textTheme.bodySmall?.color), textAlign: TextAlign.center)),
-                                  const SizedBox(width: 8),
-                                  Expanded(child: _buildHeaderWithHelp("Reps", "Repeticiones: Cantidad de veces que levantas el peso en una serie.", color: theme.textTheme.bodySmall?.color ?? Colors.grey)),
-                                  const SizedBox(width: 8),
-                                  Expanded(child: _buildHeaderWithHelp("RPE", "Índice de Esfuerzo Percibido (1-10):\n\n10: Fallo (no puedes más).\n9: Te queda 1 repetición.\n8: Te quedan 2 reps (Ideal).", color: AppColors.secondary)),
-                                  const SizedBox(width: 8),
-                                  SizedBox(width: 35, child: _buildHeaderWithHelp("1RM", "1 Repetición Máxima Estimada: Cuánto peso podrías levantar teóricamente una sola vez basado en esta serie.", isSmall: true, color: theme.textTheme.bodySmall?.color ?? Colors.grey)),
-                                  const SizedBox(width: 30), 
-                                ],
-                              ),
+                          // 2. TABLA DE SERIES
+                          if (sets.isNotEmpty) ...[
+                            // Encabezados
+                            Row(
+                              children: [
+                                const SizedBox(width: 30), // Espacio para número
+                                const Expanded(child: Text("KG", textAlign: TextAlign.center, style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold))),
+                                const SizedBox(width: 4),
+                                const Expanded(child: Text("REPS", textAlign: TextAlign.center, style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold))),
+                                const SizedBox(width: 4),
+                                const Expanded(child: Text("RPE", textAlign: TextAlign.center, style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: AppColors.secondary))),
+                                const SizedBox(width: 40), // Espacio para botón borrar
+                              ],
                             ),
+                            const SizedBox(height: 5),
+                            
+                            // Filas
+                            ...sets.asMap().entries.map((entry) {
+                              int setIdx = entry.key;
+                              WorkoutSet set = entry.value;
+                              return Padding(
+                                padding: const EdgeInsets.only(bottom: 6),
+                                child: Row(
+                                  children: [
+                                    SizedBox(width: 30, child: Text("${setIdx + 1}", style: const TextStyle(fontWeight: FontWeight.bold))),
+                                    // Peso
+                                    Expanded(child: _buildCompactInput(controller: _weightControllers[exId]![setIdx], theme: theme, onChanged: (v) { set.weight = double.tryParse(v) ?? 0; _autoSave(); })),
+                                    const SizedBox(width: 4),
+                                    // Reps
+                                    Expanded(child: _buildCompactInput(controller: _repsControllers[exId]![setIdx], theme: theme, onChanged: (v) { set.reps = int.tryParse(v) ?? 0; _autoSave(); })),
+                                    const SizedBox(width: 4),
+                                    // RPE
+                                    Expanded(child: _buildCompactInput(controller: _rpeControllers[exId]![setIdx], theme: theme, isRpe: true, onChanged: (v) { set.rpe = double.tryParse(v) ?? 0; _autoSave(); })),
+                                    
+                                    IconButton(
+                                      icon: const Icon(Icons.close, color: Colors.redAccent, size: 18), 
+                                      constraints: const BoxConstraints(),
+                                      padding: const EdgeInsets.only(left: 10),
+                                      onPressed: () => _removeSet(exId, setIdx)
+                                    ),
+                                  ],
+                                ),
+                              );
+                            }).toList(),
+                          ],
 
-                          ...sets.asMap().entries.map((entry) {
-                            int setIdx = entry.key;
-                            WorkoutSet set = entry.value;
-
-                            return Padding(
-                              padding: const EdgeInsets.symmetric(vertical: 4.0),
-                              child: Row(
-                                children: [
-                                  SizedBox(width: 30, child: Text("${setIdx + 1}", style: TextStyle(color: theme.textTheme.bodyMedium?.color))),
-                                  Expanded(child: _buildCompactInput(controller: _weightControllers[exId]![setIdx], theme: theme, onChanged: (v) { set.weight = double.tryParse(v) ?? 0; _autoSave(); })),
-                                  const SizedBox(width: 4),
-                                  Expanded(child: _buildCompactInput(controller: _repsControllers[exId]![setIdx], theme: theme, onChanged: (v) { set.reps = int.tryParse(v) ?? 0; _autoSave(); })),
-                                  const SizedBox(width: 4),
-                                  Expanded(child: _buildCompactInput(controller: _rpeControllers[exId]![setIdx], theme: theme, isRpe: true, onChanged: (v) { set.rpe = double.tryParse(v) ?? 0; _autoSave(); })),
-                                  const SizedBox(width: 8),
-                                  SizedBox(width: 35, child: Text(_calculate1RM(set.weight, set.reps), style: const TextStyle(color: Colors.orange, fontSize: 12))),
-                                  IconButton(icon: const Icon(Icons.close, color: Colors.redAccent, size: 18), onPressed: () => _removeSet(exId, setIdx)),
-                                ],
-                              ),
-                            );
-                          }).toList(),
-
+                          // 3. BOTONES DE ACCIÓN
                           Row(
                             mainAxisAlignment: MainAxisAlignment.spaceBetween,
                             children: [
-                              TextButton.icon(onPressed: () => _addSet(exId), icon: const Icon(Icons.add), label: const Text("Serie")),
+                              TextButton.icon(
+                                onPressed: () => _addSet(exId), 
+                                icon: const Icon(Icons.add_circle_outline), 
+                                label: const Text("Añadir Serie")
+                              ),
                               if (sets.isNotEmpty)
-                                TextButton.icon(onPressed: () => _startRestTimer(sets.last.rpe, exId), icon: const Icon(Icons.timer_outlined, color: AppColors.secondary), label: const Text("Descanso", style: TextStyle(color: AppColors.secondary))),
+                                TextButton.icon(
+                                  onPressed: () => _startRestTimer(sets.last.rpe, exId), 
+                                  icon: const Icon(Icons.timer, color: AppColors.secondary), 
+                                  label: Text("Descanso Sugerido (${_suggestedRest}s)", style: const TextStyle(color: AppColors.secondary))
+                                ),
                             ],
                           ),
                         ],
@@ -742,55 +761,58 @@ class _WorkoutScreenState extends State<WorkoutScreen> with WidgetsBindingObserv
               ),
             ),
 
+            // --- PANEL DE DESCANSO FLOTANTE ---
             if (_isResting)
               Positioned(
-                bottom: 80, left: 20, right: 20,
-                child: Card(
-                  color: const Color(0xFF1E1E1E), // Panel oscuro siempre para que destaque
-                  elevation: 5,
-                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(15)),
+                bottom: 90, left: 20, right: 20,
+                child: Material(
+                  elevation: 8,
+                  borderRadius: BorderRadius.circular(16),
+                  color: const Color(0xFF222222), // Siempre oscuro
                   child: Padding(
-                    padding: const EdgeInsets.all(16),
+                    padding: const EdgeInsets.all(12.0),
                     child: Row(
                       children: [
                         SizedBox(
-                          width: 60, height: 60, 
-                          child: Stack(
-                            alignment: Alignment.center, 
-                            children: [
-                              CircularProgressIndicator(
-                                value: _timerProgress, 
-                                backgroundColor: Colors.grey[800], 
-                                // Color dinámico: Verde al inicio, Rojo al final
-                                valueColor: AlwaysStoppedAnimation<Color>(_timerProgress > 0.9 ? Colors.redAccent : AppColors.primary), 
-                                strokeWidth: 6
-                              ), 
-                              Text("${_suggestedRest - _secondsRest}", style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 18))
-                            ]
-                          )
+                          width: 50, height: 50,
+                          child: CircularProgressIndicator(
+                            value: _timerProgress,
+                            backgroundColor: Colors.grey[700],
+                            valueColor: AlwaysStoppedAnimation<Color>(_timerProgress > 0.9 ? Colors.red : AppColors.secondary),
+                            strokeWidth: 5,
+                          ),
                         ),
                         const SizedBox(width: 15),
                         Expanded(
                           child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start, 
+                            crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
-                              const Text("Descanso Inteligente", style: TextStyle(color: AppColors.secondary, fontWeight: FontWeight.bold)), 
-                              Text("Recupérate bien...", style: TextStyle(color: Colors.grey[400], fontSize: 12))
-                            ]
-                          )
+                              Text("Descansando...", style: TextStyle(color: Colors.grey[400], fontSize: 12)),
+                              Text("${_suggestedRest - _secondsRest}s", style: const TextStyle(color: Colors.white, fontSize: 22, fontWeight: FontWeight.bold)),
+                            ],
+                          ),
                         ),
-                        IconButton(icon: const Icon(Icons.add_circle_outline, color: Colors.blue), onPressed: () => _addTime(30)),
-                        IconButton(icon: const Icon(Icons.skip_next, color: Colors.white), onPressed: _stopRestTimer),
+                        TextButton(onPressed: () => _addTime(30), child: const Text("+30s")),
+                        IconButton(onPressed: _stopRestTimer, icon: const Icon(Icons.close, color: Colors.white)),
                       ],
                     ),
                   ),
                 ),
               ),
 
-            // --- BOTÓN DE FINALIZAR (ABAJO) ---
+            // --- BOTÓN FINALIZAR FLOTANTE ---
             Positioned(
               bottom: 20, left: 20, right: 20,
-              child: ElevatedButton.icon(style: ElevatedButton.styleFrom(backgroundColor: AppColors.primary, padding: const EdgeInsets.symmetric(vertical: 15), shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10))), onPressed: _finishWorkout, icon: const Icon(Icons.check_circle, color: Colors.white), label: const Text("TERMINAR SESIÓN", style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: Colors.white))),
+              child: ElevatedButton(
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: AppColors.primary,
+                  padding: const EdgeInsets.symmetric(vertical: 16),
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                  elevation: 5,
+                ),
+                onPressed: _finishWorkout,
+                child: const Text("FINALIZAR ENTRENAMIENTO", style: TextStyle(color: Colors.white, fontSize: 16, fontWeight: FontWeight.bold, letterSpacing: 1)),
+              ),
             ),
           ],
         ),
@@ -798,45 +820,32 @@ class _WorkoutScreenState extends State<WorkoutScreen> with WidgetsBindingObserv
     );
   }
 
-  Widget _buildHeaderWithHelp(String text, String helpText, {Color color = Colors.grey, bool isSmall = false}) {
-    return GestureDetector(
-      onTap: () => _showEducationalDialog(text, helpText),
-      child: Row(
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: [
-          Text(text, style: TextStyle(color: color, fontSize: isSmall ? 10 : 14, fontWeight: isSmall ? FontWeight.normal : FontWeight.bold), textAlign: TextAlign.center),
-          const SizedBox(width: 2),
-          Icon(Icons.help_outline, color: color.withOpacity(0.5), size: isSmall ? 10 : 14),
-        ],
-      ),
-    );
-  }
-
   Widget _buildCompactInput({required TextEditingController controller, required Function(String) onChanged, required ThemeData theme, bool isRpe = false}) {
     final isDark = theme.brightness == Brightness.dark;
     
-    return TextField(
-      controller: controller,
-      keyboardType: const TextInputType.numberWithOptions(decimal: true),
-      textAlign: TextAlign.center,
-      // Texto: blanco en Dark Mode, negro en Light Mode (a menos que sea RPE)
-      style: TextStyle(
-        color: isRpe ? AppColors.secondary : (isDark ? Colors.white : Colors.black87), 
-        fontWeight: isRpe ? FontWeight.bold : FontWeight.normal
+    return Container(
+      height: 35,
+      decoration: BoxDecoration(
+        color: isRpe ? AppColors.secondary.withOpacity(0.1) : (isDark ? Colors.grey[800] : Colors.grey[200]),
+        borderRadius: BorderRadius.circular(6),
+        border: Border.all(
+          color: isRpe ? AppColors.secondary.withOpacity(0.5) : Colors.transparent
+        )
       ),
-      decoration: InputDecoration(
-        isDense: true,
-        contentPadding: const EdgeInsets.symmetric(vertical: 8),
-        filled: true,
-        // Fondo: oscuro en Dark Mode, gris claro en Light Mode
-        fillColor: isRpe 
-            ? AppColors.secondary.withOpacity(0.1) 
-            : (isDark ? AppColors.inputBackground : Colors.grey[200]),
-        border: OutlineInputBorder(borderSide: BorderSide(color: isRpe ? AppColors.secondary : theme.dividerColor), borderRadius: BorderRadius.circular(4)),
-        enabledBorder: OutlineInputBorder(borderSide: BorderSide(color: isRpe ? AppColors.secondary.withOpacity(0.5) : theme.dividerColor), borderRadius: BorderRadius.circular(4)),
-        focusedBorder: OutlineInputBorder(borderSide: BorderSide(color: isRpe ? AppColors.secondary : AppColors.primary, width: 2), borderRadius: BorderRadius.circular(4)),
+      child: TextField(
+        controller: controller,
+        keyboardType: const TextInputType.numberWithOptions(decimal: true),
+        textAlign: TextAlign.center,
+        style: TextStyle(
+          color: isRpe ? AppColors.secondary : (isDark ? Colors.white : Colors.black87), 
+          fontWeight: isRpe ? FontWeight.bold : FontWeight.normal
+        ),
+        decoration: const InputDecoration(
+          border: InputBorder.none,
+          contentPadding: EdgeInsets.only(bottom: 12), // Ajuste vertical
+        ),
+        onChanged: onChanged,
       ),
-      onChanged: onChanged,
     );
   }
 }

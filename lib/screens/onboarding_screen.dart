@@ -22,8 +22,8 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
   final _ageController = TextEditingController();
   final _weightController = TextEditingController();
   final _heightController = TextEditingController();
-  final _wristController = TextEditingController(); // Recuperado
-  final _ankleController = TextEditingController(); // Recuperado
+  final _wristController = TextEditingController(); 
+  final _ankleController = TextEditingController();
 
   // Estado
   String _selectedGender = 'Masculino';
@@ -34,7 +34,7 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
   
   // Variables Científicas
   int _timeAvailable = 60;
-  String _focusArea = 'Cuerpo Completo'; // Traducido
+  String _focusArea = 'Cuerpo Completo';
   bool _hasAsymmetry = false;
 
   final List<String> _focusOptions = [
@@ -62,7 +62,7 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
                 onPageChanged: (p) => setState(() => _currentPage = p),
                 children: [
                   _buildPage1Personal(),
-                  _buildPage2Measurements(), // Nueva página para medidas específicas
+                  _buildPage2Measurements(),
                   _buildPage3TrainingBase(),
                   _buildPage4ScientificDetails(),
                 ],
@@ -75,19 +75,18 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
     );
   }
 
-  // PÁGINA 1: DATOS PERSONALES + LOGO
+  // PÁGINA 1: DATOS PERSONALES
   Widget _buildPage1Personal() {
     return SingleChildScrollView(
       padding: const EdgeInsets.all(24.0),
       child: Column(
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
-          // --- LOGO CORREGIDO ---
           Container(
             height: 120,
             margin: const EdgeInsets.only(bottom: 20),
             child: Image.asset(
-              'assets/logo/app_logo.png.png', // Ruta exacta según tus archivos
+              'assets/logo/app_logo.png.png', 
               fit: BoxFit.contain,
               errorBuilder: (c, e, s) => const Icon(Icons.fitness_center, size: 80, color: AppColors.primary),
             ),
@@ -109,7 +108,7 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
     );
   }
 
-  // PÁGINA 2: MEDIDAS (MUÑECA/TOBILLO RECUPERADOS)
+  // PÁGINA 2: MEDIDAS
   Widget _buildPage2Measurements() {
     return SingleChildScrollView(
       padding: const EdgeInsets.all(24.0),
@@ -131,7 +130,6 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
           const Divider(color: Colors.white24),
           const SizedBox(height: 20),
           
-          // --- CAMPOS RECUPERADOS ---
           Row(children: [
             Expanded(child: _buildTextField("Muñeca (cm)", _wristController, isNumber: true)),
             const SizedBox(width: 15),
@@ -158,7 +156,6 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
           const Text("Objetivos y Lugar", style: TextStyle(color: Colors.white, fontSize: 24, fontWeight: FontWeight.bold)),
           const SizedBox(height: 30),
           
-          // Selector de Objetivo (Traducido visualmente)
           _buildDropdownEnum<TrainingGoal>(
             "Objetivo Principal", 
             _selectedGoal, 
@@ -214,7 +211,7 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
     );
   }
 
-  // PÁGINA 4: AJUSTES FINOS (CIENTÍFICO)
+  // PÁGINA 4: AJUSTES FINOS
   Widget _buildPage4ScientificDetails() {
     return SingleChildScrollView(
       padding: const EdgeInsets.all(24.0),
@@ -269,37 +266,52 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
   }
 
   void _finishOnboarding() async {
+    // 1. Crear Objeto Usuario
     final user = UserProfile(
       name: _nameController.text.isEmpty ? "Atleta" : _nameController.text,
       age: int.tryParse(_ageController.text) ?? 25,
       weight: double.tryParse(_weightController.text) ?? 70,
       height: double.tryParse(_heightController.text) ?? 175,
-      wristCircumference: double.tryParse(_wristController.text) ?? 17.0, // GUARDADO
-      ankleCircumference: double.tryParse(_ankleController.text) ?? 22.0, // GUARDADO
+      wristCircumference: double.tryParse(_wristController.text) ?? 17.0,
+      ankleCircumference: double.tryParse(_ankleController.text) ?? 22.0,
       gender: _selectedGender,
       daysPerWeek: _daysPerWeek,
       goal: _selectedGoal,
       location: _selectedLocation,
       experience: _selectedExperience,
       timeAvailable: _timeAvailable,
-      focusArea: _focusArea, // Se guardará en español
+      focusArea: _focusArea,
       hasAsymmetry: _hasAsymmetry,
+      // Calculamos somatotipo simple basado en muñeca si es posible, sino mesomorfo
+      somatotype: Somatotype.mesomorph, 
     );
 
+    // 2. ABRIR CAJA (Asegurarnos que esté abierta)
+    if (!Hive.isBoxOpen('userBox')) await Hive.openBox<UserProfile>('userBox');
     final userBox = Hive.box<UserProfile>('userBox');
-    await userBox.clear();
-    await userBox.add(user);
 
+    // 3. GUARDADO PERSISTENTE (CRÍTICO: Usar clave 'currentUser')
+    // Usamos .put() para sobrescribir la clave específica que busca el main.dart
+    await userBox.put('currentUser', user);
+
+    // 4. Configurar Hidratación Inicial
+    if (!Hive.isBoxOpen('hydrationBox')) await Hive.openBox<HydrationSettings>('hydrationBox');
     final hydrationBox = Hive.box<HydrationSettings>('hydrationBox');
     if (hydrationBox.isEmpty) {
-      hydrationBox.add(HydrationSettings(dailyGoalMl: user.weight * 35));
+      await hydrationBox.put('settings', HydrationSettings(dailyGoalMl: user.weight * 35));
     }
 
-    // GENERACIÓN DE RUTINA
+    // 5. GENERAR RUTINA INICIAL
     await RoutineGeneratorService.generateAndSaveRoutine(user, focusArea: _focusArea);
 
+    // 6. Navegar al Home
     if (mounted) {
-      Navigator.pushReplacement(context, MaterialPageRoute(builder: (_) => const HomeScreen()));
+      // Usamos pushAndRemoveUntil para borrar el historial y evitar volver atrás al onboarding
+      Navigator.pushAndRemoveUntil(
+        context, 
+        MaterialPageRoute(builder: (_) => const HomeScreen()),
+        (route) => false // Predicado falso para borrar todo
+      );
     }
   }
 
@@ -370,7 +382,7 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
               padding: const EdgeInsets.symmetric(horizontal: 40, vertical: 15),
             ),
             onPressed: () {
-              if (_currentPage < 3) { // Ahora son 4 páginas (índices 0,1,2,3)
+              if (_currentPage < 3) {
                 _pageController.nextPage(duration: const Duration(milliseconds: 300), curve: Curves.ease);
               } else {
                 _finishOnboarding();

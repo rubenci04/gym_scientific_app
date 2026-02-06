@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:hive_flutter/hive_flutter.dart';
 import 'package:provider/provider.dart';
-import '../main.dart';
+import '../main.dart'; // Para ThemeProvider
 import '../models/user_model.dart';
 import '../models/routine_model.dart';
 import '../services/progressive_overload_service.dart';
@@ -15,9 +15,9 @@ import 'progress_screen.dart';
 import 'nutrition_screen.dart';
 import 'hydration_settings_screen.dart';
 import 'routine_editor_screen.dart';
-import 'somatotype_info_screen.dart';
 import 'exercise_library_screen.dart';
 import 'onboarding_screen.dart';
+import 'edit_profile_screen.dart'; // <--- IMPORTANTE: Importamos la nueva pantalla
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
@@ -197,6 +197,7 @@ class _HomeScreenState extends State<HomeScreen> {
                                 IconButton(
                                   icon: Icon(
                                     isDark ? Icons.light_mode : Icons.dark_mode,
+                                    color: isDark ? Colors.orangeAccent : Colors.indigo,
                                   ),
                                   onPressed: themeProvider.toggleTheme,
                                 ),
@@ -283,17 +284,50 @@ class _HomeScreenState extends State<HomeScreen> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text(
-            '${texts['welcome']}, ${user?.name ?? "User"}',
-            style: const TextStyle(
-              color: Colors.white,
-              fontSize: 22,
-              fontWeight: FontWeight.bold,
-            ),
-          ),
-          Text(
-            texts['subtitle']!,
-            style: const TextStyle(color: Colors.white70),
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      '${texts['welcome']}, ${user?.name ?? "User"}',
+                      style: const TextStyle(
+                        color: Colors.white,
+                        fontSize: 22,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                    Text(
+                      texts['subtitle']!,
+                      style: const TextStyle(color: Colors.white70),
+                    ),
+                  ],
+                ),
+              ),
+              // BOTÓN PERFIL / EDICIÓN
+              GestureDetector(
+                onTap: () async {
+                  // Navegamos a la pantalla de edición
+                  await Navigator.push(
+                    context,
+                    MaterialPageRoute(builder: (c) => const EditProfileScreen()),
+                  );
+                  // Al volver, recargamos los datos para reflejar cambios (ej: nuevo peso)
+                  _loadDataAndApplyProgression();
+                },
+                child: Container(
+                  padding: const EdgeInsets.all(10),
+                  decoration: BoxDecoration(
+                    color: Colors.white.withOpacity(0.2),
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  child: const Icon(Icons.person, color: Colors.white),
+                ),
+              ),
+            ],
           ),
         ],
       ),

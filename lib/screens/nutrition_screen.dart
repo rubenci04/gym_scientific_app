@@ -110,10 +110,6 @@ class _NutritionScreenState extends State<NutritionScreen> {
     );
   }
 
-  // ... (El resto de métodos _showAddCustomFoodDialog y _foodDatabase se mantienen igual, 
-  // pero asegúrate de copiarlos o mantenerlos si el archivo es parcial. 
-  // Aquí incluyo los métodos auxiliares para que el archivo sea completo).
-
   void _showAddCustomFoodDialog(BuildContext context, ThemeData theme) {
     final nameCtrl = TextEditingController();
     final calsCtrl = TextEditingController();
@@ -177,32 +173,51 @@ class _NutritionScreenState extends State<NutritionScreen> {
     );
   }
 
-  // Base de datos local de comidas comunes
+  // BASE DE DATOS DE COMIDAS (Actualizada con tu pedido)
   final Map<String, List<Map<String, dynamic>>> _foodDatabase = {
     "Desayuno / Merienda": [
+      {'name': "Banana (mediana)", 'kcal': 105, 'p': 1.3, 'c': 27, 'f': 0.4},
+      {'name': "Manzana (mediana)", 'kcal': 95, 'p': 0.5, 'c': 25, 'f': 0.3},
+      {'name': "Tostada de Arroz (unidad)", 'kcal': 35, 'p': 1, 'c': 7, 'f': 0},
+      {'name': "Huevo Duro (unidad)", 'kcal': 70, 'p': 6, 'c': 0.5, 'f': 5},
+      {'name': "Palta (media)", 'kcal': 160, 'p': 2, 'c': 9, 'f': 15},
       {'name': "Yogur, cereales y fruta", 'kcal': 250, 'p': 10, 'c': 40, 'f': 5},
       {'name': "Panqueques avena/banana", 'kcal': 300, 'p': 15, 'c': 45, 'f': 8},
       {'name': "Tostadas pan francés c/mermelada", 'kcal': 280, 'p': 6, 'c': 55, 'f': 4},
+      {'name': "Infusión (Té/Café) s/azúcar", 'kcal': 2, 'p': 0, 'c': 0, 'f': 0},
+      {'name': "Café con leche", 'kcal': 100, 'p': 5, 'c': 8, 'f': 4},
       {'name': "Licuado banana c/leche", 'kcal': 320, 'p': 12, 'c': 50, 'f': 8},
       {'name': "Huevos revueltos (2) c/tomate", 'kcal': 220, 'p': 14, 'c': 5, 'f': 15},
       {'name': "Scoop Whey Protein", 'kcal': 120, 'p': 24, 'c': 3, 'f': 1},
     ],
     "Almuerzo (Comidas)": [
+      {'name': "Lata de Atún (al natural)", 'kcal': 120, 'p': 26, 'c': 0, 'f': 1},
       {'name': "Guiso arroz c/pollo", 'kcal': 450, 'p': 25, 'c': 60, 'f': 10},
       {'name': "Milanesa al horno c/ensalada", 'kcal': 400, 'p': 30, 'c': 20, 'f': 18},
       {'name': "Fideos con tuco", 'kcal': 480, 'p': 15, 'c': 80, 'f': 10},
       {'name': "Pechuga de pollo (200g)", 'kcal': 220, 'p': 46, 'c': 0, 'f': 4},
       {'name': "Arroz blanco (taza cocida)", 'kcal': 200, 'p': 4, 'c': 44, 'f': 0},
+      {'name': "Tarta atún (2 porciones)", 'kcal': 380, 'p': 20, 'c': 35, 'f': 18},
+      {'name': "Pastel de papas", 'kcal': 500, 'p': 25, 'c': 50, 'f': 20},
+      {'name': "Polenta con salsa y queso", 'kcal': 420, 'p': 12, 'c': 70, 'f': 12},
+      {'name': "Bife a la criolla c/arroz", 'kcal': 450, 'p': 35, 'c': 40, 'f': 15},
+      {'name': "Zapallitos rellenos (2)", 'kcal': 300, 'p': 18, 'c': 20, 'f': 15},
+      {'name': "Albóndigas con puré", 'kcal': 480, 'p': 25, 'c': 50, 'f': 20},
+      {'name': "Filet merluza c/puré", 'kcal': 350, 'p': 25, 'c': 30, 'f': 8},
     ],
     "Cena (Ligera)": [
       {'name': "Omelette 2 huevos y queso", 'kcal': 320, 'p': 18, 'c': 2, 'f': 22},
       {'name': "Ensalada completa (atún/huevo)", 'kcal': 280, 'p': 20, 'c': 15, 'f': 12},
       {'name': "Sopa verduras c/fideos", 'kcal': 150, 'p': 5, 'c': 25, 'f': 3},
+      {'name': "Tarta acelga (2 porciones)", 'kcal': 250, 'p': 10, 'c': 25, 'f': 12},
+      {'name': "Revuelto zapallitos", 'kcal': 200, 'p': 12, 'c': 10, 'f': 10},
       {'name': "Pechuga plancha c/tomate", 'kcal': 250, 'p': 30, 'c': 5, 'f': 5},
+      {'name': "Empanadas (2 unidades)", 'kcal': 500, 'p': 15, 'c': 40, 'f': 25},
+      {'name': "Berenjenas napolitana", 'kcal': 300, 'p': 10, 'c': 15, 'f': 18},
+      {'name': "Hamburguesa lentejas", 'kcal': 350, 'p': 15, 'c': 40, 'f': 10},
     ]
   };
 
-  // Método auxiliar para calcular valores SIN modificar el objeto Hive directamente
   Map<String, double> _calculateNutritionValues(UserProfile user) {
     double bmr;
     if (user.gender == 'Masculino') {
@@ -268,16 +283,10 @@ class _NutritionScreenState extends State<NutritionScreen> {
         label: const Text("Comida Manual", style: TextStyle(color: Colors.white)),
       ),
       body: ValueListenableBuilder(
-        // Escuchamos la caja de forma segura
         valueListenable: Hive.box<UserProfile>('userBox').listenable(),
         builder: (context, Box<UserProfile> box, _) {
-          // Intento robusto de obtener el usuario
           UserProfile? user = box.get('currentUser');
-          
-          // Fallback: Si no hay currentUser, intenta coger el primero (recuperación de errores)
-          if (user == null && box.isNotEmpty) {
-             user = box.values.first;
-          }
+          if (user == null && box.isNotEmpty) user = box.values.first;
 
           if (user == null) {
             return Center(
@@ -287,10 +296,7 @@ class _NutritionScreenState extends State<NutritionScreen> {
                   const Text("No se encontró perfil de usuario."),
                   const SizedBox(height: 10),
                   ElevatedButton(
-                    onPressed: () {
-                      // Navegar al onboarding si hace falta (necesitarás importar OnboardingScreen)
-                      // O simplemente mostrar un mensaje
-                    }, 
+                    onPressed: () {}, 
                     child: const Text("Crear Perfil")
                   )
                 ],
@@ -298,7 +304,6 @@ class _NutritionScreenState extends State<NutritionScreen> {
             );
           }
 
-          // Calculamos valores sin tocar el objeto user
           final calc = _calculateNutritionValues(user);
           final tdee = calc['tdee']!;
           final macrosGoal = _getMacros(user, tdee);
