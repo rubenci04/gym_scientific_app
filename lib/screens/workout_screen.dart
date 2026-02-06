@@ -39,11 +39,17 @@ class _WorkoutScreenState extends State<WorkoutScreen> with WidgetsBindingObserv
   final Map<String, List<TextEditingController>> _repsControllers = {};
   final Map<String, List<TextEditingController>> _rpeControllers = {}; 
 
-  Timer? _timer;
+  // Temporizadores
+  late DateTime _startTime;
+  Timer? _elapsedTimer;
+  String _elapsedTimeString = "00:00";
+
+  Timer? _restTimer;
   int _secondsRest = 0;
   bool _isResting = false;
   int _suggestedRest = 90;
-  double _timerProgress = 0.0;
+  double _restTimerProgress = 0.0;
+  
   Timer? _saveDebouncer;
 
   @override
@@ -52,11 +58,32 @@ class _WorkoutScreenState extends State<WorkoutScreen> with WidgetsBindingObserv
     WidgetsBinding.instance.addObserver(this); // Escuchar ciclo de vida de la app
     exerciseBox = Hive.box<Exercise>('exerciseBox');
     
+    // Iniciar Cronómetro Global
+    _startTime = DateTime.now();
+    _startElapsedTimer();
+    
     // Copia local para poder modificarla (agregar/quitar ejercicios)
     currentExercises = List.from(widget.routineExercises);
 
     _initializeDataStructures();
     _restoreSession();
+  }
+
+  void _startElapsedTimer() {
+    _elapsedTimer = Timer.periodic(const Duration(seconds: 1), (timer) {
+      if (!mounted) return;
+      final now = DateTime.now();
+      final difference = now.difference(_startTime);
+      final hours = difference.inHours;
+      final minutes = difference.inMinutes.remainder(60);
+      final seconds = difference.inSeconds.remainder(60);
+      
+      setState(() {
+        _elapsedTimeString = hours > 0 
+            ? "${hours.toString().padLeft(2, '0')}:${minutes.toString().padLeft(2, '0')}:${seconds.toString().padLeft(2, '0')}"
+            : "${minutes.toString().padLeft(2, '0')}:${seconds.toString().padLeft(2, '0')}";
+      });
+    });
   }
 
   void _initializeDataStructures() {
@@ -95,6 +122,9 @@ class _WorkoutScreenState extends State<WorkoutScreen> with WidgetsBindingObserv
           (widget.routineDayId.isEmpty && savedSession['dayName'] == widget.dayName)) {
         
         setState(() {
+          // Restaurar hora de inicio si es posible, o usar la actual
+          // (Para simplificar, usamos la actual sesión, pero podríamos guardar el startTime también)
+          
           final Map<String, List<WorkoutSet>> data = savedSession['sessionData'];
           
           data.forEach((exId, sets) {
@@ -146,7 +176,7 @@ class _WorkoutScreenState extends State<WorkoutScreen> with WidgetsBindingObserv
     HapticFeedback.mediumImpact();
     ScaffoldMessenger.of(context).showSnackBar(
       const SnackBar(
-        content: Text('✅ Progreso guardado'),
+        content: Text('✅ Progreso guardado localmente'),
         backgroundColor: Colors.green,
         duration: Duration(milliseconds: 1000),
       ),
@@ -156,7 +186,8 @@ class _WorkoutScreenState extends State<WorkoutScreen> with WidgetsBindingObserv
   @override
   void dispose() {
     WidgetsBinding.instance.removeObserver(this);
-    _timer?.cancel();
+    _elapsedTimer?.cancel();
+    _restTimer?.cancel();
     _saveDebouncer?.cancel();
     // Limpiar controladores
     for (var list in _weightControllers.values) { for (var c in list) c.dispose(); }
@@ -194,7 +225,7 @@ class _WorkoutScreenState extends State<WorkoutScreen> with WidgetsBindingObserv
           exerciseId: selected.id,
           sets: 3, 
           reps: '10',
-          restTimeSeconds: 90
+          restTimeSeconds: 60 // Default aislamiento
         );
         
         currentExercises.add(newRoutineEx);
@@ -212,7 +243,6 @@ class _WorkoutScreenState extends State<WorkoutScreen> with WidgetsBindingObserv
 
     if (selected != null) {
       setState(() {
-        // Guardamos los datos viejos si queremos migrar, por ahora reseteamos
         String oldId = currentExercises[index].exerciseId;
         
         // Limpiar controladores viejos
@@ -263,39 +293,45 @@ class _WorkoutScreenState extends State<WorkoutScreen> with WidgetsBindingObserv
     );
   }
 
-  // --- TEMPORIZADOR ---
+  // --- TEMPORIZADOR DE DESCANSO ---
 
   void _startRestTimer(double rpe, String exerciseId) {
-    _timer?.cancel();
+    _restTimer?.cancel();
     HapticFeedback.lightImpact();
-    // SystemSound puede crashear en algunos Android antiguos, lo envolvemos en try
     try { SystemSound.play(SystemSoundType.click); } catch (_) {}
 
     final ex = _exerciseDefs[exerciseId];
-    int baseRest = 90; 
+    int baseRest = 60; // Base para aislamiento
 
     // Lógica inteligente de descanso
     if (ex != null) {
-      if (ex.movementPattern.contains('Squat') ||
+      // Ejercicios compuestos demandan más ATP-PCr
+      if (ex.mechanic == 'compound' || 
+          ex.movementPattern.contains('Squat') ||
           ex.movementPattern.contains('Deadlift') ||
-          ex.movementPattern.contains('Press')) {
-        baseRest = 180; // Compuestos pesados = 3 min
+          ex.movementPattern.contains('Press') && ex.equipment == 'Barbell') {
+        baseRest = 180; // 3 min
+      } else if (ex.mechanic == 'compound') {
+        baseRest = 120; // Compuestos medios (máquinas, mancuernas) = 2 min
       }
     }
-    if (rpe >= 9) baseRest += 30; // Si fue muy duro, añade tiempo
+    
+    // Ajuste por esfuerzo percibido (RPE)
+    if (rpe >= 8.5) baseRest += 30; // Si fue duro, +30s
+    if (rpe >= 9.5) baseRest += 30; // Si fue fallo total, +30s extra
 
     setState(() {
       _secondsRest = 0;
       _isResting = true;
       _suggestedRest = baseRest;
-      _timerProgress = 0.0;
+      _restTimerProgress = 0.0;
     });
 
-    _timer = Timer.periodic(const Duration(seconds: 1), (timer) {
+    _restTimer = Timer.periodic(const Duration(seconds: 1), (timer) {
       if (!mounted) return;
       setState(() {
         _secondsRest++;
-        _timerProgress = (_secondsRest / _suggestedRest).clamp(0.0, 1.0);
+        _restTimerProgress = (_secondsRest / _suggestedRest).clamp(0.0, 1.0);
         
         if (_secondsRest == _suggestedRest) {
           HapticFeedback.heavyImpact();
@@ -306,7 +342,7 @@ class _WorkoutScreenState extends State<WorkoutScreen> with WidgetsBindingObserv
   }
 
   void _stopRestTimer() {
-    _timer?.cancel();
+    _restTimer?.cancel();
     HapticFeedback.selectionClick();
     setState(() => _isResting = false);
   }
@@ -315,32 +351,189 @@ class _WorkoutScreenState extends State<WorkoutScreen> with WidgetsBindingObserv
     HapticFeedback.lightImpact();
     setState(() {
       _suggestedRest += seconds;
-      _timerProgress = (_secondsRest / _suggestedRest).clamp(0.0, 1.0);
+      _restTimerProgress = (_secondsRest / _suggestedRest).clamp(0.0, 1.0);
     });
   }
 
-  String _calculate1RM(double weight, int reps) {
-    if (reps == 0 || weight == 0) return "-";
-    if (reps == 1) return "${weight.toInt()}";
-    // Fórmula Epley
-    double oneRM = weight * (1 + reps / 30);
-    return "${oneRM.toInt()}";
-  }
+  // --- PROTECCIÓN DE SALIDA ---
+  Future<bool> _onWillPop() async {
+    bool hasData = _sessionData.values.any((sets) => sets.isNotEmpty);
+    if (!hasData) return true;
 
-  // --- DIÁLOGOS DE AYUDA ---
-
-  void _showEducationalDialog(String title, String content) {
-    showDialog(
+    final theme = Theme.of(context);
+    final shouldPop = await showDialog<bool>(
       context: context,
       builder: (context) => AlertDialog(
-        backgroundColor: Theme.of(context).cardColor,
-        title: Text(title, style: Theme.of(context).textTheme.titleLarge),
-        content: Text(content, style: Theme.of(context).textTheme.bodyMedium),
+        backgroundColor: theme.cardColor,
+        title: Text('¿Pausar entrenamiento?', style: theme.textTheme.titleLarge),
+        content: Text('Tu tiempo corre. El progreso se guardará localmente.', style: theme.textTheme.bodyMedium),
         actions: [
-          TextButton(onPressed: () => Navigator.pop(context), child: const Text('Entendido')),
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(false),
+            child: const Text('Cancelar'),
+          ),
+          TextButton(
+            onPressed: () {
+              CurrentWorkoutService.saveSession(
+                routineId: widget.routineDayId,
+                dayName: widget.dayName,
+                sessionData: _sessionData,
+              );
+              Navigator.of(context).pop(true);
+            },
+            child: const Text('Guardar y Salir', style: TextStyle(color: AppColors.primary, fontWeight: FontWeight.bold)),
+          ),
         ],
       ),
     );
+
+    return shouldPop ?? false;
+  }
+
+  void _finishWorkout() async {
+    HapticFeedback.mediumImpact();
+
+    List<WorkoutExercise> exercisesDone = [];
+    double totalVolume = 0;
+    int totalSets = 0;
+
+    // Procesar datos
+    _sessionData.forEach((exId, sets) {
+      for (int i = 0; i < sets.length; i++) {
+        sets[i].weight = double.tryParse(_weightControllers[exId]![i].text) ?? 0;
+        sets[i].reps = int.tryParse(_repsControllers[exId]![i].text) ?? 0;
+        sets[i].rpe = double.tryParse(_rpeControllers[exId]![i].text) ?? 0;
+        totalVolume += sets[i].weight * sets[i].reps;
+      }
+
+      if (sets.isNotEmpty) {
+        exercisesDone.add(
+          WorkoutExercise(
+            exerciseId: exId,
+            exerciseName: _exerciseDefs[exId]?.name ?? 'Ejercicio',
+            sets: sets,
+          ),
+        );
+        totalSets += sets.length;
+      }
+    });
+
+    if (exercisesDone.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text("Registra al menos una serie para terminar.")));
+      return;
+    }
+
+    final theme = Theme.of(context);
+    final durationMinutes = DateTime.now().difference(_startTime).inMinutes;
+
+    final confirm = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        backgroundColor: theme.cardColor,
+        title: Text('¡Entrenamiento Completado!', style: theme.textTheme.titleLarge),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            _buildSummaryRow("Tiempo:", "$durationMinutes min", Icons.timer),
+            _buildSummaryRow("Ejercicios:", "${exercisesDone.length}", Icons.fitness_center),
+            _buildSummaryRow("Volumen Total:", "${totalVolume.toStringAsFixed(0)} kg", Icons.bar_chart),
+          ],
+        ),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(context, false), child: const Text('Volver')),
+          ElevatedButton(
+            style: ElevatedButton.styleFrom(backgroundColor: AppColors.primary, foregroundColor: Colors.white),
+            onPressed: () => Navigator.pop(context, true),
+            child: const Text('FINALIZAR'),
+          ),
+        ],
+      ),
+    );
+
+    if (confirm != true) return;
+
+    // Guardar en Historial Permanente
+    final session = WorkoutSession(
+      date: DateTime.now(),
+      routineName: widget.dayName,
+      exercises: exercisesDone,
+      durationInMinutes: durationMinutes > 0 ? durationMinutes : 1, // Mínimo 1 min
+    );
+
+    final historyBox = await Hive.openBox<WorkoutSession>('historyBox');
+    await historyBox.add(session);
+    
+    // Limpiar sesión temporal
+    await CurrentWorkoutService.clearSession();
+
+    if (mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('¡Entrenamiento Guardado! 💪')));
+      Navigator.of(context).pushAndRemoveUntil(
+        MaterialPageRoute(builder: (context) => const HomeScreen()),
+        (route) => false,
+      );
+    }
+  }
+
+  Widget _buildSummaryRow(String label, String value, IconData icon) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 4.0),
+      child: Row(
+        children: [
+          Icon(icon, size: 18, color: AppColors.primary),
+          const SizedBox(width: 8),
+          Text("$label ", style: const TextStyle(fontWeight: FontWeight.bold)),
+          Text(value),
+        ],
+      ),
+    );
+  }
+
+  void _addSet(String exId) {
+    HapticFeedback.lightImpact();
+    setState(() {
+      double lastWeight = 0;
+      int lastReps = 0;
+      double lastRpe = 8.0;
+
+      // Copiar valores de la serie anterior para agilizar
+      if (_sessionData[exId]!.isNotEmpty) {
+        lastWeight = _sessionData[exId]!.last.weight;
+        lastReps = _sessionData[exId]!.last.reps;
+        lastRpe = _sessionData[exId]!.last.rpe;
+      }
+
+      // Crear nueva serie vacía
+      final newSet = WorkoutSet(weight: lastWeight, reps: lastReps, rpe: lastRpe);
+      _sessionData[exId]!.add(newSet);
+
+      // Crear controladores
+      _weightControllers[exId]!.add(TextEditingController(text: lastWeight == 0 ? '' : lastWeight.toString()));
+      _repsControllers[exId]!.add(TextEditingController(text: lastReps == 0 ? '' : lastReps.toString()));
+      _rpeControllers[exId]!.add(TextEditingController(text: lastRpe.toString()));
+    });
+    _autoSave();
+  }
+
+  void _removeSet(String exId, int index) {
+    setState(() {
+      _sessionData[exId]!.removeAt(index);
+      
+      _weightControllers[exId]![index].dispose();
+      _weightControllers[exId]!.removeAt(index);
+      
+      _repsControllers[exId]![index].dispose();
+      _repsControllers[exId]!.removeAt(index);
+      
+      _rpeControllers[exId]![index].dispose();
+      _rpeControllers[exId]!.removeAt(index);
+    });
+    _autoSave();
+  }
+
+  void _openCalculator(double currentWeight) {
+    Navigator.push(context, MaterialPageRoute(builder: (_) => PlateCalculatorScreen(initialWeight: currentWeight)));
   }
 
   void _showExerciseInfo(Exercise exercise) {
@@ -381,179 +574,6 @@ class _WorkoutScreenState extends State<WorkoutScreen> with WidgetsBindingObserv
     );
   }
 
-  // --- PROTECCIÓN DE SALIDA ---
-  Future<bool> _onWillPop() async {
-    // Si no hay datos, salir directo
-    bool hasData = _sessionData.values.any((sets) => sets.isNotEmpty);
-    if (!hasData) return true;
-
-    final theme = Theme.of(context);
-    
-    // Mostrar diálogo de confirmación
-    final shouldPop = await showDialog<bool>(
-      context: context,
-      builder: (context) => AlertDialog(
-        backgroundColor: theme.cardColor,
-        title: Text('¿Pausar entrenamiento?', style: theme.textTheme.titleLarge),
-        content: Text('Tu progreso se guardará localmente y podrás retomarlo luego.', style: theme.textTheme.bodyMedium),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.of(context).pop(false), // No salir
-            child: const Text('Cancelar'),
-          ),
-          TextButton(
-            onPressed: () {
-              // Guardar explícitamente antes de salir
-              CurrentWorkoutService.saveSession(
-                routineId: widget.routineDayId,
-                dayName: widget.dayName,
-                sessionData: _sessionData,
-              );
-              Navigator.of(context).pop(true); // Salir
-            },
-            child: const Text('Guardar y Salir', style: TextStyle(color: AppColors.primary, fontWeight: FontWeight.bold)),
-          ),
-        ],
-      ),
-    );
-
-    return shouldPop ?? false;
-  }
-
-  void _finishWorkout() async {
-    HapticFeedback.mediumImpact();
-
-    List<WorkoutExercise> exercisesDone = [];
-    double totalVolume = 0;
-    int totalSets = 0;
-
-    // Procesar datos
-    _sessionData.forEach((exId, sets) {
-      // Sincronizar datos de controladores a modelos
-      for (int i = 0; i < sets.length; i++) {
-        sets[i].weight = double.tryParse(_weightControllers[exId]![i].text) ?? 0;
-        sets[i].reps = int.tryParse(_repsControllers[exId]![i].text) ?? 0;
-        sets[i].rpe = double.tryParse(_rpeControllers[exId]![i].text) ?? 0;
-        totalVolume += sets[i].weight * sets[i].reps;
-      }
-
-      if (sets.isNotEmpty) {
-        exercisesDone.add(
-          WorkoutExercise(
-            exerciseId: exId,
-            exerciseName: _exerciseDefs[exId]?.name ?? 'Ejercicio',
-            sets: sets,
-          ),
-        );
-        totalSets += sets.length;
-      }
-    });
-
-    if (exercisesDone.isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text("Registra al menos una serie para terminar.")));
-      return;
-    }
-
-    final theme = Theme.of(context);
-    final confirm = await showDialog<bool>(
-      context: context,
-      builder: (context) => AlertDialog(
-        backgroundColor: theme.cardColor,
-        title: Text('Resumen Sesión', style: theme.textTheme.titleLarge),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text('Ejercicios: ${exercisesDone.length}', style: theme.textTheme.bodyMedium),
-            Text('Series Totales: $totalSets', style: theme.textTheme.bodyMedium),
-            Text('Volumen Total: ${totalVolume.toStringAsFixed(0)} kg', style: theme.textTheme.bodyMedium),
-            const SizedBox(height: 15),
-            const Text('¿Finalizar y guardar en historial?', style: TextStyle(fontWeight: FontWeight.bold)),
-          ],
-        ),
-        actions: [
-          TextButton(onPressed: () => Navigator.pop(context, false), child: const Text('Seguir')),
-          ElevatedButton(
-            style: ElevatedButton.styleFrom(backgroundColor: AppColors.primary, foregroundColor: Colors.white),
-            onPressed: () => Navigator.pop(context, true),
-            child: const Text('Finalizar'),
-          ),
-        ],
-      ),
-    );
-
-    if (confirm != true) return;
-
-    // Guardar en Historial Permanente
-    final session = WorkoutSession(
-      date: DateTime.now(),
-      routineName: widget.dayName,
-      exercises: exercisesDone,
-      durationInMinutes: 60, // Pendiente: Calcular real
-    );
-
-    final historyBox = await Hive.openBox<WorkoutSession>('historyBox');
-    await historyBox.add(session);
-    
-    // Limpiar sesión temporal
-    await CurrentWorkoutService.clearSession();
-
-    if (mounted) {
-      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('¡Entrenamiento Guardado! 💪')));
-      Navigator.of(context).pushAndRemoveUntil(
-        MaterialPageRoute(builder: (context) => const HomeScreen()),
-        (route) => false,
-      );
-    }
-  }
-
-  void _addSet(String exId) {
-    HapticFeedback.lightImpact();
-    setState(() {
-      double lastWeight = 0;
-      int lastReps = 0;
-      double lastRpe = 8.0;
-
-      // Copiar valores de la serie anterior para agilizar
-      if (_sessionData[exId]!.isNotEmpty) {
-        lastWeight = _sessionData[exId]!.last.weight;
-        lastReps = _sessionData[exId]!.last.reps;
-        lastRpe = _sessionData[exId]!.last.rpe;
-      }
-
-      // Crear nueva serie vacía
-      final newSet = WorkoutSet(weight: lastWeight, reps: lastReps, rpe: lastRpe);
-      _sessionData[exId]!.add(newSet);
-
-      // Crear controladores
-      _weightControllers[exId]!.add(TextEditingController(text: lastWeight == 0 ? '' : lastWeight.toString()));
-      _repsControllers[exId]!.add(TextEditingController(text: lastReps == 0 ? '' : lastReps.toString()));
-      _rpeControllers[exId]!.add(TextEditingController(text: lastRpe.toString()));
-    });
-    _autoSave();
-  }
-
-  void _removeSet(String exId, int index) {
-    setState(() {
-      _sessionData[exId]!.removeAt(index);
-      
-      // Eliminar y liberar controladores
-      _weightControllers[exId]![index].dispose();
-      _weightControllers[exId]!.removeAt(index);
-      
-      _repsControllers[exId]![index].dispose();
-      _repsControllers[exId]!.removeAt(index);
-      
-      _rpeControllers[exId]![index].dispose();
-      _rpeControllers[exId]!.removeAt(index);
-    });
-    _autoSave();
-  }
-
-  void _openCalculator(double currentWeight) {
-    Navigator.push(context, MaterialPageRoute(builder: (_) => PlateCalculatorScreen(initialWeight: currentWeight)));
-  }
-
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
@@ -567,13 +587,25 @@ class _WorkoutScreenState extends State<WorkoutScreen> with WidgetsBindingObserv
           leading: IconButton(
             icon: Icon(Icons.arrow_back, color: theme.iconTheme.color),
             onPressed: () async { 
-              // Disparar la misma lógica que el botón físico
               if (await _onWillPop()) {
                 if (mounted) Navigator.of(context).pop();
               }
             },
           ),
-          title: Text(widget.dayName, style: theme.appBarTheme.titleTextStyle),
+          title: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(widget.dayName, style: theme.appBarTheme.titleTextStyle?.copyWith(fontSize: 16)),
+              // --- CRONÓMETRO EN APPBAR ---
+              Row(
+                children: [
+                  const Icon(Icons.access_time, size: 12, color: AppColors.primary),
+                  const SizedBox(width: 4),
+                  Text(_elapsedTimeString, style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: AppColors.primary)),
+                ],
+              )
+            ],
+          ),
           backgroundColor: _isResting ? AppColors.secondary.withOpacity(0.9) : theme.appBarTheme.backgroundColor,
           elevation: 0,
           actions: [
@@ -749,7 +781,7 @@ class _WorkoutScreenState extends State<WorkoutScreen> with WidgetsBindingObserv
                                 TextButton.icon(
                                   onPressed: () => _startRestTimer(sets.last.rpe, exId), 
                                   icon: const Icon(Icons.timer, color: AppColors.secondary), 
-                                  label: Text("Descanso Sugerido (${_suggestedRest}s)", style: const TextStyle(color: AppColors.secondary))
+                                  label: const Text("Descansar", style: TextStyle(color: AppColors.secondary))
                                 ),
                             ],
                           ),
@@ -776,9 +808,9 @@ class _WorkoutScreenState extends State<WorkoutScreen> with WidgetsBindingObserv
                         SizedBox(
                           width: 50, height: 50,
                           child: CircularProgressIndicator(
-                            value: _timerProgress,
+                            value: _restTimerProgress,
                             backgroundColor: Colors.grey[700],
-                            valueColor: AlwaysStoppedAnimation<Color>(_timerProgress > 0.9 ? Colors.red : AppColors.secondary),
+                            valueColor: AlwaysStoppedAnimation<Color>(_restTimerProgress > 0.9 ? Colors.red : AppColors.secondary),
                             strokeWidth: 5,
                           ),
                         ),

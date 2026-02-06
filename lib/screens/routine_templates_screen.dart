@@ -47,7 +47,6 @@ class RoutineTemplatesScreen extends StatelessWidget {
     );
   }
 
-  // Nota para mí: Función que abre el configurador antes de generar
   void _openSmartRoutineConfig(BuildContext context) {
     final userBox = Hive.box<UserProfile>('userBox');
     final user = userBox.get('currentUser');
@@ -217,7 +216,7 @@ class RoutineTemplatesScreen extends StatelessWidget {
   }
 }
 
-// Nota para mí: Widget privado para configurar la generación
+// Widget privado para configurar la generación
 class _SmartRoutineConfigSheet extends StatefulWidget {
   final UserProfile user;
 
@@ -257,6 +256,9 @@ class _SmartRoutineConfigSheetState extends State<_SmartRoutineConfigSheet> {
         goal: _goal,
         location: _location,
         somatotype: widget.user.somatotype,
+        // CORREGIDO: Pasamos los campos obligatorios que faltaban
+        timeAvailable: widget.user.timeAvailable, 
+        experience: widget.user.experience,
       );
 
       var routine = await RoutineGeneratorService.generateRoutine(tempUser);

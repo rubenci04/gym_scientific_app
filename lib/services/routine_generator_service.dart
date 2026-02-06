@@ -12,6 +12,7 @@ class RoutineGeneratorService {
   }) async {
     final newRoutine = await generateRoutine(user, focusArea: focusArea);
     var routineBox = Hive.box<WeeklyRoutine>('routineBox');
+    // Guardar usando el ID como clave para evitar duplicados
     await routineBox.put(newRoutine.id, newRoutine);
   }
 
@@ -22,300 +23,323 @@ class RoutineGeneratorService {
     final exerciseBox = Hive.box<Exercise>('exerciseBox');
     final allExercises = exerciseBox.values.toList();
 
-    // 1. Filtrar Ejercicios por Ubicación (Casa vs Gym)
-    final availableExercises = _filterExercisesByLocation(allExercises, user.location);
+    // 1. Filtrar Ejercicios Disponibles (Gym vs Casa, Nivel, etc.)
+    // CORREGIDO: Pasamos el objeto usuario completo, la función usará user.experience
+    final availableExercises = _filterExercisesContextually(allExercises, user);
 
-    // 2. Determinar Estructura Base (Split)
-    List<Map<String, dynamic>> structure = _getScientificSplitStructure(user.daysPerWeek);
+    // 2. Obtener la "Receta" (Estructura de Slots abstractos)
+    List<RoutineDayTemplate> structure = _getScientificSplitStructure(user.daysPerWeek, user.goal);
 
-    // 3. Calcular Límite de Ejercicios según Tiempo (CRÍTICO ERROR 1)
-    // 30 min ~ 3-4 ejercicios | 45 min ~ 5 | 60 min ~ 6-7 | 90 min ~ 8+
-    int targetExerciseCount;
-    if (user.timeAvailable <= 30) {
-      targetExerciseCount = 3;
-    } else if (user.timeAvailable <= 45) {
-      targetExerciseCount = 5;
-    } else if (user.timeAvailable <= 60) {
-      targetExerciseCount = 7;
-    } else {
-      targetExerciseCount = 9; // Alto volumen
-    }
+    // 3. Determinar Capacidad de Trabajo (Slots Máximos)
+    // 30 min = 3 ejercicios claves. 60 min = 6 ejercicios.
+    int maxExercisesPerDay = (user.timeAvailable / 8).floor(); // Est. 8 min por ejercicio (incl. descanso)
+    if (maxExercisesPerDay < 3) maxExercisesPerDay = 3; // Mínimo viable
+    if (maxExercisesPerDay > 10) maxExercisesPerDay = 10; // Tope humano
 
     List<RoutineDay> generatedDays = [];
 
-    // 4. Generar días
+    // 4. Construir cada día
     for (var i = 0; i < structure.length; i++) {
-      var dayTemplate = structure[i];
-      List<String> rawSlots = List<String>.from(dayTemplate['slots']);
-      List<RoutineExercise> selectedExercises = [];
-      Set<String> usedIds = {};
-      double currentEstimatedTime = 0;
-
-      // A. Inyección de Foco (Si el usuario pidió énfasis en un músculo específico)
-      if (_isSpecificFocus(focusArea)) {
-        // Reemplazamos los últimos slots genéricos con slots del foco específico
-        int focusSlotsCount = (targetExerciseCount >= 5) ? 2 : 1;
-        // Inyectamos al inicio para priorizar
-        for(int k=0; k<focusSlotsCount; k++) {
-           rawSlots.insert(1, "focus_injection_$focusArea"); 
-        }
+      var template = structure[i];
+      List<RoutineExercise> dayExercises = [];
+      Set<String> usedIdsInDay = {}; // Evitar repetir ejercicios el mismo día
+      
+      // A. Inyección de Foco (Prioridad Muscular)
+      List<String> currentSlots = List.from(template.patternSlots);
+      if (_shouldInjectFocus(focusArea, template.targetMuscles)) {
+        currentSlots.insert(0, "FOCUS_$focusArea");
       }
 
-      // B. Selección y Filtrado de Slots
-      for (var slotId in rawSlots) {
-        // Si ya alcanzamos el límite de tiempo/ejercicios, paramos (a menos que sea rehab vital)
-        if (selectedExercises.length >= targetExerciseCount) break;
+      // B. Llenado de Slots
+      for (var slotPattern in currentSlots) {
+        // Stop si nos pasamos del tiempo
+        if (dayExercises.length >= maxExercisesPerDay) break;
 
         Exercise? selected;
 
-        // B1. Lógica de Asimetría (Prioridad Máxima)
-        // Si el usuario tiene asimetría y el slot permite un unilateral, lo forzamos.
-        if (user.hasAsymmetry) {
-           selected = _findSymmetryVariant(availableExercises, slotId, usedIds);
+        // B1. Estrategia para Asimetrías
+        if (user.hasAsymmetry && _isUnilateralCandidate(slotPattern)) {
+          selected = _findBestExercise(
+            availableExercises, 
+            pattern: slotPattern, 
+            mustBeUnilateral: true, 
+            usedIds: usedIdsInDay,
+            userLevel: user.experience // CORREGIDO: Usamos la propiedad 'experience'
+          );
         }
 
-        // B2. Búsqueda Estándar (Si no es asimetría o no se encontró)
-        if (selected == null) {
-           if (slotId.startsWith("focus_injection")) {
-             // Buscar ejercicio del músculo foco (ej: "Pecho")
-             selected = _findExerciseByMuscle(availableExercises, focusArea, usedIds);
-           } else {
-             // Buscar ejercicio estándar del slot
-             selected = _findStandardExercise(availableExercises, slotId, usedIds);
-           }
-        }
+        // B2. Estrategia Estándar
+        selected ??= _findBestExercise(
+          availableExercises, 
+          pattern: slotPattern, 
+          usedIds: usedIdsInDay,
+          userLevel: user.experience, // CORREGIDO: Usamos la propiedad 'experience'
+          preferredMuscle: focusArea != 'Cuerpo Completo' ? focusArea : null
+        );
 
         if (selected != null) {
-          // Calcular series/reps
-          var vol = _calculateVolume(user, selected, selectedExercises.length);
+          // C. Calcular Dosis (Series/Reps/Descanso)
+          var dose = _calculateOptimalDose(user, selected, dayExercises.length);
           
-          // Generar nota educativa
-          String note = vol['note'];
-          if (user.hasAsymmetry && selected.symmetryScore >= 7) {
-            note = "⚠️ CORRECCIÓN ASIMETRÍA: Empieza con tu lado débil (ej: pierna izquierda). Haz las reps al fallo, luego iguala con el derecho sin pasarte.";
-          } else if (selected.mechanic == 'compound') {
-            note = "🔥 EJERCICIO PRINCIPAL: Céntrate en mover el peso explosivamente.";
-          }
-
-          // Ajuste fino de tiempo: Si nos estamos pasando, convertir a Myo-reps o bajar descanso
-          if (currentEstimatedTime + selected.timeCost > user.timeAvailable) {
-             vol['rest'] = 45; // Reducir descanso drásticamente
-             note += " [Descanso corto para cumplir tiempo]";
-          }
-
-          selectedExercises.add(RoutineExercise(
+          dayExercises.add(RoutineExercise(
             exerciseId: selected.id,
-            sets: vol['sets'],
-            reps: vol['reps'],
-            rpe: vol['rpe'],
-            restTimeSeconds: vol['rest'],
-            note: note,
+            sets: dose['sets'],
+            reps: dose['reps'],
+            rpe: dose['rpe'],
+            restTimeSeconds: dose['rest'],
+            note: dose['note'],
           ));
           
-          usedIds.add(selected.id);
-          currentEstimatedTime += selected.timeCost * (vol['sets'] as int);
+          usedIdsInDay.add(selected.id);
         }
       }
 
       generatedDays.add(RoutineDay(
         id: "day_${DateTime.now().millisecondsSinceEpoch}_$i",
-        name: dayTemplate['name'],
-        targetMuscles: List<String>.from(dayTemplate['muscles']),
-        exercises: selectedExercises,
+        name: template.name,
+        targetMuscles: template.targetMuscles,
+        exercises: dayExercises,
       ));
     }
 
-    // 5. Generar Descripción Explicativa (Para principiantes)
-    String description = _generateExplanation(user, focusArea, generatedDays.length);
-
     return WeeklyRoutine(
       id: "routine_${DateTime.now().millisecondsSinceEpoch}",
-      name: _generateName(user.daysPerWeek, focusArea, user.goal),
-      description: description, // Asegúrate de agregar este campo en tu modelo WeeklyRoutine si no existe, o úsalo en la UI
+      name: _generateRoutineName(user, focusArea),
+      description: _generateSmartDescription(user, focusArea),
       days: generatedDays,
       createdAt: DateTime.now(),
       isActive: true,
     );
   }
 
-  // --- LÓGICA DE FILTRADO ---
-  
-  static List<Exercise> _filterExercisesByLocation(List<Exercise> all, TrainingLocation loc) {
-    if (loc == TrainingLocation.gym) return all;
-    
+  // ===========================================================================
+  // 🧠 MOTOR DE SELECCIÓN INTELIGENTE (EL CEREBRO)
+  // ===========================================================================
+
+  static List<Exercise> _filterExercisesContextually(List<Exercise> all, UserProfile user) {
     return all.where((ex) {
-      final eq = ex.equipment.toLowerCase();
-      // Permitimos: Corporal, Mancuernas, Bandas, etc.
-      // Excluimos: Máquinas, Poleas (a menos que se asuma banda), Barras olímpicas si es casa básica
-      return !eq.contains('máquina') && !eq.contains('polea') && !eq.contains('prensa'); 
+      // 1. Filtro de Lugar/Equipo
+      bool locationOk = true;
+      if (user.location == TrainingLocation.home) {
+        final eq = ex.equipment.toLowerCase();
+        if (eq.contains('máquina') || eq.contains('polea') || eq.contains('prensa') || eq.contains('smith')) {
+          locationOk = false;
+        }
+      }
+
+      // 2. Filtro de Nivel (Seguridad)
+      bool levelOk = true;
+      // CORREGIDO: Usamos Experience.beginner en lugar de ExperienceLevel.beginner
+      if (user.experience == Experience.beginner) {
+        if (['snatch', 'clean', 'squat_overhead', 'deadlift_sumo', 'good_morning'].contains(ex.id)) {
+          levelOk = false;
+        }
+      }
+
+      return locationOk && levelOk;
     }).toList();
   }
 
-  static bool _isSpecificFocus(String focus) {
-    return !['Cuerpo Completo', 'Torso/Pierna', 'Empuje/Tracción/Pierna', 'Equilibrado'].contains(focus);
+  static Exercise? _findBestExercise(
+    List<Exercise> candidates, {
+    required String pattern, 
+    required Set<String> usedIds,
+    required Experience userLevel, // CORREGIDO: Tipo 'Experience'
+    bool mustBeUnilateral = false,
+    String? preferredMuscle,
+  }) {
+    List<Exercise> matches = [];
+
+    // Paso 1: Decodificar el patrón
+    if (pattern.startsWith("FOCUS_")) {
+      String muscle = pattern.replaceAll("FOCUS_", "");
+      matches = candidates.where((e) => e.muscleGroup == muscle || e.targetMuscles.contains(muscle)).toList();
+    } else {
+      matches = candidates.where((e) => _matchesPattern(e, pattern)).toList();
+    }
+
+    // Paso 2: Filtrar Unilaterales
+    if (mustBeUnilateral) {
+      var unilaterals = matches.where((e) => !e.isBilateral || e.symmetryScore >= 7).toList();
+      if (unilaterals.isNotEmpty) matches = unilaterals;
+    }
+
+    // Paso 3: Filtrar usados
+    matches = matches.where((e) => !usedIds.contains(e.id)).toList();
+
+    if (matches.isEmpty) return null;
+
+    // Paso 4: Sorting Inteligente
+    matches.sort((a, b) {
+      int scoreA = 0;
+      int scoreB = 0;
+
+      if (a.mechanic == 'compound') scoreA += 5;
+      if (b.mechanic == 'compound') scoreB += 5;
+
+      if (preferredMuscle != null) {
+        if (a.muscleGroup == preferredMuscle) scoreA += 3;
+        if (b.muscleGroup == preferredMuscle) scoreB += 3;
+      }
+
+      return scoreB.compareTo(scoreA); 
+    });
+
+    return matches.first;
   }
 
-  // --- BUSCADORES INTELIGENTES ---
-
-  static Exercise? _findSymmetryVariant(List<Exercise> available, String slotId, Set<String> used) {
-    // Intentamos deducir el grupo muscular del slot original (ej: "squat" -> Pierna)
-    String targetMuscle = _deduceMuscleFromId(slotId);
-    
-    if (targetMuscle.isEmpty) return null;
-
-    try {
-      // Buscar un ejercicio UNILATERAL (Score >= 7) para ese músculo
-      return available.firstWhere((ex) => 
-        ex.muscleGroup == targetMuscle &&
-        ex.symmetryScore >= 7 && 
-        !used.contains(ex.id)
-      );
-    } catch (e) {
-      return null;
+  static bool _matchesPattern(Exercise ex, String pattern) {
+    switch (pattern) {
+      case 'PUSH_HORIZONTAL': return ex.muscleGroup == 'Pecho' && ex.movementPattern.contains('Empuje');
+      case 'PUSH_VERTICAL': return ex.muscleGroup == 'Hombros' && ex.movementPattern.contains('Empuje');
+      case 'PULL_VERTICAL': return ex.muscleGroup == 'Espalda' && (ex.movementPattern.contains('Tracción') || ex.id.contains('pullup') || ex.id.contains('lat_pull'));
+      case 'PULL_HORIZONTAL': return ex.muscleGroup == 'Espalda' && (ex.id.contains('row') || ex.movementPattern.contains('Remo'));
+      case 'LEG_KNEE': return (ex.muscleGroup == 'Pierna' || ex.muscleGroup == 'Cuádriceps') && (ex.id.contains('squat') || ex.id.contains('leg_press') || ex.id.contains('lunge'));
+      case 'LEG_HIP': return (ex.muscleGroup == 'Pierna' || ex.muscleGroup == 'Isquios' || ex.muscleGroup == 'Glúteo') && (ex.id.contains('deadlift') || ex.id.contains('rdl') || ex.id.contains('hip_thrust') || ex.id.contains('curl'));
+      case 'ISOLATION_ARM': return ex.muscleGroup == 'Bíceps' || ex.muscleGroup == 'Tríceps';
+      case 'ISOLATION_SHOULDER': return ex.muscleGroup == 'Hombros' && ex.mechanic == 'isolation';
+      case 'CORE': return ex.muscleGroup == 'Abdominales' || ex.id.contains('plank') || ex.id.contains('crunch');
+      case 'CARRY': return ex.id.contains('carry') || ex.id.contains('walk');
+      default: return ex.id == pattern;
     }
   }
 
-  static Exercise? _findExerciseByMuscle(List<Exercise> available, String muscle, Set<String> used) {
-    try {
-      return available.firstWhere((ex) => 
-        (ex.muscleGroup == muscle || ex.targetMuscles.contains(muscle)) && 
-        !used.contains(ex.id)
-      );
-    } catch (e) { return null; }
-  }
+  // ===========================================================================
+  // 💉 GESTIÓN DE DOSIS (VOLUMEN Y ESFUERZO)
+  // ===========================================================================
 
-  static Exercise? _findStandardExercise(List<Exercise> available, String slotId, Set<String> used) {
-    // 1. Intento exacto
-    try {
-      return available.firstWhere((e) => e.id == slotId && !used.contains(e.id));
-    } catch (e) {
-      // 2. Fallback por Patrón de Movimiento
-      String targetPattern = _deducePatternFromId(slotId);
-      String targetMuscle = _deduceMuscleFromId(slotId);
+  static Map<String, dynamic> _calculateOptimalDose(UserProfile user, Exercise ex, int orderIndex) {
+    bool isPrimary = orderIndex < 2; 
+    bool isCompound = ex.mechanic == 'compound';
 
-      try {
-        return available.firstWhere((ex) => 
-          (ex.movementPattern == targetPattern || ex.muscleGroup == targetMuscle) &&
-          !used.contains(ex.id)
-        );
-      } catch (z) { return null; }
-    }
-  }
-
-  static String _deduceMuscleFromId(String id) {
-    if (id.contains('squat') || id.contains('leg') || id.contains('lunge')) return 'Cuádriceps';
-    if (id.contains('bench') || id.contains('chest') || id.contains('pushup')) return 'Pecho';
-    if (id.contains('row') || id.contains('pull') || id.contains('deadlift')) return 'Espalda';
-    if (id.contains('curl')) return 'Bíceps';
-    if (id.contains('tricep') || id.contains('skull')) return 'Tríceps';
-    if (id.contains('shoulder') || id.contains('ohp') || id.contains('raise')) return 'Hombros';
-    return '';
-  }
-
-  static String _deducePatternFromId(String id) {
-    if (id.contains('press')) return 'Empuje';
-    if (id.contains('row') || id.contains('pull')) return 'Tracción';
-    if (id.contains('squat')) return 'Sentadilla';
-    return '';
-  }
-
-  // --- VOLUMEN INTELIGENTE ---
-  static Map<String, dynamic> _calculateVolume(UserProfile user, Exercise ex, int exerciseOrderIndex) {
-    // Regla: Los primeros ejercicios (índice 0, 1) llevan más series y descanso.
-    // Los últimos (accesorios) llevan menos.
-    
+    // Valores Base
     int sets = 3;
     String reps = "10-12";
-    String rpe = "8";
+    String rpe = "7-8";
     int rest = 90;
     String note = "";
 
-    bool isCompound = ex.mechanic == 'compound';
-    bool isMainLift = exerciseOrderIndex < 2; // Los 2 primeros del día
-
+    // 1. Ajuste por Objetivo (AGREGADO: weightLoss)
     if (user.goal == TrainingGoal.strength) {
-      sets = isMainLift ? 5 : 3;
-      reps = isMainLift ? "3-5" : "8-10";
-      rest = isMainLift ? 180 : 120;
-      note = "Prioridad: Peso. Descansa todo lo necesario.";
+      if (isCompound && isPrimary) {
+        sets = 5; reps = "3-5"; rest = 180; rpe = "8.5";
+        note = "💥 Foco: Máxima velocidad intencional.";
+      } else {
+        sets = 3; reps = "6-8"; rest = 120;
+        note = "Controla la bajada.";
+      }
     } else if (user.goal == TrainingGoal.hypertrophy) {
-      sets = isMainLift ? 4 : 3;
-      reps = "8-12";
-      rest = isCompound ? 120 : 90; // Menos descanso en aislamiento
-      note = "Prioridad: Técnica y control (3 seg bajada).";
-    } else {
-      // Salud / Pérdida de Peso (Metabólico)
-      sets = 3;
-      reps = "12-15";
-      rest = 60; // Ritmo alto
-      note = "Mantén el ritmo cardiaco elevado.";
+      if (isPrimary) {
+        sets = 4; reps = "6-10"; rest = 120;
+        note = "🧠 Conexión Mente-Músculo. Excéntrica 3 seg.";
+      } else {
+        sets = 3; reps = "10-15"; rest = 60; 
+        note = "Bombeo constante.";
+      }
+    } else if (user.goal == TrainingGoal.weightLoss) {
+      // NUEVO: Lógica metabólica
+      sets = 3; reps = "12-15"; rest = 45; 
+      note = "🔥 Mantén el ritmo cardíaco alto.";
+    } else { 
+      // Salud / Resistencia
+      sets = 2; reps = "15-20"; rest = 30;
+      note = "Resistencia muscular.";
     }
 
-    // Ajuste por tiempo disponible global (Micro-ajuste)
-    if (user.timeAvailable <= 30 && !isMainLift) {
-      sets = 2; // Ahorrar tiempo en accesorios
-      rest = 45;
+    // 2. Ajuste por Tiempo Disponible
+    if (user.timeAvailable <= 30) {
+      if (!isPrimary) {
+        sets = 2; rest = 30; note += " [Rápido]";
+      }
+    } else if (user.timeAvailable >= 90) {
+      sets += 1; 
+    }
+
+    // 3. Ajuste por Asimetría
+    if (user.hasAsymmetry && (!ex.isBilateral || ex.symmetryScore >= 7)) {
+      note = "⚠️ ASIMETRÍA: Lado débil primero.";
     }
 
     return {'sets': sets, 'reps': reps, 'rpe': rpe, 'rest': rest, 'note': note};
   }
 
-  static String _generateName(int days, String focus, TrainingGoal goal) {
-    String g = goal == TrainingGoal.strength ? "Fuerza" : "Hipertrofia";
-    return "$focus - $days Días ($g)";
-  }
+  // ===========================================================================
+  // 📋 ESTRUCTURAS CIENTÍFICAS
+  // ===========================================================================
 
-  static String _generateExplanation(UserProfile user, String focus, int days) {
-    String intro = "¡Hola ${user.name}! He diseñado este plan de $days días específicamente para ti.\n\n";
-    String goalText = "";
-    if (user.goal == TrainingGoal.hypertrophy) goalText = "El objetivo principal es aumentar tu masa muscular. Para ello, cada serie debe costarte esfuerzo (RPE alto). ";
-    if (user.goal == TrainingGoal.strength) goalText = "Nos enfocaremos en ganar fuerza bruta con descansos largos y pesos altos. ";
+  static List<RoutineDayTemplate> _getScientificSplitStructure(int days, TrainingGoal goal) {
     
-    String timeText = "Dado que tienes ${user.timeAvailable} minutos, he ajustado el volumen para que sea intenso pero breve. ";
-    if (user.timeAvailable <= 30) timeText += "Hemos seleccionado solo los ejercicios más efectivos (compuestos) para maximizar tu tiempo. ";
-    
-    String asymText = "";
-    if (user.hasAsymmetry) asymText = "\n\n⚠️ IMPORTANTE: He detectado asimetría. Verás ejercicios unilaterales (a una mano/pierna). Empieza SIEMPRE por tu lado débil y limita las repeticiones del lado fuerte a las que lograste con el débil.";
-
-    return intro + goalText + timeText + asymText + "\n\n¡Sigue el orden estricto y registra tus pesos!";
-  }
-
-  // --- ESTRUCTURAS (Consistente con RoutineTemplates) ---
-  static List<Map<String, dynamic>> _getScientificSplitStructure(int days) {
-    // Definimos las plantillas base. NOTA: Ponemos muchos slots, 
-    // el algoritmo de arriba cortará los sobrantes según el tiempo.
-    switch (days) {
-      case 1: // Full Body A
-        return [
-          {'name': 'Full Body: Esenciales', 'muscles': ['Todo'], 'slots': ['squat_barbell', 'bench_press_barbell', 'row_barbell', 'ohp_barbell', 'curl_barbell', 'plank']}
-        ];
-      case 2: // Full Body A/B
-        return [
-          {'name': 'Día A: Énfasis Pierna/Empuje', 'muscles': ['Todo'], 'slots': ['squat_barbell', 'bench_press_barbell', 'row_barbell', 'ohp_db', 'skullcrusher_ez', 'plank']},
-          {'name': 'Día B: Énfasis Cadena Posterior', 'muscles': ['Todo'], 'slots': ['deadlift_conv', 'ohp_barbell', 'lat_pulldown', 'lunge_barbell', 'curl_barbell', 'face_pull']}
-        ];
-      case 3: // PPL o Full Body 3 días (Preferimos Full Body para principiantes, PPL para intermedios)
-        return [
-          {'name': 'Día 1: Empuje (Push)', 'muscles': ['Pecho', 'Tríceps'], 'slots': ['bench_press_barbell', 'ohp_barbell', 'db_press_incline', 'lat_raise', 'tricep_pushdown_rope', 'dips_chest']},
-          {'name': 'Día 2: Tracción (Pull)', 'muscles': ['Espalda', 'Bíceps'], 'slots': ['deadlift_conv', 'lat_pulldown', 'row_barbell', 'face_pull', 'curl_barbell', 'curl_hammer']},
-          {'name': 'Día 3: Pierna (Legs)', 'muscles': ['Pierna'], 'slots': ['squat_barbell', 'rdl_barbell', 'leg_press', 'leg_extension', 'leg_curl', 'calf_raise_standing']}
-        ];
-      case 4: // Torso / Pierna
-        return [
-          {'name': 'Torso A (Fuerza)', 'muscles': ['Pecho', 'Espalda'], 'slots': ['bench_press_barbell', 'row_barbell', 'ohp_barbell', 'pullup', 'skullcrusher_ez', 'curl_barbell']},
-          {'name': 'Pierna A (Fuerza)', 'muscles': ['Pierna'], 'slots': ['squat_barbell', 'rdl_barbell', 'leg_press', 'calf_raise_standing', 'hanging_leg_raise', 'plank']},
-          {'name': 'Torso B (Hipertrofia)', 'muscles': ['Pecho', 'Espalda'], 'slots': ['db_press_incline', 'lat_pulldown', 'dips_chest', 'row_seated', 'lat_raise', 'face_pull']},
-          {'name': 'Pierna B (Hipertrofia)', 'muscles': ['Pierna'], 'slots': ['deadlift_sumo', 'bulgarian_split_squat', 'leg_extension', 'leg_curl', 'glute_bridge', 'russian_twist']}
-        ];
-      default: // 5 o 6 Días (PPL Frecuencia 2)
-        return [
-          {'name': 'Empuje A', 'muscles': ['Pecho'], 'slots': ['bench_press_barbell', 'ohp_barbell', 'dips_chest', 'lat_raise', 'tricep_extension_overhead', 'pushup']},
-          {'name': 'Tracción A', 'muscles': ['Espalda'], 'slots': ['deadlift_conv', 'pullup', 'row_barbell', 'curl_barbell', 'face_pull', 'shrug_barbell']},
-          {'name': 'Pierna A', 'muscles': ['Pierna'], 'slots': ['squat_barbell', 'leg_press', 'leg_extension', 'calf_raise_standing', 'lunge_barbell', 'plank']},
-          {'name': 'Empuje B', 'muscles': ['Pecho'], 'slots': ['db_press_incline', 'arnold_press', 'pec_deck', 'lat_raise', 'tricep_pushdown_rope', 'crunch']},
-          {'name': 'Tracción B', 'muscles': ['Espalda'], 'slots': ['lat_pulldown', 'row_db_one_arm', 'pullover_db', 'curl_hammer', 'preacher_curl', 'russian_twist']},
-          {'name': 'Pierna B', 'muscles': ['Pierna'], 'slots': ['rdl_barbell', 'bulgarian_split_squat', 'hip_thrust_barbell', 'leg_curl', 'calf_raise_seated', 'ab_wheel']}
-        ];
+    // Si el objetivo es Pérdida de Grasa, priorizamos Full Body Metabólico siempre que sea posible
+    if (goal == TrainingGoal.weightLoss) {
+       return [
+        RoutineDayTemplate(name: "Full Body Metabólico A", targetMuscles: ['Todo'], patternSlots: ['LEG_KNEE', 'PUSH_HORIZONTAL', 'PULL_VERTICAL', 'CORE', 'CARRY']),
+        RoutineDayTemplate(name: "Full Body Metabólico B", targetMuscles: ['Todo'], patternSlots: ['LEG_HIP', 'PUSH_VERTICAL', 'PULL_HORIZONTAL', 'CORE', 'ISOLATION_ARM']),
+        if (days > 2) RoutineDayTemplate(name: "HIIT + Accesorios", targetMuscles: ['Todo'], patternSlots: ['LEG_KNEE', 'PUSH_HORIZONTAL', 'PULL_VERTICAL', 'CORE', 'CORE']),
+      ];
     }
+
+    // Estructuras Estándar (Fuerza/Hipertrofia)
+    if (days == 3) {
+      return [
+        RoutineDayTemplate(name: "Día 1: Empuje + Cuádriceps", targetMuscles: ['Pecho', 'Hombros', 'Cuádriceps'], patternSlots: ['LEG_KNEE', 'PUSH_HORIZONTAL', 'PUSH_VERTICAL', 'ISOLATION_SHOULDER', 'ISOLATION_ARM', 'CORE']),
+        RoutineDayTemplate(name: "Día 2: Tracción + Femoral", targetMuscles: ['Espalda', 'Isquios', 'Bíceps'], patternSlots: ['LEG_HIP', 'PULL_VERTICAL', 'PULL_HORIZONTAL', 'ISOLATION_ARM', 'CORE', 'CARRY']),
+        RoutineDayTemplate(name: "Día 3: Full Body Explosivo", targetMuscles: ['Todo'], patternSlots: ['LEG_KNEE', 'PUSH_HORIZONTAL', 'PULL_HORIZONTAL', 'LEG_HIP', 'ISOLATION_SHOULDER', 'ISOLATION_ARM']),
+      ];
+    }
+    
+    if (days == 4) {
+      return [
+        RoutineDayTemplate(name: "Lunes: Torso Fuerza", targetMuscles: ['Pecho', 'Espalda'], patternSlots: ['PUSH_HORIZONTAL', 'PULL_VERTICAL', 'PUSH_VERTICAL', 'PULL_HORIZONTAL', 'ISOLATION_ARM']),
+        RoutineDayTemplate(name: "Martes: Pierna Fuerza", targetMuscles: ['Pierna'], patternSlots: ['LEG_KNEE', 'LEG_HIP', 'LEG_KNEE', 'CORE', 'CARRY']),
+        RoutineDayTemplate(name: "Jueves: Torso Hipertrofia", targetMuscles: ['Pecho', 'Espalda'], patternSlots: ['PUSH_HORIZONTAL', 'PULL_HORIZONTAL', 'ISOLATION_SHOULDER', 'ISOLATION_ARM', 'ISOLATION_ARM']),
+        RoutineDayTemplate(name: "Viernes: Pierna Hipertrofia", targetMuscles: ['Pierna'], patternSlots: ['LEG_HIP', 'LEG_KNEE', 'LEG_HIP', 'CORE', 'CORE']),
+      ];
+    }
+
+    if (days == 5) {
+      return [
+        RoutineDayTemplate(name: "Empuje (Push)", targetMuscles: ['Pecho', 'Tríceps'], patternSlots: ['PUSH_HORIZONTAL', 'PUSH_VERTICAL', 'PUSH_HORIZONTAL', 'ISOLATION_SHOULDER', 'ISOLATION_ARM']),
+        RoutineDayTemplate(name: "Tracción (Pull)", targetMuscles: ['Espalda', 'Bíceps'], patternSlots: ['PULL_VERTICAL', 'PULL_HORIZONTAL', 'PULL_VERTICAL', 'ISOLATION_ARM', 'CORE']),
+        RoutineDayTemplate(name: "Pierna (Legs)", targetMuscles: ['Pierna'], patternSlots: ['LEG_KNEE', 'LEG_HIP', 'LEG_KNEE', 'LEG_HIP', 'CORE']),
+        RoutineDayTemplate(name: "Torso Pump", targetMuscles: ['Pecho', 'Espalda'], patternSlots: ['PUSH_HORIZONTAL', 'PULL_VERTICAL', 'ISOLATION_SHOULDER', 'ISOLATION_ARM', 'ISOLATION_ARM']),
+        RoutineDayTemplate(name: "Pierna + Brazos", targetMuscles: ['Pierna', 'Brazos'], patternSlots: ['LEG_HIP', 'LEG_KNEE', 'ISOLATION_ARM', 'ISOLATION_ARM', 'CORE']),
+      ];
+    }
+
+    // Default
+    return [
+      RoutineDayTemplate(name: "Full Body A", targetMuscles: ['Todo'], patternSlots: ['LEG_KNEE', 'PUSH_HORIZONTAL', 'PULL_VERTICAL', 'LEG_HIP', 'CORE']),
+      if (days >= 2) RoutineDayTemplate(name: "Full Body B", targetMuscles: ['Todo'], patternSlots: ['LEG_HIP', 'PUSH_VERTICAL', 'PULL_HORIZONTAL', 'LEG_KNEE', 'ISOLATION_ARM']),
+    ];
   }
+
+  // --- Utils ---
+  static bool _shouldInjectFocus(String focus, List<String> dayMuscles) {
+    if (focus == 'Cuerpo Completo') return false;
+    if (dayMuscles.contains('Todo')) return true;
+    return dayMuscles.any((m) => m == focus);
+  }
+
+  static bool _isUnilateralCandidate(String pattern) {
+    return ['PUSH_HORIZONTAL', 'PUSH_VERTICAL', 'PULL_HORIZONTAL', 'LEG_KNEE', 'LEG_HIP'].contains(pattern);
+  }
+
+  static String _generateRoutineName(UserProfile user, String focus) {
+    String type = user.location == TrainingLocation.home ? "Home" : "Gym";
+    return "$focus ${user.daysPerWeek}D ($type)";
+  }
+
+  static String _generateSmartDescription(UserProfile user, String focus) {
+    return "Rutina generada algorítmicamente para ${user.name}.\n"
+           "Objetivo: ${user.goalName}.\n"
+           "Tiempo/Sesión: ~${user.timeAvailable} min.\n"
+           "${user.hasAsymmetry ? '⚠️ ASIMETRÍA DETECTADA: Protocolo correctivo activado.' : ''}";
+  }
+}
+
+class RoutineDayTemplate {
+  final String name;
+  final List<String> targetMuscles;
+  final List<String> patternSlots;
+  RoutineDayTemplate({required this.name, required this.targetMuscles, required this.patternSlots});
 }

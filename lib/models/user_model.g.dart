@@ -8,7 +8,7 @@ part of 'user_model.dart';
 
 class UserProfileAdapter extends TypeAdapter<UserProfile> {
   @override
-  final int typeId = 1;
+  final int typeId = 0;
 
   @override
   UserProfile read(BinaryReader reader) {
@@ -17,31 +17,28 @@ class UserProfileAdapter extends TypeAdapter<UserProfile> {
       for (int i = 0; i < numOfFields; i++) reader.readByte(): reader.read(),
     };
     return UserProfile(
-      id: fields[15] as String,
       name: fields[0] as String,
       age: fields[1] as int,
       weight: fields[2] as double,
-      height: fields[3] as double,
-      gender: fields[4] as String,
-      wristCircumference: fields[5] as double,
-      ankleCircumference: fields[6] as double,
-      somatotype: fields[7] as Somatotype,
-      tdee: fields[8] as double,
-      daysPerWeek: fields[9] as int,
-      goal: fields[10] as TrainingGoal,
-      location: fields[11] as TrainingLocation,
-      focusArea: fields[12] as String,
-      birthDate: fields[13] as DateTime?,
-      experience: fields[14] as Experience,
-      timeAvailable: fields[16] == null ? 60 : fields[16] as int,
-      hasAsymmetry: fields[17] == null ? false : fields[17] as bool,
+      goal: fields[3] as TrainingGoal,
+      daysPerWeek: fields[4] as int,
+      timeAvailable: fields[5] as int,
+      location: fields[6] as TrainingLocation,
+      experience: fields[8] as Experience,
+      hasAsymmetry: fields[7] as bool,
+      height: fields[9] as double,
+      gender: fields[10] as String,
+      somatotype: fields[11] as Somatotype,
+      wristCircumference: fields[12] as double,
+      ankleCircumference: fields[13] as double,
+      focusArea: fields[14] as String,
     );
   }
 
   @override
   void write(BinaryWriter writer, UserProfile obj) {
     writer
-      ..writeByte(18)
+      ..writeByte(15)
       ..writeByte(0)
       ..write(obj.name)
       ..writeByte(1)
@@ -49,35 +46,29 @@ class UserProfileAdapter extends TypeAdapter<UserProfile> {
       ..writeByte(2)
       ..write(obj.weight)
       ..writeByte(3)
-      ..write(obj.height)
-      ..writeByte(4)
-      ..write(obj.gender)
-      ..writeByte(5)
-      ..write(obj.wristCircumference)
-      ..writeByte(6)
-      ..write(obj.ankleCircumference)
-      ..writeByte(7)
-      ..write(obj.somatotype)
-      ..writeByte(8)
-      ..write(obj.tdee)
-      ..writeByte(9)
-      ..write(obj.daysPerWeek)
-      ..writeByte(10)
       ..write(obj.goal)
-      ..writeByte(11)
-      ..write(obj.location)
-      ..writeByte(12)
-      ..write(obj.focusArea)
-      ..writeByte(13)
-      ..write(obj.birthDate)
-      ..writeByte(14)
-      ..write(obj.experience)
-      ..writeByte(15)
-      ..write(obj.id)
-      ..writeByte(16)
+      ..writeByte(4)
+      ..write(obj.daysPerWeek)
+      ..writeByte(5)
       ..write(obj.timeAvailable)
-      ..writeByte(17)
-      ..write(obj.hasAsymmetry);
+      ..writeByte(6)
+      ..write(obj.location)
+      ..writeByte(7)
+      ..write(obj.hasAsymmetry)
+      ..writeByte(8)
+      ..write(obj.experience)
+      ..writeByte(9)
+      ..write(obj.height)
+      ..writeByte(10)
+      ..write(obj.gender)
+      ..writeByte(11)
+      ..write(obj.somatotype)
+      ..writeByte(12)
+      ..write(obj.wristCircumference)
+      ..writeByte(13)
+      ..write(obj.ankleCircumference)
+      ..writeByte(14)
+      ..write(obj.focusArea);
   }
 
   @override
@@ -93,7 +84,7 @@ class UserProfileAdapter extends TypeAdapter<UserProfile> {
 
 class TrainingGoalAdapter extends TypeAdapter<TrainingGoal> {
   @override
-  final int typeId = 6;
+  final int typeId = 1;
 
   @override
   TrainingGoal read(BinaryReader reader) {
@@ -103,11 +94,13 @@ class TrainingGoalAdapter extends TypeAdapter<TrainingGoal> {
       case 1:
         return TrainingGoal.strength;
       case 2:
-        return TrainingGoal.weightLoss;
+        return TrainingGoal.health;
       case 3:
-        return TrainingGoal.generalHealth;
-      case 4:
         return TrainingGoal.endurance;
+      case 4:
+        return TrainingGoal.weightLoss;
+      case 5:
+        return TrainingGoal.generalHealth;
       default:
         return TrainingGoal.hypertrophy;
     }
@@ -122,14 +115,17 @@ class TrainingGoalAdapter extends TypeAdapter<TrainingGoal> {
       case TrainingGoal.strength:
         writer.writeByte(1);
         break;
-      case TrainingGoal.weightLoss:
+      case TrainingGoal.health:
         writer.writeByte(2);
         break;
-      case TrainingGoal.generalHealth:
+      case TrainingGoal.endurance:
         writer.writeByte(3);
         break;
-      case TrainingGoal.endurance:
+      case TrainingGoal.weightLoss:
         writer.writeByte(4);
+        break;
+      case TrainingGoal.generalHealth:
+        writer.writeByte(5);
         break;
     }
   }
@@ -147,7 +143,7 @@ class TrainingGoalAdapter extends TypeAdapter<TrainingGoal> {
 
 class TrainingLocationAdapter extends TypeAdapter<TrainingLocation> {
   @override
-  final int typeId = 7;
+  final int typeId = 2;
 
   @override
   TrainingLocation read(BinaryReader reader) {
@@ -186,7 +182,7 @@ class TrainingLocationAdapter extends TypeAdapter<TrainingLocation> {
 
 class ExperienceAdapter extends TypeAdapter<Experience> {
   @override
-  final int typeId = 10;
+  final int typeId = 3;
 
   @override
   Experience read(BinaryReader reader) {
@@ -230,7 +226,7 @@ class ExperienceAdapter extends TypeAdapter<Experience> {
 
 class SomatotypeAdapter extends TypeAdapter<Somatotype> {
   @override
-  final int typeId = 0;
+  final int typeId = 4;
 
   @override
   Somatotype read(BinaryReader reader) {
