@@ -22,7 +22,7 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
   final _ageController = TextEditingController();
   final _weightController = TextEditingController();
   final _heightController = TextEditingController();
-  final _wristController = TextEditingController(); 
+  final _wristController = TextEditingController();
   final _ankleController = TextEditingController();
 
   // Estado
@@ -31,21 +31,21 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
   TrainingLocation _selectedLocation = TrainingLocation.gym;
   Experience _selectedExperience = Experience.beginner;
   int _daysPerWeek = 3;
-  
+
   // Variables Científicas
   int _timeAvailable = 60;
   String _focusArea = 'Cuerpo Completo';
   bool _hasAsymmetry = false;
 
   final List<String> _focusOptions = [
-    'Cuerpo Completo', 
-    'Torso/Pierna', 
-    'Empuje/Tracción/Pierna', 
-    'Glúteos', 
-    'Pectoral', 
-    'Bíceps', 
-    'Hombros', 
-    'Espalda'
+    'Cuerpo Completo',
+    'Torso/Pierna',
+    'Empuje/Tracción/Pierna',
+    'Glúteos',
+    'Pectoral',
+    'Bíceps',
+    'Hombros',
+    'Espalda',
   ];
 
   @override
@@ -86,23 +86,48 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
             height: 120,
             margin: const EdgeInsets.only(bottom: 20),
             child: Image.asset(
-              'assets/logo/app_logo.png.png', 
+              'assets/logo/app_logo.png.png',
               fit: BoxFit.contain,
-              errorBuilder: (c, e, s) => const Icon(Icons.fitness_center, size: 80, color: AppColors.primary),
+              errorBuilder: (c, e, s) => const Icon(
+                Icons.fitness_center,
+                size: 80,
+                color: AppColors.primary,
+              ),
             ),
           ),
-          const Text("Bienvenido a Gym Scientific", style: TextStyle(color: Colors.white, fontSize: 22, fontWeight: FontWeight.bold)),
+          const Text(
+            "Bienvenido a Gym Scientific",
+            style: TextStyle(
+              color: Colors.white,
+              fontSize: 22,
+              fontWeight: FontWeight.bold,
+            ),
+          ),
           const SizedBox(height: 10),
-          const Text("Tu entrenador biomecánico personal", style: TextStyle(color: Colors.white54, fontSize: 14)),
+          const Text(
+            "Tu entrenador biomecánico personal",
+            style: TextStyle(color: Colors.white54, fontSize: 14),
+          ),
           const SizedBox(height: 30),
-          
+
           _buildTextField("Nombre", _nameController),
           const SizedBox(height: 15),
-          Row(children: [
-            Expanded(child: _buildTextField("Edad", _ageController, isNumber: true)),
-            const SizedBox(width: 15),
-            Expanded(child: _buildDropdown("Género", _selectedGender, ['Masculino', 'Femenino'], (val) => setState(() => _selectedGender = val!))),
-          ]),
+          Row(
+            children: [
+              Expanded(
+                child: _buildTextField("Edad", _ageController, isNumber: true),
+              ),
+              const SizedBox(width: 15),
+              Expanded(
+                child: _buildDropdown(
+                  "Género",
+                  _selectedGender,
+                  ['Masculino', 'Femenino'],
+                  (val) => setState(() => _selectedGender = val!),
+                ),
+              ),
+            ],
+          ),
         ],
       ),
     );
@@ -117,24 +142,62 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
         children: [
           const Icon(Icons.accessibility, size: 60, color: AppColors.secondary),
           const SizedBox(height: 20),
-          const Text("Datos Corporales", style: TextStyle(color: Colors.white, fontSize: 24, fontWeight: FontWeight.bold)),
-          const Text("Necesario para calcular tu Somatotipo", style: TextStyle(color: Colors.white54)),
+          const Text(
+            "Datos Corporales",
+            style: TextStyle(
+              color: Colors.white,
+              fontSize: 24,
+              fontWeight: FontWeight.bold,
+            ),
+          ),
+          const Text(
+            "Necesario para calcular tu Somatotipo",
+            style: TextStyle(color: Colors.white54),
+          ),
           const SizedBox(height: 30),
-          
-          Row(children: [
-            Expanded(child: _buildTextField("Peso (kg)", _weightController, isNumber: true)),
-            const SizedBox(width: 15),
-            Expanded(child: _buildTextField("Altura (cm)", _heightController, isNumber: true)),
-          ]),
+
+          Row(
+            children: [
+              Expanded(
+                child: _buildTextField(
+                  "Peso (kg)",
+                  _weightController,
+                  isNumber: true,
+                ),
+              ),
+              const SizedBox(width: 15),
+              Expanded(
+                child: _buildTextField(
+                  "Altura (cm)",
+                  _heightController,
+                  isNumber: true,
+                ),
+              ),
+            ],
+          ),
           const SizedBox(height: 20),
           const Divider(color: Colors.white24),
           const SizedBox(height: 20),
-          
-          Row(children: [
-            Expanded(child: _buildTextField("Muñeca (cm)", _wristController, isNumber: true)),
-            const SizedBox(width: 15),
-            Expanded(child: _buildTextField("Tobillo (cm)", _ankleController, isNumber: true)),
-          ]),
+
+          Row(
+            children: [
+              Expanded(
+                child: _buildTextField(
+                  "Muñeca (cm)",
+                  _wristController,
+                  isNumber: true,
+                ),
+              ),
+              const SizedBox(width: 15),
+              Expanded(
+                child: _buildTextField(
+                  "Tobillo (cm)",
+                  _ankleController,
+                  isNumber: true,
+                ),
+              ),
+            ],
+          ),
           const SizedBox(height: 10),
           const Text(
             "Mide la circunferencia del hueso de la muñeca y el tobillo para determinar tu estructura ósea.",
@@ -153,55 +216,71 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
       child: Column(
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
-          const Text("Objetivos y Lugar", style: TextStyle(color: Colors.white, fontSize: 24, fontWeight: FontWeight.bold)),
+          const Text(
+            "Objetivos y Lugar",
+            style: TextStyle(
+              color: Colors.white,
+              fontSize: 24,
+              fontWeight: FontWeight.bold,
+            ),
+          ),
           const SizedBox(height: 30),
-          
+
           _buildDropdownEnum<TrainingGoal>(
-            "Objetivo Principal", 
-            _selectedGoal, 
-            TrainingGoal.values, 
+            "Objetivo Principal",
+            _selectedGoal,
+            TrainingGoal.values,
             (val) => setState(() => _selectedGoal = val!),
             labelMap: {
               TrainingGoal.hypertrophy: "Ganar Músculo (Hipertrofia)",
               TrainingGoal.strength: "Ganar Fuerza",
+              TrainingGoal.health: "Salud",
               TrainingGoal.weightLoss: "Perder Grasa / Definir",
               TrainingGoal.endurance: "Resistencia",
-              TrainingGoal.generalHealth: "Salud General"
-            }
+              TrainingGoal.generalHealth: "Salud General",
+            },
           ),
-          
+
           const SizedBox(height: 20),
-          
+
           _buildDropdownEnum<Experience>(
-            "Nivel de Experiencia", 
-            _selectedExperience, 
-            Experience.values, 
+            "Nivel de Experiencia",
+            _selectedExperience,
+            Experience.values,
             (val) => setState(() => _selectedExperience = val!),
             labelMap: {
               Experience.beginner: "Principiante (< 1 año)",
               Experience.intermediate: "Intermedio (1-3 años)",
-              Experience.advanced: "Avanzado (> 3 años)"
-            }
+              Experience.advanced: "Avanzado (> 3 años)",
+            },
           ),
 
           const SizedBox(height: 20),
-          
+
           _buildDropdownEnum<TrainingLocation>(
-            "Lugar de Entrenamiento", 
-            _selectedLocation, 
-            TrainingLocation.values, 
+            "Lugar de Entrenamiento",
+            _selectedLocation,
+            TrainingLocation.values,
             (val) => setState(() => _selectedLocation = val!),
             labelMap: {
               TrainingLocation.gym: "Gimnasio Comercial (Equipo Completo)",
-              TrainingLocation.home: "Casa (Mancuernas / Corporal)"
-            }
+              TrainingLocation.home: "Casa (Mancuernas / Corporal)",
+            },
           ),
 
           const SizedBox(height: 30),
-          Text("Frecuencia: $_daysPerWeek días/semana", style: const TextStyle(color: AppColors.primary, fontWeight: FontWeight.bold)),
+          Text(
+            "Frecuencia: $_daysPerWeek días/semana",
+            style: const TextStyle(
+              color: AppColors.primary,
+              fontWeight: FontWeight.bold,
+            ),
+          ),
           Slider(
             value: _daysPerWeek.toDouble(),
-            min: 1, max: 6, divisions: 5,
+            min: 1,
+            max: 6,
+            divisions: 5,
             activeColor: AppColors.primary,
             label: "$_daysPerWeek días",
             onChanged: (val) => setState(() => _daysPerWeek = val.toInt()),
@@ -218,13 +297,29 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
       child: Column(
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
-          const Text("Personalización Avanzada", style: TextStyle(color: Colors.white, fontSize: 24, fontWeight: FontWeight.bold)),
+          const Text(
+            "Personalización Avanzada",
+            style: TextStyle(
+              color: Colors.white,
+              fontSize: 24,
+              fontWeight: FontWeight.bold,
+            ),
+          ),
           const SizedBox(height: 10),
-          const Text("Ajusta el algoritmo a tus necesidades reales", style: TextStyle(color: Colors.white54, fontSize: 14)),
-          
+          const Text(
+            "Ajusta el algoritmo a tus necesidades reales",
+            style: TextStyle(color: Colors.white54, fontSize: 14),
+          ),
+
           const SizedBox(height: 30),
-          
-          const Align(alignment: Alignment.centerLeft, child: Text("Tiempo por Sesión", style: TextStyle(color: AppColors.textPrimary))),
+
+          const Align(
+            alignment: Alignment.centerLeft,
+            child: Text(
+              "Tiempo por Sesión",
+              style: TextStyle(color: AppColors.textPrimary),
+            ),
+          ),
           const SizedBox(height: 10),
           Wrap(
             spacing: 10,
@@ -235,7 +330,9 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
                 selected: isSelected,
                 selectedColor: AppColors.primary,
                 backgroundColor: AppColors.cardColor,
-                labelStyle: TextStyle(color: isSelected ? Colors.black : Colors.white),
+                labelStyle: TextStyle(
+                  color: isSelected ? Colors.black : Colors.white,
+                ),
                 onSelected: (val) => setState(() => _timeAvailable = time),
               );
             }).toList(),
@@ -243,18 +340,34 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
 
           const SizedBox(height: 20),
 
-          _buildDropdown("Enfoque Prioritario", _focusArea, _focusOptions, (val) => setState(() => _focusArea = val!)),
-          if (_focusArea != 'Cuerpo Completo' && _focusArea != 'Torso/Pierna' && _focusArea != 'Empuje/Tracción/Pierna')
-             const Padding(
-               padding: EdgeInsets.only(top: 5),
-               child: Text("ℹ️ Se generará una rutina con énfasis en este grupo.", style: TextStyle(color: Colors.greenAccent, fontSize: 12)),
-             ),
+          _buildDropdown(
+            "Enfoque Prioritario",
+            _focusArea,
+            _focusOptions,
+            (val) => setState(() => _focusArea = val!),
+          ),
+          if (_focusArea != 'Cuerpo Completo' &&
+              _focusArea != 'Torso/Pierna' &&
+              _focusArea != 'Empuje/Tracción/Pierna')
+            const Padding(
+              padding: EdgeInsets.only(top: 5),
+              child: Text(
+                "ℹ️ Se generará una rutina con énfasis en este grupo.",
+                style: TextStyle(color: Colors.greenAccent, fontSize: 12),
+              ),
+            ),
 
           const SizedBox(height: 20),
 
           SwitchListTile(
-            title: const Text("Corrección de Asimetría", style: TextStyle(color: Colors.white)),
-            subtitle: const Text("Priorizar ejercicios unilaterales (ej: para pierna izquierda más débil).", style: TextStyle(color: Colors.white54, fontSize: 11)),
+            title: const Text(
+              "Corrección de Asimetría",
+              style: TextStyle(color: Colors.white),
+            ),
+            subtitle: const Text(
+              "Priorizar ejercicios unilaterales (ej: para pierna izquierda más débil).",
+              style: TextStyle(color: Colors.white54, fontSize: 11),
+            ),
             value: _hasAsymmetry,
             activeColor: AppColors.primary,
             contentPadding: EdgeInsets.zero,
@@ -283,7 +396,7 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
       focusArea: _focusArea,
       hasAsymmetry: _hasAsymmetry,
       // Calculamos somatotipo simple basado en muñeca si es posible, sino mesomorfo
-      somatotype: Somatotype.mesomorph, 
+      somatotype: Somatotype.mesomorph,
     );
 
     // 2. ABRIR CAJA (Asegurarnos que esté abierta)
@@ -295,28 +408,39 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
     await userBox.put('currentUser', user);
 
     // 4. Configurar Hidratación Inicial
-    if (!Hive.isBoxOpen('hydrationBox')) await Hive.openBox<HydrationSettings>('hydrationBox');
+    if (!Hive.isBoxOpen('hydrationBox'))
+      await Hive.openBox<HydrationSettings>('hydrationBox');
     final hydrationBox = Hive.box<HydrationSettings>('hydrationBox');
     if (hydrationBox.isEmpty) {
-      await hydrationBox.put('settings', HydrationSettings(dailyGoalMl: user.weight * 35));
+      await hydrationBox.put(
+        'settings',
+        HydrationSettings(dailyGoalMl: user.weight * 35),
+      );
     }
 
     // 5. GENERAR RUTINA INICIAL
-    await RoutineGeneratorService.generateAndSaveRoutine(user, focusArea: _focusArea);
+    await RoutineGeneratorService.generateAndSaveRoutine(
+      user,
+      focusArea: _focusArea,
+    );
 
     // 6. Navegar al Home
     if (mounted) {
       // Usamos pushAndRemoveUntil para borrar el historial y evitar volver atrás al onboarding
       Navigator.pushAndRemoveUntil(
-        context, 
+        context,
         MaterialPageRoute(builder: (_) => const HomeScreen()),
-        (route) => false // Predicado falso para borrar todo
+        (route) => false, // Predicado falso para borrar todo
       );
     }
   }
 
   // WIDGETS AUXILIARES
-  Widget _buildTextField(String label, TextEditingController controller, {bool isNumber = false}) {
+  Widget _buildTextField(
+    String label,
+    TextEditingController controller, {
+    bool isNumber = false,
+  }) {
     return TextField(
       controller: controller,
       style: const TextStyle(color: Colors.white),
@@ -324,41 +448,71 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
       decoration: InputDecoration(
         labelText: label,
         labelStyle: const TextStyle(color: Colors.white54),
-        enabledBorder: const OutlineInputBorder(borderSide: BorderSide(color: Colors.white24)),
-        focusedBorder: const OutlineInputBorder(borderSide: BorderSide(color: AppColors.primary)),
+        enabledBorder: const OutlineInputBorder(
+          borderSide: BorderSide(color: Colors.white24),
+        ),
+        focusedBorder: const OutlineInputBorder(
+          borderSide: BorderSide(color: AppColors.primary),
+        ),
       ),
     );
   }
 
-  Widget _buildDropdown(String label, String value, List<String> items, Function(String?) onChanged) {
+  Widget _buildDropdown(
+    String label,
+    String value,
+    List<String> items,
+    Function(String?) onChanged,
+  ) {
     return DropdownButtonFormField<String>(
       value: value,
-      items: items.map((e) => DropdownMenuItem(value: e, child: Text(e))).toList(),
+      items: items
+          .map((e) => DropdownMenuItem(value: e, child: Text(e)))
+          .toList(),
       onChanged: onChanged,
       dropdownColor: AppColors.surface,
       style: const TextStyle(color: Colors.white),
       decoration: InputDecoration(
         labelText: label,
         labelStyle: const TextStyle(color: Colors.white54),
-        enabledBorder: const OutlineInputBorder(borderSide: BorderSide(color: Colors.white24)),
+        enabledBorder: const OutlineInputBorder(
+          borderSide: BorderSide(color: Colors.white24),
+        ),
       ),
     );
   }
 
-  Widget _buildDropdownEnum<T>(String label, T value, List<T> values, Function(T?) onChanged, {Map<T, String>? labelMap}) {
+  Widget _buildDropdownEnum<T>(
+    String label,
+    T value,
+    List<T> values,
+    Function(T?) onChanged, {
+    Map<T, String>? labelMap,
+  }) {
     return DropdownButtonFormField<T>(
       value: value,
-      items: values.map((e) => DropdownMenuItem(
-        value: e, 
-        child: Text(labelMap != null ? labelMap[e]! : e.toString().split('.').last.toUpperCase(), overflow: TextOverflow.ellipsis)
-      )).toList(),
+      items: values
+          .map(
+            (e) => DropdownMenuItem(
+              value: e,
+              child: Text(
+                labelMap != null
+                    ? labelMap[e]!
+                    : e.toString().split('.').last.toUpperCase(),
+                overflow: TextOverflow.ellipsis,
+              ),
+            ),
+          )
+          .toList(),
       onChanged: onChanged,
       dropdownColor: AppColors.surface,
       style: const TextStyle(color: Colors.white),
       decoration: InputDecoration(
         labelText: label,
         labelStyle: const TextStyle(color: Colors.white54),
-        enabledBorder: const OutlineInputBorder(borderSide: BorderSide(color: Colors.white24)),
+        enabledBorder: const OutlineInputBorder(
+          borderSide: BorderSide(color: Colors.white24),
+        ),
       ),
     );
   }
@@ -371,8 +525,14 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
         children: [
           if (_currentPage > 0)
             TextButton(
-              onPressed: () => _pageController.previousPage(duration: const Duration(milliseconds: 300), curve: Curves.ease),
-              child: const Text("Atrás", style: TextStyle(color: Colors.white54)),
+              onPressed: () => _pageController.previousPage(
+                duration: const Duration(milliseconds: 300),
+                curve: Curves.ease,
+              ),
+              child: const Text(
+                "Atrás",
+                style: TextStyle(color: Colors.white54),
+              ),
             )
           else
             const SizedBox(),
@@ -383,12 +543,21 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
             ),
             onPressed: () {
               if (_currentPage < 3) {
-                _pageController.nextPage(duration: const Duration(milliseconds: 300), curve: Curves.ease);
+                _pageController.nextPage(
+                  duration: const Duration(milliseconds: 300),
+                  curve: Curves.ease,
+                );
               } else {
                 _finishOnboarding();
               }
             },
-            child: Text(_currentPage < 3 ? "Siguiente" : "CREAR PLAN", style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
+            child: Text(
+              _currentPage < 3 ? "Siguiente" : "CREAR PLAN",
+              style: const TextStyle(
+                color: Colors.white,
+                fontWeight: FontWeight.bold,
+              ),
+            ),
           ),
         ],
       ),

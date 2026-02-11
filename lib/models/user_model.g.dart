@@ -24,21 +24,22 @@ class UserProfileAdapter extends TypeAdapter<UserProfile> {
       daysPerWeek: fields[4] as int,
       timeAvailable: fields[5] as int,
       location: fields[6] as TrainingLocation,
-      experience: fields[8] as Experience,
       hasAsymmetry: fields[7] as bool,
+      experience: fields[8] as Experience,
       height: fields[9] as double,
       gender: fields[10] as String,
       somatotype: fields[11] as Somatotype,
       wristCircumference: fields[12] as double,
       ankleCircumference: fields[13] as double,
       focusArea: fields[14] as String,
+      tdee: fields[15] as double,
     );
   }
 
   @override
   void write(BinaryWriter writer, UserProfile obj) {
     writer
-      ..writeByte(15)
+      ..writeByte(16)
       ..writeByte(0)
       ..write(obj.name)
       ..writeByte(1)
@@ -68,7 +69,9 @@ class UserProfileAdapter extends TypeAdapter<UserProfile> {
       ..writeByte(13)
       ..write(obj.ankleCircumference)
       ..writeByte(14)
-      ..write(obj.focusArea);
+      ..write(obj.focusArea)
+      ..writeByte(15)
+      ..write(obj.tdee);
   }
 
   @override
@@ -143,7 +146,7 @@ class TrainingGoalAdapter extends TypeAdapter<TrainingGoal> {
 
 class TrainingLocationAdapter extends TypeAdapter<TrainingLocation> {
   @override
-  final int typeId = 2;
+  final int typeId = 20;
 
   @override
   TrainingLocation read(BinaryReader reader) {
@@ -182,7 +185,7 @@ class TrainingLocationAdapter extends TypeAdapter<TrainingLocation> {
 
 class ExperienceAdapter extends TypeAdapter<Experience> {
   @override
-  final int typeId = 3;
+  final int typeId = 21;
 
   @override
   Experience read(BinaryReader reader) {
@@ -226,7 +229,7 @@ class ExperienceAdapter extends TypeAdapter<Experience> {
 
 class SomatotypeAdapter extends TypeAdapter<Somatotype> {
   @override
-  final int typeId = 4;
+  final int typeId = 22;
 
   @override
   Somatotype read(BinaryReader reader) {

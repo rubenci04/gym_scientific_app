@@ -53,7 +53,9 @@ class RoutineTemplatesScreen extends StatelessWidget {
 
     if (user == null) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Error: No se encontró perfil de usuario')),
+        const SnackBar(
+          content: Text('Error: No se encontró perfil de usuario'),
+        ),
       );
       return;
     }
@@ -71,7 +73,10 @@ class RoutineTemplatesScreen extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    // Usamos las plantillas estáticas definidas en RoutineTemplates
     final templates = RoutineTemplates.templates;
+
+    // Verificamos si hay usuario para mostrar el generador inteligente
     final userBox = Hive.box<UserProfile>('userBox');
     final user = userBox.get('currentUser');
 
@@ -84,7 +89,7 @@ class RoutineTemplatesScreen extends StatelessWidget {
       body: ListView(
         padding: const EdgeInsets.all(16),
         children: [
-          // Smart Template Card
+          // Tarjeta del Generador Inteligente (Solo si hay usuario)
           if (user != null)
             Card(
               color: AppColors.primary.withOpacity(0.2),
@@ -144,6 +149,8 @@ class RoutineTemplatesScreen extends StatelessWidget {
               ),
             ),
           const SizedBox(height: 20),
+
+          // Separador visual
           const Text(
             "Plantillas Estándar",
             style: TextStyle(
@@ -154,7 +161,8 @@ class RoutineTemplatesScreen extends StatelessWidget {
             ),
           ),
           const SizedBox(height: 10),
-          // Standard Templates
+
+          // Lista de Plantillas Estándar
           ...templates.map((template) {
             return Card(
               color: AppColors.surface,
@@ -216,14 +224,15 @@ class RoutineTemplatesScreen extends StatelessWidget {
   }
 }
 
-// Widget privado para configurar la generación
+// Widget privado para el BottomSheet de configuración
 class _SmartRoutineConfigSheet extends StatefulWidget {
   final UserProfile user;
 
   const _SmartRoutineConfigSheet({required this.user});
 
   @override
-  State<_SmartRoutineConfigSheet> createState() => _SmartRoutineConfigSheetState();
+  State<_SmartRoutineConfigSheet> createState() =>
+      _SmartRoutineConfigSheetState();
 }
 
 class _SmartRoutineConfigSheetState extends State<_SmartRoutineConfigSheet> {
@@ -235,7 +244,7 @@ class _SmartRoutineConfigSheetState extends State<_SmartRoutineConfigSheet> {
   @override
   void initState() {
     super.initState();
-    // Inicializamos con los valores del usuario
+    // Inicializamos con los valores actuales del usuario
     _days = widget.user.daysPerWeek;
     _goal = widget.user.goal;
     _location = widget.user.location;
@@ -245,7 +254,9 @@ class _SmartRoutineConfigSheetState extends State<_SmartRoutineConfigSheet> {
     setState(() => _isGenerating = true);
 
     try {
-      // Creamos un usuario temporal con las preferencias seleccionadas
+      // AQUÍ ESTABA EL ERROR ANTES:
+      // Creamos un usuario temporal para pasar al generador.
+      // Ahora incluimos TODOS los campos obligatorios.
       final tempUser = UserProfile(
         name: widget.user.name,
         age: widget.user.age,
@@ -256,14 +267,15 @@ class _SmartRoutineConfigSheetState extends State<_SmartRoutineConfigSheet> {
         goal: _goal,
         location: _location,
         somatotype: widget.user.somatotype,
-        // CORREGIDO: Pasamos los campos obligatorios que faltaban
-        timeAvailable: widget.user.timeAvailable, 
+        hasAsymmetry: widget.user.hasAsymmetry,
+        timeAvailable: widget.user.timeAvailable,
         experience: widget.user.experience,
       );
 
+      // Llamamos al servicio generador
       var routine = await RoutineGeneratorService.generateRoutine(tempUser);
-      
-      // La marcamos como activa
+
+      // La marcamos como activa y con ID nuevo
       routine = WeeklyRoutine(
         id: routine.id,
         name: routine.name,
@@ -273,7 +285,8 @@ class _SmartRoutineConfigSheetState extends State<_SmartRoutineConfigSheet> {
       );
 
       if (mounted) {
-        Navigator.pop(context); // Cierra el modal
+        Navigator.pop(context); // Cerramos el modal
+        // Vamos al editor para que el usuario la revise
         Navigator.push(
           context,
           MaterialPageRoute(
@@ -284,27 +297,42 @@ class _SmartRoutineConfigSheetState extends State<_SmartRoutineConfigSheet> {
     } catch (e) {
       if (mounted) {
         setState(() => _isGenerating = false);
-        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Error: $e')));
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text('Error al generar: $e')));
       }
     }
   }
 
   @override
   Widget build(BuildContext context) {
+    // Usamos MediaQuery para evitar que el teclado tape el contenido si fuera necesario
     return Padding(
-      padding: EdgeInsets.fromLTRB(20, 20, 20, MediaQuery.of(context).viewInsets.bottom + 20),
+      padding: EdgeInsets.fromLTRB(
+        20,
+        20,
+        20,
+        MediaQuery.of(context).viewInsets.bottom + 20,
+      ),
       child: Column(
         mainAxisSize: MainAxisSize.min,
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           const Text(
             "Configurar Nueva Rutina",
-            style: TextStyle(color: Colors.white, fontSize: 20, fontWeight: FontWeight.bold),
+            style: TextStyle(
+              color: Colors.white,
+              fontSize: 20,
+              fontWeight: FontWeight.bold,
+            ),
           ),
           const SizedBox(height: 20),
-          
+
           // Selector de Días
-          const Text("Días por semana", style: TextStyle(color: AppColors.textSecondary)),
+          const Text(
+            "Días por semana",
+            style: TextStyle(color: AppColors.textSecondary),
+          ),
           const SizedBox(height: 10),
           SingleChildScrollView(
             scrollDirection: Axis.horizontal,
@@ -320,38 +348,54 @@ class _SmartRoutineConfigSheetState extends State<_SmartRoutineConfigSheet> {
                     onSelected: (v) => setState(() => _days = dayNum),
                     selectedColor: AppColors.primary,
                     backgroundColor: AppColors.surface,
-                    labelStyle: TextStyle(color: isSelected ? Colors.white : Colors.grey),
+                    labelStyle: TextStyle(
+                      color: isSelected ? Colors.white : Colors.grey,
+                    ),
                   ),
                 );
               }),
             ),
           ),
-          
+
           const SizedBox(height: 20),
 
           // Selector de Objetivo
-          const Text("Objetivo Principal", style: TextStyle(color: AppColors.textSecondary)),
+          const Text(
+            "Objetivo Principal",
+            style: TextStyle(color: AppColors.textSecondary),
+          ),
           const SizedBox(height: 10),
           Wrap(
             spacing: 8,
             children: TrainingGoal.values.map((g) {
               final isSelected = _goal == g;
               String label = "";
-              switch(g) {
-                case TrainingGoal.hypertrophy: label = "Hipertrofia (Masa)"; break;
-                case TrainingGoal.strength: label = "Fuerza"; break;
-                case TrainingGoal.weightLoss: label = "Perder Grasa"; break;
-                case TrainingGoal.endurance: label = "Resistencia"; break;
-                default: label = "Salud General";
+              switch (g) {
+                case TrainingGoal.hypertrophy:
+                  label = "Hipertrofia";
+                  break;
+                case TrainingGoal.strength:
+                  label = "Fuerza";
+                  break;
+                case TrainingGoal.weightLoss:
+                  label = "Quema Grasa";
+                  break; // Nuevo objetivo
+                case TrainingGoal.endurance:
+                  label = "Resistencia";
+                  break;
+                default:
+                  label = "Salud";
               }
-              
+
               return ChoiceChip(
                 label: Text(label),
                 selected: isSelected,
                 onSelected: (v) => setState(() => _goal = g),
                 selectedColor: AppColors.primary,
                 backgroundColor: AppColors.surface,
-                labelStyle: TextStyle(color: isSelected ? Colors.white : Colors.grey),
+                labelStyle: TextStyle(
+                  color: isSelected ? Colors.white : Colors.grey,
+                ),
               );
             }).toList(),
           ),
@@ -359,23 +403,26 @@ class _SmartRoutineConfigSheetState extends State<_SmartRoutineConfigSheet> {
           const SizedBox(height: 20),
 
           // Selector de Lugar
-          const Text("Lugar de Entrenamiento", style: TextStyle(color: AppColors.textSecondary)),
+          const Text(
+            "Lugar de Entrenamiento",
+            style: TextStyle(color: AppColors.textSecondary),
+          ),
           const SizedBox(height: 10),
           Row(
             children: [
               Expanded(
                 child: _buildLocationOption(
-                  "Gimnasio", 
-                  TrainingLocation.gym, 
-                  Icons.fitness_center
+                  "Gimnasio",
+                  TrainingLocation.gym,
+                  Icons.fitness_center,
                 ),
               ),
               const SizedBox(width: 10),
               Expanded(
                 child: _buildLocationOption(
-                  "Casa", 
-                  TrainingLocation.home, 
-                  Icons.home
+                  "Casa",
+                  TrainingLocation.home,
+                  Icons.home,
                 ),
               ),
             ],
@@ -383,19 +430,35 @@ class _SmartRoutineConfigSheetState extends State<_SmartRoutineConfigSheet> {
 
           const SizedBox(height: 30),
 
-          // Botón Generar
+          // Botón de Acción
           SizedBox(
             width: double.infinity,
             child: ElevatedButton(
               style: ElevatedButton.styleFrom(
                 backgroundColor: AppColors.primary,
                 padding: const EdgeInsets.symmetric(vertical: 15),
-                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(10),
+                ),
               ),
               onPressed: _isGenerating ? null : _generate,
-              child: _isGenerating 
-                ? const SizedBox(height: 20, width: 20, child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2))
-                : const Text("GENERAR RUTINA", style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 16)),
+              child: _isGenerating
+                  ? const SizedBox(
+                      height: 20,
+                      width: 20,
+                      child: CircularProgressIndicator(
+                        color: Colors.white,
+                        strokeWidth: 2,
+                      ),
+                    )
+                  : const Text(
+                      "GENERAR RUTINA AHORA",
+                      style: TextStyle(
+                        color: Colors.white,
+                        fontWeight: FontWeight.bold,
+                        fontSize: 16,
+                      ),
+                    ),
             ),
           ),
         ],
@@ -403,7 +466,11 @@ class _SmartRoutineConfigSheetState extends State<_SmartRoutineConfigSheet> {
     );
   }
 
-  Widget _buildLocationOption(String label, TrainingLocation loc, IconData icon) {
+  Widget _buildLocationOption(
+    String label,
+    TrainingLocation loc,
+    IconData icon,
+  ) {
     final isSelected = _location == loc;
     return InkWell(
       onTap: () => setState(() => _location = loc),
@@ -411,15 +478,25 @@ class _SmartRoutineConfigSheetState extends State<_SmartRoutineConfigSheet> {
       child: Container(
         padding: const EdgeInsets.symmetric(vertical: 12),
         decoration: BoxDecoration(
-          color: isSelected ? AppColors.primary.withOpacity(0.2) : AppColors.surface,
-          border: Border.all(color: isSelected ? AppColors.primary : Colors.white24),
+          color: isSelected
+              ? AppColors.primary.withOpacity(0.2)
+              : AppColors.surface,
+          border: Border.all(
+            color: isSelected ? AppColors.primary : Colors.white24,
+          ),
           borderRadius: BorderRadius.circular(10),
         ),
         child: Column(
           children: [
             Icon(icon, color: isSelected ? AppColors.primary : Colors.grey),
             const SizedBox(height: 5),
-            Text(label, style: TextStyle(color: isSelected ? Colors.white : Colors.grey, fontWeight: FontWeight.bold)),
+            Text(
+              label,
+              style: TextStyle(
+                color: isSelected ? Colors.white : Colors.grey,
+                fontWeight: FontWeight.bold,
+              ),
+            ),
           ],
         ),
       ),

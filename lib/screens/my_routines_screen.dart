@@ -41,7 +41,7 @@ class _MyRoutinesScreenState extends State<MyRoutinesScreen> {
   Future<void> _activateRoutine(WeeklyRoutine routine) async {
     await RoutineRepository.setActiveRoutine(routine.id);
     await _loadRoutines();
-    
+
     if (mounted) {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
@@ -59,11 +59,17 @@ class _MyRoutinesScreenState extends State<MyRoutinesScreen> {
       builder: (context) => AlertDialog(
         backgroundColor: theme.cardColor,
         title: Text('Eliminar Rutina', style: theme.textTheme.titleLarge),
-        content: Text('¿Estás seguro de eliminar "${routine.name}"?', style: theme.textTheme.bodyMedium),
+        content: Text(
+          '¿Estás seguro de eliminar "${routine.name}"?',
+          style: theme.textTheme.bodyMedium,
+        ),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context, false),
-            child: Text('Cancelar', style: TextStyle(color: theme.textTheme.bodyMedium?.color)),
+            child: Text(
+              'Cancelar',
+              style: TextStyle(color: theme.textTheme.bodyMedium?.color),
+            ),
           ),
           TextButton(
             onPressed: () => Navigator.pop(context, true),
@@ -85,7 +91,7 @@ class _MyRoutinesScreenState extends State<MyRoutinesScreen> {
       name: 'Nueva Rutina',
       days: [],
       createdAt: DateTime.now(),
-      isActive: false, 
+      isActive: false,
     );
 
     Navigator.push(
@@ -97,40 +103,41 @@ class _MyRoutinesScreenState extends State<MyRoutinesScreen> {
   }
 
   // --- GENERADOR IA CORREGIDO Y EXPANDIDO ---
-  void _createNewSmartRoutine(BuildContext context) async {
+  void _createNewSmartRoutine() async {
     final userBox = Hive.box<UserProfile>('userBox');
     final user = userBox.get('currentUser');
 
     if (user == null) {
-      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text("Error: No hay usuario activo.")));
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text("Error: No hay usuario activo.")),
+      );
       return;
     }
 
-    // Mapa: "Texto Visible" -> "Valor Interno para el Algoritmo"
     final Map<String, String> routineOptions = {
-      // Estructuras Base
       'Full Body (Cuerpo Completo)': 'Cuerpo Completo',
       'Torso / Pierna (4 días)': 'Torso/Pierna',
       'PPL (Empuje/Tracción/Pierna)': 'Empuje/Tracción/Pierna',
       'Rutina Equilibrada (General)': 'Equilibrado',
-      
-      // Especializaciones (Foco)
-      // Nota: El valor interno debe coincidir con un muscleGroup válido o ser captado por el generador
       'Especialización: Pecho': 'Pecho',
       'Especialización: Espalda': 'Espalda',
       'Especialización: Hombros': 'Hombros',
-      'Especialización: Brazos': 'Bíceps', // El generador buscará ejercicios de brazos
+      'Especialización: Brazos': 'Bíceps',
       'Especialización: Glúteos': 'Glúteos',
       'Especialización: Piernas': 'Cuádriceps',
     };
 
+    debugPrint("Showing selection dialog...");
     String? selectedFocus = await showDialog<String>(
       context: context,
       builder: (ctx) {
         final theme = Theme.of(ctx);
         return AlertDialog(
           backgroundColor: theme.cardColor,
-          title: Text("Elige el tipo de rutina", style: theme.textTheme.titleLarge),
+          title: Text(
+            "Elige el tipo de rutina",
+            style: theme.textTheme.titleLarge,
+          ),
           content: SizedBox(
             width: double.maxFinite,
             child: ListView(
@@ -139,32 +146,52 @@ class _MyRoutinesScreenState extends State<MyRoutinesScreen> {
                 final isSpecialization = entry.key.contains("Especialización");
                 return ListTile(
                   title: Text(
-                    entry.key, 
+                    entry.key,
                     style: TextStyle(
-                      fontWeight: isSpecialization ? FontWeight.normal : FontWeight.bold,
-                      color: isSpecialization ? theme.colorScheme.secondary : theme.textTheme.bodyLarge?.color
-                    )
+                      fontWeight: isSpecialization
+                          ? FontWeight.normal
+                          : FontWeight.bold,
+                      color: isSpecialization
+                          ? theme.colorScheme.secondary
+                          : theme.textTheme.bodyLarge?.color,
+                    ),
                   ),
                   leading: Icon(
-                    isSpecialization ? Icons.auto_fix_high : Icons.fitness_center,
-                    color: isSpecialization ? AppColors.secondary : AppColors.primary
+                    isSpecialization
+                        ? Icons.auto_fix_high
+                        : Icons.fitness_center,
+                    color: isSpecialization
+                        ? AppColors.secondary
+                        : AppColors.primary,
                   ),
-                  onTap: () => Navigator.pop(ctx, entry.value), // Devuelve el VALOR INTERNO
+                  onTap: () {
+                    debugPrint("Selected: ${entry.value}");
+                    Navigator.pop(ctx, entry.value);
+                  },
                 );
               }).toList(),
             ),
           ),
           actions: [
-            TextButton(onPressed: () => Navigator.pop(ctx), child: const Text("Cancelar")),
+            TextButton(
+              onPressed: () {
+                debugPrint("Cancelled dialog");
+                Navigator.pop(ctx);
+              },
+              child: const Text("Cancelar"),
+            ),
           ],
         );
       },
     );
 
+    debugPrint("Selection result: $selectedFocus");
+
     if (selectedFocus != null) {
       if (!mounted) return;
-      
+
       // Mostrar indicador de carga
+      debugPrint("Showing loading indicator...");
       showDialog(
         context: context,
         barrierDismissible: false,
@@ -172,26 +199,39 @@ class _MyRoutinesScreenState extends State<MyRoutinesScreen> {
       );
 
       try {
+        debugPrint("Calling RoutineGeneratorService...");
         // Llamar al servicio
-        await RoutineGeneratorService.generateAndSaveRoutine(user, focusArea: selectedFocus);
-        
+        await RoutineGeneratorService.generateAndSaveRoutine(
+          user,
+          focusArea: selectedFocus,
+        );
+        debugPrint("Routine generated successfully.");
+
         // Cerrar indicador de carga
-        if (mounted) Navigator.pop(context);
-        
+        if (mounted) {
+          Navigator.of(context, rootNavigator: true).pop(); // Force pop
+        }
+
         // Recargar lista y avisar
         await _loadRoutines();
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text("¡Rutina generada con éxito!"), backgroundColor: Colors.green)
+            const SnackBar(
+              content: Text("¡Rutina generada con éxito!"),
+              backgroundColor: Colors.green,
+            ),
           );
         }
-      } catch (e) {
+      } catch (e, stack) {
+        debugPrint("Error generating routine: $e");
+        debugPrint(stack.toString());
         // Cerrar indicador de carga si falla
-        if (mounted) Navigator.pop(context);
-        debugPrint("Error generando rutina: $e");
+        if (mounted) {
+          Navigator.of(context, rootNavigator: true).pop();
+        }
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(content: Text("Error: $e"), backgroundColor: Colors.red)
+            SnackBar(content: Text("Error: $e"), backgroundColor: Colors.red),
           );
         }
       }
@@ -215,14 +255,16 @@ class _MyRoutinesScreenState extends State<MyRoutinesScreen> {
           IconButton(
             icon: Icon(
               themeProvider.isDarkMode ? Icons.light_mode : Icons.dark_mode,
-              color: themeProvider.isDarkMode ? Colors.orangeAccent : Colors.indigo,
+              color: themeProvider.isDarkMode
+                  ? Colors.orangeAccent
+                  : Colors.indigo,
             ),
             onPressed: () => themeProvider.toggleTheme(),
           ),
           const SizedBox(width: 8),
         ],
       ),
-      
+
       floatingActionButton: FloatingActionButton.extended(
         onPressed: () {
           showModalBottomSheet(
@@ -231,26 +273,49 @@ class _MyRoutinesScreenState extends State<MyRoutinesScreen> {
             shape: const RoundedRectangleBorder(
               borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
             ),
-            builder: (context) => SafeArea(
+            builder: (sheetContext) => SafeArea(
               child: Padding(
                 padding: const EdgeInsets.all(20),
                 child: Column(
                   mainAxisSize: MainAxisSize.min,
                   children: [
-                    Text("Crear Nueva Rutina", style: theme.textTheme.titleLarge?.copyWith(fontWeight: FontWeight.bold)),
+                    Text(
+                      "Crear Nueva Rutina",
+                      style: theme.textTheme.titleLarge?.copyWith(
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
                     const SizedBox(height: 20),
                     ListTile(
-                      leading: const Icon(Icons.auto_awesome, color: AppColors.secondary),
-                      title: Text("Generar con IA (Recomendado)", style: theme.textTheme.bodyLarge?.copyWith(fontWeight: FontWeight.bold)),
-                      subtitle: Text("Personalizada según tus objetivos.", style: TextStyle(color: theme.textTheme.bodySmall?.color)),
+                      leading: const Icon(
+                        Icons.auto_awesome,
+                        color: AppColors.secondary,
+                      ),
+                      title: Text(
+                        "Generar con IA (Recomendado)",
+                        style: theme.textTheme.bodyLarge?.copyWith(
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                      subtitle: Text(
+                        "Personalizada según tus objetivos.",
+                        style: TextStyle(
+                          color: theme.textTheme.bodySmall?.color,
+                        ),
+                      ),
                       onTap: () {
-                        Navigator.pop(context);
-                        _createNewSmartRoutine(context);
+                        Navigator.pop(
+                          sheetContext,
+                        ); // Cerramos el sheet usando su propio context
+                        _createNewSmartRoutine(); // Llamamos sin argumentos (usará context del state)
                       },
                     ),
                     ListTile(
                       leading: const Icon(Icons.edit, color: AppColors.primary),
-                      title: Text("Crear desde cero", style: theme.textTheme.bodyLarge),
+                      title: Text(
+                        "Crear desde cero",
+                        style: theme.textTheme.bodyLarge,
+                      ),
                       onTap: () {
                         Navigator.pop(context);
                         _createNewRoutine();
@@ -258,12 +323,18 @@ class _MyRoutinesScreenState extends State<MyRoutinesScreen> {
                     ),
                     ListTile(
                       leading: const Icon(Icons.copy, color: AppColors.primary),
-                      title: Text("Usar plantilla clásica", style: theme.textTheme.bodyLarge),
+                      title: Text(
+                        "Usar plantilla clásica",
+                        style: theme.textTheme.bodyLarge,
+                      ),
                       onTap: () {
                         Navigator.pop(context);
                         Navigator.push(
                           context,
-                          MaterialPageRoute(builder: (context) => const RoutineTemplatesScreen()),
+                          MaterialPageRoute(
+                            builder: (context) =>
+                                const RoutineTemplatesScreen(),
+                          ),
                         ).then((_) => _loadRoutines());
                       },
                     ),
@@ -275,7 +346,10 @@ class _MyRoutinesScreenState extends State<MyRoutinesScreen> {
         },
         backgroundColor: AppColors.primary,
         icon: const Icon(Icons.add, color: Colors.white),
-        label: const Text("NUEVA RUTINA", style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
+        label: const Text(
+          "NUEVA RUTINA",
+          style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
+        ),
       ),
 
       body: _isLoading
@@ -301,16 +375,25 @@ class _MyRoutinesScreenState extends State<MyRoutinesScreen> {
         children: [
           Icon(Icons.fitness_center, size: 80, color: theme.disabledColor),
           const SizedBox(height: 16),
-          Text('No tienes rutinas guardadas', style: TextStyle(color: theme.textTheme.bodyMedium?.color, fontSize: 18)),
+          Text(
+            'No tienes rutinas guardadas',
+            style: TextStyle(
+              color: theme.textTheme.bodyMedium?.color,
+              fontSize: 18,
+            ),
+          ),
           const SizedBox(height: 15),
           ElevatedButton.icon(
             style: ElevatedButton.styleFrom(
               backgroundColor: AppColors.primary,
-              padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12)
+              padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
             ),
-            onPressed: () => _createNewSmartRoutine(context),
+            onPressed: () => _createNewSmartRoutine(),
             icon: const Icon(Icons.auto_awesome, color: Colors.white),
-            label: const Text('Generar Rutina Inteligente', style: TextStyle(color: Colors.white)),
+            label: const Text(
+              'Generar Rutina Inteligente',
+              style: TextStyle(color: Colors.white),
+            ),
           ),
         ],
       ),
@@ -327,14 +410,18 @@ class _MyRoutinesScreenState extends State<MyRoutinesScreen> {
       margin: const EdgeInsets.only(bottom: 16),
       shape: RoundedRectangleBorder(
         borderRadius: BorderRadius.circular(12),
-        side: routine.isActive ? const BorderSide(color: Colors.green, width: 2) : BorderSide.none,
+        side: routine.isActive
+            ? const BorderSide(color: Colors.green, width: 2)
+            : BorderSide.none,
       ),
       child: InkWell(
         borderRadius: BorderRadius.circular(12),
         onTap: () {
           Navigator.push(
             context,
-            MaterialPageRoute(builder: (context) => RoutineDetailScreen(routine: routine)),
+            MaterialPageRoute(
+              builder: (context) => RoutineDetailScreen(routine: routine),
+            ),
           ).then((_) => _loadRoutines());
         },
         child: Padding(
@@ -349,14 +436,22 @@ class _MyRoutinesScreenState extends State<MyRoutinesScreen> {
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        Text(routine.name, style: theme.textTheme.titleLarge?.copyWith(fontWeight: FontWeight.bold)),
+                        Text(
+                          routine.name,
+                          style: theme.textTheme.titleLarge?.copyWith(
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
                         if (routine.description.isNotEmpty)
                           Text(
                             routine.description.split('\n').first,
-                            style: TextStyle(color: theme.textTheme.bodySmall?.color, fontSize: 12),
+                            style: TextStyle(
+                              color: theme.textTheme.bodySmall?.color,
+                              fontSize: 12,
+                            ),
                             maxLines: 1,
                             overflow: TextOverflow.ellipsis,
-                          )
+                          ),
                       ],
                     ),
                   ),
@@ -366,14 +461,39 @@ class _MyRoutinesScreenState extends State<MyRoutinesScreen> {
                     onSelected: (value) {
                       if (value == 'activate') _activateRoutine(routine);
                       if (value == 'edit') {
-                        Navigator.push(context, MaterialPageRoute(builder: (context) => RoutineEditorScreen(routine: routine))).then((_) => _loadRoutines());
+                        Navigator.push(
+                          context,
+                          MaterialPageRoute(
+                            builder: (context) =>
+                                RoutineEditorScreen(routine: routine),
+                          ),
+                        ).then((_) => _loadRoutines());
                       }
                       if (value == 'delete') _deleteRoutine(routine);
                     },
                     itemBuilder: (context) => [
-                      if (!routine.isActive) PopupMenuItem(value: 'activate', child: Text('Activar', style: theme.textTheme.bodyMedium)),
-                      PopupMenuItem(value: 'edit', child: Text('Editar', style: theme.textTheme.bodyMedium)),
-                      PopupMenuItem(value: 'delete', child: Text('Eliminar', style: TextStyle(color: Colors.red))),
+                      if (!routine.isActive)
+                        PopupMenuItem(
+                          value: 'activate',
+                          child: Text(
+                            'Activar',
+                            style: theme.textTheme.bodyMedium,
+                          ),
+                        ),
+                      PopupMenuItem(
+                        value: 'edit',
+                        child: Text(
+                          'Editar',
+                          style: theme.textTheme.bodyMedium,
+                        ),
+                      ),
+                      PopupMenuItem(
+                        value: 'delete',
+                        child: Text(
+                          'Eliminar',
+                          style: TextStyle(color: Colors.red),
+                        ),
+                      ),
                     ],
                   ),
                 ],
@@ -382,19 +502,41 @@ class _MyRoutinesScreenState extends State<MyRoutinesScreen> {
               Row(
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
-                  Text('${routine.days.length} Días / semana', style: theme.textTheme.bodyMedium?.copyWith(color: Colors.grey)),
+                  Text(
+                    '${routine.days.length} Días / semana',
+                    style: theme.textTheme.bodyMedium?.copyWith(
+                      color: Colors.grey,
+                    ),
+                  ),
                   if (routine.isActive)
                     Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
-                      decoration: BoxDecoration(color: Colors.green.withOpacity(0.15), borderRadius: BorderRadius.circular(20)),
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 10,
+                        vertical: 5,
+                      ),
+                      decoration: BoxDecoration(
+                        color: Colors.green.withOpacity(0.15),
+                        borderRadius: BorderRadius.circular(20),
+                      ),
                       child: const Row(
                         children: [
-                          Icon(Icons.check_circle, color: Colors.green, size: 14),
+                          Icon(
+                            Icons.check_circle,
+                            color: Colors.green,
+                            size: 14,
+                          ),
                           SizedBox(width: 5),
-                          Text('ACTIVA', style: TextStyle(color: Colors.green, fontWeight: FontWeight.bold, fontSize: 11)),
+                          Text(
+                            'ACTIVA',
+                            style: TextStyle(
+                              color: Colors.green,
+                              fontWeight: FontWeight.bold,
+                              fontSize: 11,
+                            ),
+                          ),
                         ],
                       ),
-                    )
+                    ),
                 ],
               ),
             ],
