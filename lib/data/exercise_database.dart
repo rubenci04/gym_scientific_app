@@ -2,7 +2,7 @@ import '../models/exercise_model.dart';
 
 /// Base de datos completa de ejercicios
 /// Organizada por grupo muscular con información educativa completa
-/// Actualizada con Metadatos del Informe Técnico Maestro (Mecánica, Tiempo, Simetría)
+/// Actualizada con Metadatos del Informe Técnico Maestro (Mecánica, Tiempo, Simetría, Entorno y Peso Corporal)
 class ExerciseDatabase {
   static List<Exercise> getAllExercises() {
     return [
@@ -40,12 +40,12 @@ class ExerciseDatabase {
       secondaryMuscles: ['Deltoides Anterior', 'Tríceps'],
       variations: ['bench_press_incline', 'bench_press_decline'],
       alternativeExercise: 'pushup',
-      // METADATOS INFORME TÉCNICO
       mechanic: 'compound',
       timeCost: 4.5, // 3 min descanso + ejecución
       symmetryScore: 2,
       primaryMechanism: 'tension',
       substitutionGroup: 'horizontal_press_heavy',
+      // NOTA PARA MI: Como es barra, por defecto el modelo le asignará suitableEnvironments: ['gym'] y isBodyweight: false.
     ),
     Exercise(
       id: 'bench_press_incline',
@@ -99,9 +99,11 @@ class ExerciseDatabase {
       isBilateral: false,
       mechanic: 'compound',
       timeCost: 3.5,
-      symmetryScore: 8, // Alto puntaje por ser mancuernas (corrige lados)
+      symmetryScore: 8,
       primaryMechanism: 'tension',
       substitutionGroup: 'horizontal_press_heavy',
+      // NOTA PARA MI: Las mancuernas se pueden usar en casa. Agrego el tag 'home'.
+      suitableEnvironments: ['gym', 'home'],
     ),
     Exercise(
       id: 'db_press_incline',
@@ -121,6 +123,7 @@ class ExerciseDatabase {
       symmetryScore: 8,
       primaryMechanism: 'tension',
       substitutionGroup: 'incline_press',
+      suitableEnvironments: ['gym', 'home'],
     ),
     Exercise(
       id: 'cable_crossover',
@@ -137,7 +140,7 @@ class ExerciseDatabase {
       mechanic: 'isolation',
       timeCost: 2.5,
       symmetryScore: 6,
-      primaryMechanism: 'metabolic', // Estrés metabólico (Bombeo)
+      primaryMechanism: 'metabolic',
       substitutionGroup: 'chest_fly',
     ),
     Exercise(
@@ -155,9 +158,11 @@ class ExerciseDatabase {
       mechanic: 'isolation',
       timeCost: 2.5,
       symmetryScore: 7,
-      primaryMechanism: 'damage', // Alto daño muscular por estiramiento
+      primaryMechanism: 'damage',
       substitutionGroup: 'chest_fly',
+      suitableEnvironments: ['gym', 'home'],
     ),
+    // NOTA PARA MI: Las flexiones son la base del entrenamiento en casa sin equipo. Activo el flag isBodyweight en todas.
     Exercise(
       id: 'pushup',
       name: 'Flexiones de Brazos',
@@ -175,6 +180,8 @@ class ExerciseDatabase {
       symmetryScore: 5,
       primaryMechanism: 'metabolic',
       substitutionGroup: 'pushup_variations',
+      suitableEnvironments: ['gym', 'home'],
+      isBodyweight: true,
     ),
     Exercise(
       id: 'pushup_incline',
@@ -193,6 +200,8 @@ class ExerciseDatabase {
       symmetryScore: 5,
       primaryMechanism: 'metabolic',
       substitutionGroup: 'pushup_variations',
+      suitableEnvironments: ['gym', 'home'],
+      isBodyweight: true,
     ),
     Exercise(
       id: 'pushup_decline',
@@ -211,6 +220,8 @@ class ExerciseDatabase {
       symmetryScore: 5,
       primaryMechanism: 'metabolic',
       substitutionGroup: 'pushup_variations',
+      suitableEnvironments: ['gym', 'home'],
+      isBodyweight: true,
     ),
     Exercise(
       id: 'pushup_diamond',
@@ -229,6 +240,8 @@ class ExerciseDatabase {
       symmetryScore: 5,
       primaryMechanism: 'metabolic',
       substitutionGroup: 'pushup_variations',
+      suitableEnvironments: ['gym', 'home'],
+      isBodyweight: true,
     ),
     Exercise(
       id: 'pec_deck',
@@ -262,7 +275,7 @@ class ExerciseDatabase {
       secondaryMuscles: ['Tríceps'],
       mechanic: 'compound',
       timeCost: 3.0,
-      symmetryScore: 6, // Algunas máquinas son iso-laterales
+      symmetryScore: 6, 
       primaryMechanism: 'tension',
       substitutionGroup: 'horizontal_press_machine',
     ),
@@ -281,8 +294,10 @@ class ExerciseDatabase {
       mechanic: 'compound',
       timeCost: 3.0,
       symmetryScore: 5,
-      primaryMechanism: 'damage', // Gran estiramiento bajo carga
+      primaryMechanism: 'damage',
       substitutionGroup: 'dips',
+      suitableEnvironments: ['gym', 'home'],
+      isBodyweight: true,
     ),
     Exercise(
       id: 'svend_press',
@@ -301,6 +316,7 @@ class ExerciseDatabase {
       symmetryScore: 5,
       primaryMechanism: 'metabolic',
       substitutionGroup: 'chest_finishers',
+      suitableEnvironments: ['gym', 'home'],
     ),
   ];
 
@@ -321,7 +337,7 @@ class ExerciseDatabase {
       targetMuscles: ['Espalda Baja', 'Trapecios', 'Dorsales'],
       secondaryMuscles: ['Glúteos', 'Isquios'],
       mechanic: 'compound',
-      timeCost: 6.0, // Muy demandante, descansos largos
+      timeCost: 6.0, 
       symmetryScore: 1,
       primaryMechanism: 'tension',
       substitutionGroup: 'deadlift_pattern',
@@ -359,8 +375,9 @@ class ExerciseDatabase {
       mechanic: 'isolation',
       timeCost: 3.0,
       symmetryScore: 5,
-      primaryMechanism: 'damage', // Gran estiramiento
+      primaryMechanism: 'damage',
       substitutionGroup: 'lat_isolation',
+      suitableEnvironments: ['gym', 'home'],
     ),
     Exercise(
       id: 'lat_pulldown',
@@ -398,6 +415,7 @@ class ExerciseDatabase {
       primaryMechanism: 'tension',
       substitutionGroup: 'horizontal_row_heavy',
     ),
+    // NOTA PARA MI: Dominadas. Las marco como home también, mucha gente tiene barra en la puerta.
     Exercise(
       id: 'pullup',
       name: 'Dominadas',
@@ -415,6 +433,8 @@ class ExerciseDatabase {
       symmetryScore: 5,
       primaryMechanism: 'tension',
       substitutionGroup: 'vertical_pull_bodyweight',
+      suitableEnvironments: ['gym', 'home'],
+      isBodyweight: true,
     ),
     Exercise(
       id: 'chinup',
@@ -433,6 +453,8 @@ class ExerciseDatabase {
       symmetryScore: 5,
       primaryMechanism: 'tension',
       substitutionGroup: 'vertical_pull_bodyweight',
+      suitableEnvironments: ['gym', 'home'],
+      isBodyweight: true,
     ),
     Exercise(
       id: 'row_db_one_arm',
@@ -448,10 +470,11 @@ class ExerciseDatabase {
       secondaryMuscles: ['Bíceps'],
       isBilateral: false,
       mechanic: 'compound',
-      timeCost: 4.5, // Unilateral lleva tiempo
-      symmetryScore: 10, // PERFECTO PARA ASIMETRÍA
+      timeCost: 4.5,
+      symmetryScore: 10,
       primaryMechanism: 'tension',
       substitutionGroup: 'horizontal_row_unilateral',
+      suitableEnvironments: ['gym', 'home'],
     ),
     Exercise(
       id: 'row_seated',
@@ -492,7 +515,7 @@ class ExerciseDatabase {
     Exercise(
       id: 'shrug_barbell',
       name: 'Encogimientos con Barra',
-      muscleGroup: 'Trapecio', // Actualizado para filtro específico
+      muscleGroup: 'Trapecio', 
       equipment: 'Barra',
       movementPattern: 'Elevación',
       difficulty: 'Principiante',
@@ -524,6 +547,7 @@ class ExerciseDatabase {
       symmetryScore: 7,
       primaryMechanism: 'metabolic',
       substitutionGroup: 'traps',
+      suitableEnvironments: ['gym', 'home'],
     ),
     Exercise(
       id: 'face_pull',
@@ -539,8 +563,8 @@ class ExerciseDatabase {
       secondaryMuscles: ['Trapecio'],
       mechanic: 'isolation',
       timeCost: 2.5,
-      symmetryScore: 8, // Corrige postura
-      primaryMechanism: 'metabolic', // Altas reps siempre
+      symmetryScore: 8,
+      primaryMechanism: 'metabolic',
       substitutionGroup: 'rear_delt',
     ),
     Exercise(
@@ -603,6 +627,7 @@ class ExerciseDatabase {
       symmetryScore: 8,
       primaryMechanism: 'tension',
       substitutionGroup: 'overhead_press_db',
+      suitableEnvironments: ['gym', 'home'],
     ),
     Exercise(
       id: 'lat_raise',
@@ -621,6 +646,7 @@ class ExerciseDatabase {
       symmetryScore: 7,
       primaryMechanism: 'metabolic',
       substitutionGroup: 'lateral_raise',
+      suitableEnvironments: ['gym', 'home'],
     ),
     Exercise(
       id: 'front_raise',
@@ -639,6 +665,7 @@ class ExerciseDatabase {
       symmetryScore: 7,
       primaryMechanism: 'metabolic',
       substitutionGroup: 'front_raise',
+      suitableEnvironments: ['gym', 'home'],
     ),
     Exercise(
       id: 'rear_delt_fly',
@@ -657,6 +684,7 @@ class ExerciseDatabase {
       symmetryScore: 7,
       primaryMechanism: 'metabolic',
       substitutionGroup: 'rear_delt',
+      suitableEnvironments: ['gym', 'home'],
     ),
     Exercise(
       id: 'arnold_press',
@@ -676,6 +704,7 @@ class ExerciseDatabase {
       symmetryScore: 8,
       primaryMechanism: 'tension',
       substitutionGroup: 'overhead_press_db',
+      suitableEnvironments: ['gym', 'home'],
     ),
     Exercise(
       id: 'upright_row',
@@ -709,9 +738,9 @@ class ExerciseDatabase {
       secondaryMuscles: [],
       isBilateral: false,
       mechanic: 'isolation',
-      timeCost: 3.5, // Unilateral
+      timeCost: 3.5,
       symmetryScore: 9,
-      primaryMechanism: 'damage', // Gran estiramiento
+      primaryMechanism: 'damage', 
       substitutionGroup: 'lateral_raise',
     ),
   ];
@@ -756,6 +785,7 @@ class ExerciseDatabase {
       symmetryScore: 10,
       primaryMechanism: 'metabolic',
       substitutionGroup: 'bicep_isolation',
+      suitableEnvironments: ['gym', 'home'],
     ),
     Exercise(
       id: 'curl_db',
@@ -775,6 +805,7 @@ class ExerciseDatabase {
       symmetryScore: 9,
       primaryMechanism: 'metabolic',
       substitutionGroup: 'bicep_curl_db',
+      suitableEnvironments: ['gym', 'home'],
     ),
     Exercise(
       id: 'curl_hammer',
@@ -794,6 +825,7 @@ class ExerciseDatabase {
       symmetryScore: 8,
       primaryMechanism: 'tension',
       substitutionGroup: 'hammer_curl',
+      suitableEnvironments: ['gym', 'home'],
     ),
     Exercise(
       id: 'preacher_curl',
@@ -810,7 +842,7 @@ class ExerciseDatabase {
       mechanic: 'isolation',
       timeCost: 3.0,
       symmetryScore: 5,
-      primaryMechanism: 'damage', // Gran estiramiento
+      primaryMechanism: 'damage',
       substitutionGroup: 'preacher_curl',
     ),
     Exercise(
@@ -831,6 +863,7 @@ class ExerciseDatabase {
       symmetryScore: 9,
       primaryMechanism: 'damage',
       substitutionGroup: 'incline_curl',
+      suitableEnvironments: ['gym', 'home'],
     ),
     Exercise(
       id: 'bayesian_curl',
@@ -964,6 +997,7 @@ class ExerciseDatabase {
       symmetryScore: 6,
       primaryMechanism: 'damage',
       substitutionGroup: 'overhead_extension_db',
+      suitableEnvironments: ['gym', 'home'],
     ),
     Exercise(
       id: 'dips_bench',
@@ -982,6 +1016,8 @@ class ExerciseDatabase {
       symmetryScore: 5,
       primaryMechanism: 'metabolic',
       substitutionGroup: 'dips_bodyweight',
+      suitableEnvironments: ['gym', 'home'],
+      isBodyweight: true,
     ),
     Exercise(
       id: 'pushdown_cable',
@@ -1019,6 +1055,7 @@ class ExerciseDatabase {
       symmetryScore: 9,
       primaryMechanism: 'metabolic',
       substitutionGroup: 'tricep_kickback',
+      suitableEnvironments: ['gym', 'home'],
     ),
   ];
 
@@ -1098,6 +1135,7 @@ class ExerciseDatabase {
       primaryMechanism: 'metabolic',
       substitutionGroup: 'adductors',
     ),
+    // NOTA PARA MI: Las planchas Copenhagen no requieren equipo (solo una silla/banco), por lo que las pongo en 'home' y con isBodyweight.
     Exercise(
       id: 'copenhagen_plank',
       name: 'Plancha Copenhagen',
@@ -1115,6 +1153,8 @@ class ExerciseDatabase {
       symmetryScore: 10,
       primaryMechanism: 'tension',
       substitutionGroup: 'adductors',
+      suitableEnvironments: ['gym', 'home'],
+      isBodyweight: true,
     ),
     Exercise(
       id: 'squat_barbell',
@@ -1129,7 +1169,7 @@ class ExerciseDatabase {
       targetMuscles: ['Cuádriceps', 'Glúteos'],
       secondaryMuscles: ['Core'],
       mechanic: 'compound',
-      timeCost: 5.5, // El ejercicio más demandante
+      timeCost: 5.5, 
       symmetryScore: 1,
       primaryMechanism: 'tension',
       substitutionGroup: 'squat_barbell',
@@ -1166,7 +1206,7 @@ class ExerciseDatabase {
       secondaryMuscles: [],
       isBilateral: false,
       mechanic: 'compound',
-      timeCost: 5.0, // Unilateral
+      timeCost: 5.0, 
       symmetryScore: 10,
       primaryMechanism: 'damage',
       substitutionGroup: 'lunges',
@@ -1185,7 +1225,7 @@ class ExerciseDatabase {
       secondaryMuscles: [],
       mechanic: 'isolation',
       timeCost: 3.0,
-      symmetryScore: 7, // Muchas máquinas permiten hacerlo a una pierna
+      symmetryScore: 7, 
       primaryMechanism: 'metabolic',
       substitutionGroup: 'quad_extension',
     ),
@@ -1206,6 +1246,7 @@ class ExerciseDatabase {
       symmetryScore: 3,
       primaryMechanism: 'tension',
       substitutionGroup: 'squat_light',
+      suitableEnvironments: ['gym', 'home'],
     ),
     Exercise(
       id: 'bulgarian_split_squat',
@@ -1221,10 +1262,11 @@ class ExerciseDatabase {
       secondaryMuscles: [],
       isBilateral: false,
       mechanic: 'compound',
-      timeCost: 5.5, // Lento y doloroso
-      symmetryScore: 10, // EL REY DE LA SIMETRÍA
+      timeCost: 5.5, 
+      symmetryScore: 10, 
       primaryMechanism: 'damage',
       substitutionGroup: 'unilateral_squat',
+      suitableEnvironments: ['gym', 'home'],
     ),
     Exercise(
       id: 'step_up',
@@ -1244,6 +1286,8 @@ class ExerciseDatabase {
       symmetryScore: 10,
       primaryMechanism: 'tension',
       substitutionGroup: 'step_ups',
+      suitableEnvironments: ['gym', 'home'],
+      isBodyweight: true,
     ),
     Exercise(
       id: 'sissy_squat',
@@ -1262,6 +1306,8 @@ class ExerciseDatabase {
       symmetryScore: 4,
       primaryMechanism: 'damage',
       substitutionGroup: 'quad_stretch',
+      suitableEnvironments: ['gym', 'home'],
+      isBodyweight: true,
     ),
   ];
 
@@ -1302,7 +1348,7 @@ class ExerciseDatabase {
       mechanic: 'compound',
       timeCost: 4.5,
       symmetryScore: 2,
-      primaryMechanism: 'tension', // Mejor ejercicio de tensión glútea
+      primaryMechanism: 'tension', 
       substitutionGroup: 'hip_thrust',
     ),
     Exercise(
@@ -1322,6 +1368,8 @@ class ExerciseDatabase {
       symmetryScore: 5,
       primaryMechanism: 'metabolic',
       substitutionGroup: 'glute_bridge',
+      suitableEnvironments: ['gym', 'home'],
+      isBodyweight: true,
     ),
     Exercise(
       id: 'donkey_kick',
@@ -1341,6 +1389,8 @@ class ExerciseDatabase {
       symmetryScore: 8,
       primaryMechanism: 'metabolic',
       substitutionGroup: 'glute_kickback',
+      suitableEnvironments: ['gym', 'home'],
+      isBodyweight: true,
     ),
     Exercise(
       id: 'cable_glute_kickback',
@@ -1378,7 +1428,9 @@ class ExerciseDatabase {
       symmetryScore: 3,
       primaryMechanism: 'tension',
       substitutionGroup: 'squat_sumo',
+      suitableEnvironments: ['gym', 'home'],
     ),
+    // NOTA PARA MI: Las bandas son típicas de casa también.
     Exercise(
       id: 'clamshell',
       name: 'Almeja (Clamshell)',
@@ -1397,6 +1449,7 @@ class ExerciseDatabase {
       symmetryScore: 9,
       primaryMechanism: 'metabolic',
       substitutionGroup: 'abduction_unilateral',
+      suitableEnvironments: ['gym', 'home'],
     ),
     Exercise(
       id: 'curtsy_lunge',
@@ -1416,6 +1469,8 @@ class ExerciseDatabase {
       symmetryScore: 8,
       primaryMechanism: 'damage',
       substitutionGroup: 'lunges',
+      suitableEnvironments: ['gym', 'home'],
+      isBodyweight: true,
     ),
   ];
 
@@ -1438,7 +1493,7 @@ class ExerciseDatabase {
       mechanic: 'compound',
       timeCost: 4.5,
       symmetryScore: 1,
-      primaryMechanism: 'damage', // Driver principal es el estiramiento
+      primaryMechanism: 'damage', 
       substitutionGroup: 'hinge_heavy',
     ),
     Exercise(
@@ -1455,7 +1510,7 @@ class ExerciseDatabase {
       secondaryMuscles: [],
       mechanic: 'isolation',
       timeCost: 3.0,
-      symmetryScore: 7, // Generalmente se puede hacer a una pierna
+      symmetryScore: 7, 
       primaryMechanism: 'metabolic',
       substitutionGroup: 'leg_curl',
     ),
@@ -1471,11 +1526,13 @@ class ExerciseDatabase {
       commonMistakes: ['Doblar la cadera'],
       targetMuscles: ['Isquiotibiales'],
       secondaryMuscles: [],
-      mechanic: 'compound', // Mueve mucha masa corporal
+      mechanic: 'compound', 
       timeCost: 4.0,
       symmetryScore: 5,
-      primaryMechanism: 'damage', // Excéntrica brutal
+      primaryMechanism: 'damage', 
       substitutionGroup: 'nordic_curl',
+      suitableEnvironments: ['gym', 'home'],
+      isBodyweight: true,
     ),
     Exercise(
       id: 'good_morning',
@@ -1552,8 +1609,10 @@ class ExerciseDatabase {
       mechanic: 'isolation',
       timeCost: 2.0,
       symmetryScore: 5,
-      primaryMechanism: 'tension', // Isométrico
+      primaryMechanism: 'tension', 
       substitutionGroup: 'abs_iso',
+      suitableEnvironments: ['gym', 'home'],
+      isBodyweight: true,
     ),
     Exercise(
       id: 'crunch',
@@ -1572,6 +1631,8 @@ class ExerciseDatabase {
       symmetryScore: 5,
       primaryMechanism: 'metabolic',
       substitutionGroup: 'abs_upper',
+      suitableEnvironments: ['gym', 'home'],
+      isBodyweight: true,
     ),
     Exercise(
       id: 'russian_twist',
@@ -1590,6 +1651,7 @@ class ExerciseDatabase {
       symmetryScore: 9,
       primaryMechanism: 'metabolic',
       substitutionGroup: 'abs_rotation',
+      suitableEnvironments: ['gym', 'home'],
     ),
     Exercise(
       id: 'hanging_leg_raise',
@@ -1608,6 +1670,8 @@ class ExerciseDatabase {
       symmetryScore: 5,
       primaryMechanism: 'tension',
       substitutionGroup: 'abs_lower',
+      suitableEnvironments: ['gym', 'home'],
+      isBodyweight: true,
     ),
     Exercise(
       id: 'ab_wheel',
@@ -1626,6 +1690,7 @@ class ExerciseDatabase {
       symmetryScore: 5,
       primaryMechanism: 'damage',
       substitutionGroup: 'abs_anti',
+      suitableEnvironments: ['gym', 'home'],
     ),
     Exercise(
       id: 'bicycle_crunch',
@@ -1644,6 +1709,8 @@ class ExerciseDatabase {
       symmetryScore: 8,
       primaryMechanism: 'metabolic',
       substitutionGroup: 'abs_rotation',
+      suitableEnvironments: ['gym', 'home'],
+      isBodyweight: true,
     ),
   ];
 
@@ -1668,6 +1735,7 @@ class ExerciseDatabase {
       symmetryScore: 8,
       primaryMechanism: 'metabolic',
       substitutionGroup: 'forearm_flex',
+      suitableEnvironments: ['gym', 'home'],
     ),
     Exercise(
       id: 'wrist_extension_db',
@@ -1686,6 +1754,7 @@ class ExerciseDatabase {
       symmetryScore: 8,
       primaryMechanism: 'metabolic',
       substitutionGroup: 'forearm_ext',
+      suitableEnvironments: ['gym', 'home'],
     ),
     Exercise(
       id: 'farmers_walk',
@@ -1704,6 +1773,7 @@ class ExerciseDatabase {
       symmetryScore: 8,
       primaryMechanism: 'tension',
       substitutionGroup: 'carry',
+      // NOTA PARA MI: Ocupa mucho espacio y pesas altísimas, mejor solo 'gym'
     ),
   ];
 
@@ -1839,6 +1909,7 @@ class ExerciseDatabase {
       symmetryScore: 5,
       primaryMechanism: 'tension',
       substitutionGroup: 'neck',
+      suitableEnvironments: ['gym', 'home'],
     ),
     Exercise(
       id: 'band_pull_apart',
@@ -1857,6 +1928,7 @@ class ExerciseDatabase {
       symmetryScore: 5,
       primaryMechanism: 'metabolic',
       substitutionGroup: 'rear_delt',
+      suitableEnvironments: ['gym', 'home'],
     ),
     Exercise(
       id: 'external_rotation_cable',

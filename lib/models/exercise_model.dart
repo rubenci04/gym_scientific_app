@@ -52,33 +52,43 @@ class Exercise extends HiveObject {
   @HiveField(15, defaultValue: null)
   String? localImagePath; // Ruta local de la imagen personalizada
 
-  // --- NUEVOS CAMPOS DEL INFORME TÉCNICO MAESTRO ---
+  // --- CAMPOS DEL MOTOR FISIOLÓGICO Y FILTRADO AVANZADO ---
 
-  // // NOTA PARA MI: Define si es 'compound' (multiarticular) o 'isolation' (monoarticular).
-  // // Vital para saber qué ejercicios NO quitar cuando hay poco tiempo.
+  // NOTA PARA MI: Defino si es 'compound' (multiarticular) o 'isolation' (monoarticular).
+  // Vital para el algoritmo: si el usuario solo tiene 1 hora, no debo eliminar estos ejercicios de la rutina.
   @HiveField(16, defaultValue: 'compound')
   String mechanic; 
 
-  // // NOTA PARA MI: Tiempo estimado en MINUTOS (Ejecución + Descanso).
-  // // Ej: Sentadilla = 5.0 min, Curl = 2.5 min. Usado por el 'Cronómetro Algorítmico'.
+  // NOTA PARA MI: Tiempo estimado en MINUTOS (Ejecución + Descanso).
+  // Ej: Sentadilla = 5.0 min, Curl = 2.5 min. Con esto voy a sumar el total para respetar si el usuario eligió entrenar 1 hora, 1.5 hs o 2 hs.
   @HiveField(17, defaultValue: 3.0)
   double timeCost;
 
-  // // NOTA PARA MI: Puntuación del 0 al 10 sobre qué tan bueno es para corregir asimetrías.
-  // // Sentadilla Barra = 0. Sentadilla Búlgara = 10.
+  // NOTA PARA MI: Puntuación del 0 al 10 sobre qué tan bueno es para corregir asimetrías.
+  // Si el usuario marca que quiere corregir desequilibrios, el algoritmo buscará ejercicios con puntaje alto (ej: Sentadilla Búlgara = 10).
   @HiveField(18, defaultValue: 0)
   int symmetryScore;
 
-  // // NOTA PARA MI: Driver principal de hipertrofia (Sección 2.1 del informe).
-  // // Values: 'tension' (Cargas altas), 'metabolic' (Bombeo), 'damage' (Estiramiento bajo carga).
+  // NOTA PARA MI: Driver principal de hipertrofia.
+  // Valores: 'tension' (Cargas altas/Fuerza), 'metabolic' (Bombeo/Salud), 'damage' (Estiramiento).
+  // Esto me permite cruzar el objetivo del usuario (Fuerza vs Hipertrofia vs Salud) y darle el ejercicio exacto.
   @HiveField(19, defaultValue: 'tension')
   String primaryMechanism;
 
-  // // NOTA PARA MI: Grupo de sustitución biomecánica estricta.
-  // // Ej: 'horizontal_press' agrupa (Press Banca, Press Mancuernas, Máquina Pecho).
-  // // Sirve para reemplazar ejercicios sin romper la lógica de la rutina.
+  // NOTA PARA MI: Grupo de sustitución biomecánica estricta.
+  // Ej: 'horizontal_press'. Si una máquina está ocupada o el usuario entrena en casa, busco otro del mismo grupo.
   @HiveField(20, defaultValue: null)
   String? substitutionGroup;
+
+  // NOTA PARA MI: Agrego esta lista para saber inmediatamente dónde se puede hacer.
+  // Ej: ['gym'] para Prensa a 45 grados, o ['gym', 'home'] para Flexiones. Facilita enormemente el filtro de entorno.
+  @HiveField(21, defaultValue: ['gym'])
+  List<String> suitableEnvironments;
+
+  // NOTA PARA MI: Flag directa para ejercicios con peso corporal.
+  // Si el usuario entrena en casa y no tiene equipo, el algoritmo prioriza los que tengan este valor en true.
+  @HiveField(22, defaultValue: false)
+  bool isBodyweight;
 
   Exercise({
     required this.id,
@@ -97,11 +107,12 @@ class Exercise extends HiveObject {
     this.isBilateral = true,
     this.alternativeExercise = '',
     this.localImagePath,
-    // Nuevos parámetros con defaults seguros
     this.mechanic = 'compound',
     this.timeCost = 3.0,
     this.symmetryScore = 0,
     this.primaryMechanism = 'tension',
     this.substitutionGroup,
+    this.suitableEnvironments = const ['gym'],
+    this.isBodyweight = false,
   });
 }

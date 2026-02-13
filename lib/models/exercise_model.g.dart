@@ -41,13 +41,16 @@ class ExerciseAdapter extends TypeAdapter<Exercise> {
       symmetryScore: fields[18] == null ? 0 : fields[18] as int,
       primaryMechanism: fields[19] == null ? 'tension' : fields[19] as String,
       substitutionGroup: fields[20] as String?,
+      suitableEnvironments:
+          fields[21] == null ? ['gym'] : (fields[21] as List).cast<String>(),
+      isBodyweight: fields[22] == null ? false : fields[22] as bool,
     );
   }
 
   @override
   void write(BinaryWriter writer, Exercise obj) {
     writer
-      ..writeByte(21)
+      ..writeByte(23)
       ..writeByte(0)
       ..write(obj.id)
       ..writeByte(1)
@@ -89,7 +92,11 @@ class ExerciseAdapter extends TypeAdapter<Exercise> {
       ..writeByte(19)
       ..write(obj.primaryMechanism)
       ..writeByte(20)
-      ..write(obj.substitutionGroup);
+      ..write(obj.substitutionGroup)
+      ..writeByte(21)
+      ..write(obj.suitableEnvironments)
+      ..writeByte(22)
+      ..write(obj.isBodyweight);
   }
 
   @override

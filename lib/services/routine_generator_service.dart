@@ -5,104 +5,85 @@ import '../models/exercise_model.dart';
 import '../models/routine_model.dart';
 
 class RoutineGeneratorService {
+  
   static Future<void> generateAndSaveRoutine(
     UserProfile user, {
-    String focusArea = 'Cuerpo Completo',
+    String focusArea = 'Full Body',
   }) async {
-    // 1. Generamos la rutina (por defecto trae isActive=true)
     final newRoutine = await generateRoutine(user, focusArea: focusArea);
-
-    // 2. Gestionamos la activación
     var routineBox = Hive.box<WeeklyRoutine>('routineBox');
 
-    // Si ya HAY rutinas, la nueva nace desactivada.
-    // Si NO hay rutinas, la nueva nace activada.
-    if (routineBox.isNotEmpty) {
-      newRoutine.isActive = false;
-    } else {
-      newRoutine.isActive = true;
+    for (var routine in routineBox.values) {
+      routine.isActive = false;
+      await routine.save();
     }
 
-    // 3. Guardamos
+    newRoutine.isActive = true;
     await routineBox.put(newRoutine.id, newRoutine);
   }
 
-  // Método auxiliar cambiado a private para uso interno
   static Future<WeeklyRoutine> generateRoutine(
     UserProfile user, {
-    String focusArea = 'Cuerpo Completo',
+    String focusArea = 'Full Body',
   }) async {
-    // ... (Mismo código de generación de ejercicios)
-    // Este método ahora solo devuelve la estructura, la parte de guardado arriba la maneja
-    // Espera, el refactor anterior llamaba a generateRoutine que retornaba WeeklyRoutine y luego guardaba.
-    // Vamos a mantener esa estructura pero mover el isActive a false.
-
     final exerciseBox = Hive.box<Exercise>('exerciseBox');
     final allExercises = exerciseBox.values.toList();
 
-    // 1. Filtrar Ejercicios Disponibles (Gym vs Casa, Nivel, etc.)
-    // CORREGIDO: Pasamos el objeto usuario completo, la función usará user.experience
     final availableExercises = _filterExercisesContextually(allExercises, user);
 
-    // 2. Obtener la "Receta" (Estructura de Slots abstractos)
-    List<RoutineDayTemplate> structure = _getScientificSplitStructure(
+    List<RoutineDayTemplate> structure = _getComplexSplitStructure(
       user.daysPerWeek,
       user.goal,
+      focusArea,
     );
-
-    // 3. Determinar Capacidad de Trabajo (Slots Máximos)
-    // 30 min = 3 ejercicios claves. 60 min = 6 ejercicios.
-    int maxExercisesPerDay = (user.timeAvailable / 8)
-        .floor(); // Est. 8 min por ejercicio (incl. descanso)
-    if (maxExercisesPerDay < 3) maxExercisesPerDay = 3; // Mínimo viable
-    if (maxExercisesPerDay > 10) maxExercisesPerDay = 10; // Tope humano
 
     List<RoutineDay> generatedDays = [];
 
-    // 4. Construir cada día
     for (var i = 0; i < structure.length; i++) {
       var template = structure[i];
       List<RoutineExercise> dayExercises = [];
-      Set<String> usedIdsInDay = {}; // Evitar repetir ejercicios el mismo día
+      Set<String> usedIdsInDay = {};
 
-      // A. Inyección de Foco (Prioridad Muscular)
-      List<String> currentSlots = List.from(template.patternSlots);
-      if (_shouldInjectFocus(focusArea, template.targetMuscles)) {
-        currentSlots.insert(0, "FOCUS_$focusArea");
-      }
+      double accumulatedTime = 0.0;
+      // Damos un poco más de margen al tiempo para permitir el 6to ejercicio
+      double maxTime = (user.timeAvailable > 0 ? user.timeAvailable : 60).toDouble() + 10.0; 
 
-      // B. Llenado de Slots
-      for (var slotPattern in currentSlots) {
-        // Stop si nos pasamos del tiempo
-        if (dayExercises.length >= maxExercisesPerDay) break;
+      for (var slotPattern in template.patternSlots) {
+        
+        // CORRECCIÓN: Subimos el límite mínimo a 6 ejercicios antes de cortar por tiempo estricto,
+        // a menos que el usuario tenga muy poco tiempo (ej. < 40 min).
+        if (accumulatedTime >= maxTime && dayExercises.length >= 6) {
+          break; 
+        }
 
         Exercise? selected;
 
-        // B1. Estrategia para Asimetrías
         if (user.hasAsymmetry && _isUnilateralCandidate(slotPattern)) {
           selected = _findBestExercise(
             availableExercises,
             pattern: slotPattern,
             mustBeUnilateral: true,
             usedIds: usedIdsInDay,
-            userLevel:
-                user.experience, // CORREGIDO: Usamos la propiedad 'experience'
+            userLevel: user.experience,
+            userGoal: user.goal,
+            focusContext: focusArea,
           );
         }
 
-        // B2. Estrategia Estándar
         selected ??= _findBestExercise(
           availableExercises,
           pattern: slotPattern,
           usedIds: usedIdsInDay,
-          userLevel:
-              user.experience, // CORREGIDO: Usamos la propiedad 'experience'
-          preferredMuscle: focusArea != 'Cuerpo Completo' ? focusArea : null,
+          userLevel: user.experience,
+          userGoal: user.goal,
+          preferredMuscle: (slotPattern == 'FOCUS_SLOT' || slotPattern.startsWith('ISOLATION')) 
+              ? (focusArea != 'Full Body' ? focusArea : null) 
+              : null,
+          focusContext: focusArea,
         );
 
         if (selected != null) {
-          // C. Calcular Dosis (Series/Reps/Descanso)
-          var dose = _calculateOptimalDose(user, selected, dayExercises.length);
+          var dose = _calculateOptimalDose(user, selected, dayExercises.length, focusArea);
 
           dayExercises.add(
             RoutineExercise(
@@ -116,6 +97,7 @@ class RoutineGeneratorService {
           );
 
           usedIdsInDay.add(selected.id);
+          accumulatedTime += selected.timeCost;
         }
       }
 
@@ -140,7 +122,7 @@ class RoutineGeneratorService {
   }
 
   // ===========================================================================
-  // 🧠 MOTOR DE SELECCIÓN INTELIGENTE (EL CEREBRO)
+  // MOTOR DE FILTRADO Y SELECCIÓN
   // ===========================================================================
 
   static List<Exercise> _filterExercisesContextually(
@@ -148,33 +130,21 @@ class RoutineGeneratorService {
     UserProfile user,
   ) {
     return all.where((ex) {
-      // 1. Filtro de Lugar/Equipo
       bool locationOk = true;
       if (user.location == TrainingLocation.home) {
-        final eq = ex.equipment.toLowerCase();
-        if (eq.contains('máquina') ||
-            eq.contains('polea') ||
-            eq.contains('prensa') ||
-            eq.contains('smith')) {
-          locationOk = false;
-        }
+        locationOk = ex.suitableEnvironments.contains('home');
       }
 
-      // 2. Filtro de Nivel (Seguridad)
       bool levelOk = true;
-      // CORREGIDO: Usamos Experience.beginner en lugar de ExperienceLevel.beginner
       if (user.experience == Experience.beginner) {
-        if ([
-          'snatch',
-          'clean',
-          'squat_overhead',
-          'deadlift_sumo',
-          'good_morning',
-        ].contains(ex.id)) {
+        if (ex.difficulty == 'Avanzado' || 
+            ex.id.contains('snatch') || 
+            ex.id.contains('clean') ||
+            ex.id == 'squat_front' || 
+            ex.id == 'deadlift_sumo') {
           levelOk = false;
         }
       }
-
       return locationOk && levelOk;
     }).toList();
   }
@@ -183,25 +153,29 @@ class RoutineGeneratorService {
     List<Exercise> candidates, {
     required String pattern,
     required Set<String> usedIds,
-    required Experience userLevel, // CORREGIDO: Tipo 'Experience'
+    required Experience userLevel,
+    required TrainingGoal userGoal,
+    required String focusContext,
     bool mustBeUnilateral = false,
     String? preferredMuscle,
   }) {
     List<Exercise> matches = [];
 
-    // Paso 1: Decodificar el patrón
-    if (pattern.startsWith("FOCUS_")) {
-      String muscle = pattern.replaceAll("FOCUS_", "");
-      matches = candidates
-          .where(
-            (e) => e.muscleGroup == muscle || e.targetMuscles.contains(muscle),
-          )
-          .toList();
+    if (pattern == 'FOCUS_SLOT' && preferredMuscle != null) {
+       matches = candidates.where(
+         (e) => e.muscleGroup == preferredMuscle || e.targetMuscles.contains(preferredMuscle)
+       ).toList();
     } else {
-      matches = candidates.where((e) => _matchesPattern(e, pattern)).toList();
+       matches = candidates.where((e) => _matchesPattern(e, pattern)).toList();
     }
 
-    // Paso 2: Filtrar Unilaterales
+    if (preferredMuscle != null && pattern.contains('ISOLATION')) {
+       var muscleMatches = matches.where(
+         (e) => e.muscleGroup == preferredMuscle || e.targetMuscles.contains(preferredMuscle)
+       ).toList();
+       if (muscleMatches.isNotEmpty) matches = muscleMatches;
+    }
+
     if (mustBeUnilateral) {
       var unilaterals = matches
           .where((e) => !e.isBilateral || e.symmetryScore >= 7)
@@ -209,12 +183,10 @@ class RoutineGeneratorService {
       if (unilaterals.isNotEmpty) matches = unilaterals;
     }
 
-    // Paso 3: Filtrar usados
     matches = matches.where((e) => !usedIds.contains(e.id)).toList();
 
     if (matches.isEmpty) return null;
 
-    // Paso 4: Sorting Inteligente
     matches.sort((a, b) {
       int scoreA = 0;
       int scoreB = 0;
@@ -222,9 +194,28 @@ class RoutineGeneratorService {
       if (a.mechanic == 'compound') scoreA += 5;
       if (b.mechanic == 'compound') scoreB += 5;
 
-      if (preferredMuscle != null) {
-        if (a.muscleGroup == preferredMuscle) scoreA += 3;
-        if (b.muscleGroup == preferredMuscle) scoreB += 3;
+      if (userGoal == TrainingGoal.strength) {
+        if (a.primaryMechanism == 'tension') scoreA += 4;
+        if (b.primaryMechanism == 'tension') scoreB += 4;
+      } else if (userGoal == TrainingGoal.weightLoss || userGoal == TrainingGoal.health) {
+        if (a.primaryMechanism == 'metabolic') scoreA += 4;
+        if (b.primaryMechanism == 'metabolic') scoreB += 4;
+      } else {
+        if (a.primaryMechanism == 'damage' || a.primaryMechanism == 'tension') scoreA += 3;
+        if (b.primaryMechanism == 'damage' || b.primaryMechanism == 'tension') scoreB += 3;
+      }
+
+      if (focusContext != 'Full Body') {
+         if (a.muscleGroup == focusContext) scoreA += 10;
+         if (b.muscleGroup == focusContext) scoreB += 10;
+         
+         if (a.targetMuscles.contains(focusContext)) scoreA += 2;
+         if (b.targetMuscles.contains(focusContext)) scoreB += 2;
+      }
+
+      if (mustBeUnilateral) {
+        scoreA += a.symmetryScore;
+        scoreB += b.symmetryScore;
       }
 
       return scoreB.compareTo(scoreA);
@@ -235,414 +226,289 @@ class RoutineGeneratorService {
 
   static bool _matchesPattern(Exercise ex, String pattern) {
     switch (pattern) {
-      case 'PUSH_HORIZONTAL':
-        return ex.muscleGroup == 'Pecho' &&
-            ex.movementPattern.contains('Empuje');
-      case 'PUSH_VERTICAL':
-        return ex.muscleGroup == 'Hombros' &&
-            ex.movementPattern.contains('Empuje');
-      case 'PULL_VERTICAL':
-        return ex.muscleGroup == 'Espalda' &&
-            (ex.movementPattern.contains('Tracción') ||
-                ex.id.contains('pullup') ||
-                ex.id.contains('lat_pull'));
-      case 'PULL_HORIZONTAL':
-        return ex.muscleGroup == 'Espalda' &&
-            (ex.id.contains('row') || ex.movementPattern.contains('Remo'));
-      case 'LEG_KNEE':
-        return (ex.muscleGroup == 'Pierna' || ex.muscleGroup == 'Cuádriceps') &&
-            (ex.id.contains('squat') ||
-                ex.id.contains('leg_press') ||
-                ex.id.contains('lunge'));
-      case 'LEG_HIP':
-        return (ex.muscleGroup == 'Pierna' ||
-                ex.muscleGroup == 'Isquios' ||
-                ex.muscleGroup == 'Glúteo') &&
-            (ex.id.contains('deadlift') ||
-                ex.id.contains('rdl') ||
-                ex.id.contains('hip_thrust') ||
-                ex.id.contains('curl'));
-      case 'ISOLATION_ARM':
-        return ex.muscleGroup == 'Bíceps' || ex.muscleGroup == 'Tríceps';
-      case 'ISOLATION_SHOULDER':
-        return ex.muscleGroup == 'Hombros' && ex.mechanic == 'isolation';
-      case 'CORE':
-        return ex.muscleGroup == 'Abdominales' ||
-            ex.id.contains('plank') ||
-            ex.id.contains('crunch');
-      case 'CARRY':
-        return ex.id.contains('carry') || ex.id.contains('walk');
-      default:
-        return ex.id == pattern;
+      case 'PUSH_HORIZONTAL': return ex.movementPattern.contains('Empuje Horizontal') || ex.muscleGroup == 'Pecho';
+      case 'PUSH_VERTICAL': return ex.movementPattern.contains('Empuje Vertical') || ex.muscleGroup == 'Hombros';
+      case 'PULL_VERTICAL': return ex.movementPattern.contains('Tracción Vertical') || ex.id.contains('pullup') || ex.id.contains('lat');
+      case 'PULL_HORIZONTAL': return ex.movementPattern.contains('Tracción Horizontal') || ex.id.contains('row');
+      
+      case 'SQUAT_PATTERN': return ex.movementPattern.contains('Sentadilla') || ex.id.contains('squat') || ex.id.contains('prensa') || ex.id.contains('leg_press');
+      case 'HINGE_PATTERN': return ex.movementPattern.contains('Bisagra') || ex.id.contains('deadlift') || ex.id.contains('rdl') || ex.id.contains('good_morning');
+      case 'LUNGE_PATTERN': return ex.movementPattern.contains('Zancada') || ex.id.contains('lunge') || ex.id.contains('bulgarian') || ex.id.contains('step_up');
+      
+      case 'ISOLATION_GLUTE': return ex.muscleGroup == 'Glúteos' && ex.mechanic == 'isolation';
+      case 'ISOLATION_HAMSTRING': return ex.muscleGroup == 'Isquiotibiales' && ex.mechanic == 'isolation';
+      case 'ISOLATION_QUAD': return ex.muscleGroup == 'Cuádriceps' && ex.mechanic == 'isolation';
+      case 'ISOLATION_CHEST': return ex.muscleGroup == 'Pecho' && ex.mechanic == 'isolation';
+      case 'ISOLATION_BACK': return ex.muscleGroup == 'Espalda' && ex.mechanic == 'isolation';
+      case 'ISOLATION_SHOULDER': return ex.muscleGroup == 'Hombros' && ex.mechanic == 'isolation';
+      case 'ISOLATION_BICEP': return ex.muscleGroup == 'Bíceps';
+      case 'ISOLATION_TRICEP': return ex.muscleGroup == 'Tríceps';
+      case 'ISOLATION_ARM': return ex.muscleGroup == 'Bíceps' || ex.muscleGroup == 'Tríceps' || ex.muscleGroup == 'Antebrazo';
+      
+      case 'CORE': return ex.muscleGroup == 'Core' || ex.muscleGroup == 'Abdominales';
+      case 'CARRY': return ex.movementPattern.contains('Transporte');
+      case 'CARDIO': return ex.muscleGroup == 'Cardio';
+      case 'FOCUS_SLOT': return true;
+      
+      default: return false;
     }
   }
-
-  // ===========================================================================
-  // 💉 GESTIÓN DE DOSIS (VOLUMEN Y ESFUERZO)
-  // ===========================================================================
 
   static Map<String, dynamic> _calculateOptimalDose(
     UserProfile user,
     Exercise ex,
     int orderIndex,
+    String focusArea,
   ) {
-    bool isPrimary = orderIndex < 2;
-    bool isCompound = ex.mechanic == 'compound';
-
-    // Valores Base
     int sets = 3;
     String reps = "10-12";
     String rpe = "7-8";
     int rest = 90;
     String note = "";
 
-    // 1. Ajuste por Objetivo (AGREGADO: weightLoss)
+    bool isCompound = ex.mechanic == 'compound';
+    bool isFocusMuscle = ex.muscleGroup == focusArea;
+
     if (user.goal == TrainingGoal.strength) {
-      if (isCompound && isPrimary) {
-        sets = 5;
-        reps = "3-5";
-        rest = 180;
-        rpe = "8.5";
-        note = "💥 Foco: Máxima velocidad intencional.";
+      if (isCompound && orderIndex < 2) {
+        sets = 5; reps = "3-5"; rest = 180; rpe = "9"; 
+        note = "Prioridad: Mover la carga con máxima velocidad concéntrica.";
       } else {
-        sets = 3;
-        reps = "6-8";
-        rest = 120;
-        note = "Controla la bajada.";
-      }
-    } else if (user.goal == TrainingGoal.hypertrophy) {
-      if (isPrimary) {
-        sets = 4;
-        reps = "6-10";
-        rest = 120;
-        note = "🧠 Conexión Mente-Músculo. Excéntrica 3 seg.";
-      } else {
-        sets = 3;
-        reps = "10-15";
-        rest = 60;
-        note = "Bombeo constante.";
+        sets = 3; reps = "6-8"; rest = 120; rpe = "8";
+        note = "Accesorio pesado. Controla la bajada.";
       }
     } else if (user.goal == TrainingGoal.weightLoss) {
-      // NUEVO: Lógica metabólica
-      sets = 3;
-      reps = "12-15";
-      rest = 45;
-      note = "🔥 Mantén el ritmo cardíaco alto.";
+      sets = 3; reps = "12-15"; rest = 45; rpe = "7";
+      note = "Mantén el ritmo cardíaco elevado. Descansos cortos.";
     } else {
-      // Salud / Resistencia
-      sets = 2;
-      reps = "15-20";
-      rest = 30;
-      note = "Resistencia muscular.";
-    }
-
-    // 2. Ajuste por Tiempo Disponible
-    if (user.timeAvailable <= 30) {
-      if (!isPrimary) {
-        sets = 2;
-        rest = 30;
-        note += " [Rápido]";
+      if (orderIndex == 0) { 
+        sets = 4; reps = "6-10"; rest = 120; rpe = "8";
+        note = "Ejercicio base. Progresión de cargas.";
+      } else { 
+        sets = 3; reps = "10-15"; rest = 60; rpe = "8-9";
+        note = "Enfoque en sentir el músculo (Mind-Muscle connection).";
       }
-    } else if (user.timeAvailable >= 90) {
-      sets += 1;
     }
 
-    // 3. Ajuste por Asimetría
+    if (isFocusMuscle && user.timeAvailable > 45) {
+      sets += 1; 
+      note += " [Volumen Extra por Foco]";
+    }
+
+    if (user.timeAvailable <= 30) {
+      sets = (sets > 2) ? sets - 1 : 2;
+      rest = 45;
+      note = "Super-set si es posible.";
+    }
+
     if (user.hasAsymmetry && (!ex.isBilateral || ex.symmetryScore >= 7)) {
-      note = "⚠️ ASIMETRÍA: Lado débil primero.";
+      note = "⚠️ ASIMETRÍA: Empieza con el lado débil.";
     }
 
     return {'sets': sets, 'reps': reps, 'rpe': rpe, 'rest': rest, 'note': note};
   }
 
   // ===========================================================================
-  // 📋 ESTRUCTURAS CIENTÍFICAS
+  // ARQUITECTURA DE SPLITS (CORREGIDA: AHORA CON 6 SLOTS MÍNIMO)
   // ===========================================================================
 
-  static List<RoutineDayTemplate> _getScientificSplitStructure(
+  static List<RoutineDayTemplate> _getComplexSplitStructure(
     int days,
     TrainingGoal goal,
+    String focusArea,
   ) {
-    // Si el objetivo es Pérdida de Grasa, priorizamos Full Body Metabólico siempre que sea posible
-    if (goal == TrainingGoal.weightLoss) {
-      return [
-        RoutineDayTemplate(
-          name: "Full Body Metabólico A",
-          targetMuscles: ['Todo'],
-          patternSlots: [
-            'LEG_KNEE',
-            'PUSH_HORIZONTAL',
-            'PULL_VERTICAL',
-            'CORE',
-            'CARRY',
-          ],
-        ),
-        RoutineDayTemplate(
-          name: "Full Body Metabólico B",
-          targetMuscles: ['Todo'],
-          patternSlots: [
-            'LEG_HIP',
-            'PUSH_VERTICAL',
-            'PULL_HORIZONTAL',
-            'CORE',
-            'ISOLATION_ARM',
-          ],
-        ),
-        if (days > 2)
-          RoutineDayTemplate(
-            name: "HIIT + Accesorios",
-            targetMuscles: ['Todo'],
-            patternSlots: [
-              'LEG_KNEE',
-              'PUSH_HORIZONTAL',
-              'PULL_VERTICAL',
-              'CORE',
-              'CORE',
-            ],
-          ),
-      ];
+    if (goal == TrainingGoal.weightLoss && days < 5) {
+      return _getFatLossSplit(days);
     }
 
-    // Estructuras Estándar (Fuerza/Hipertrofia)
-    if (days == 3) {
-      return [
-        RoutineDayTemplate(
-          name: "Día 1: Empuje + Cuádriceps",
-          targetMuscles: ['Pecho', 'Hombros', 'Cuádriceps'],
-          patternSlots: [
-            'LEG_KNEE',
-            'PUSH_HORIZONTAL',
-            'PUSH_VERTICAL',
-            'ISOLATION_SHOULDER',
-            'ISOLATION_ARM',
-            'CORE',
-          ],
-        ),
-        RoutineDayTemplate(
-          name: "Día 2: Tracción + Femoral",
-          targetMuscles: ['Espalda', 'Isquios', 'Bíceps'],
-          patternSlots: [
-            'LEG_HIP',
-            'PULL_VERTICAL',
-            'PULL_HORIZONTAL',
-            'ISOLATION_ARM',
-            'CORE',
-            'CARRY',
-          ],
-        ),
-        RoutineDayTemplate(
-          name: "Día 3: Full Body Explosivo",
-          targetMuscles: ['Todo'],
-          patternSlots: [
-            'LEG_KNEE',
-            'PUSH_HORIZONTAL',
-            'PULL_HORIZONTAL',
-            'LEG_HIP',
-            'ISOLATION_SHOULDER',
-            'ISOLATION_ARM',
-          ],
-        ),
-      ];
+    switch (focusArea) {
+      case 'Glúteos': return _getGluteFocusedSplit(days);
+      case 'Piernas': return _getLegFocusedSplit(days);
+      case 'Pecho':   return _getChestFocusedSplit(days);
+      case 'Espalda': return _getBackFocusedSplit(days);
+      case 'Hombros': return _getShoulderFocusedSplit(days);
+      case 'Brazos':  return _getArmFocusedSplit(days);
+      case 'Core':    return _getCoreFocusedSplit(days);
+      case 'Full Body':
+      default:        return _getFullBodyOrBalancedSplit(days);
     }
+  }
 
-    if (days == 4) {
-      return [
-        RoutineDayTemplate(
-          name: "Lunes: Torso Fuerza",
-          targetMuscles: ['Pecho', 'Espalda'],
-          patternSlots: [
-            'PUSH_HORIZONTAL',
-            'PULL_VERTICAL',
-            'PUSH_VERTICAL',
-            'PULL_HORIZONTAL',
-            'ISOLATION_ARM',
-          ],
-        ),
-        RoutineDayTemplate(
-          name: "Martes: Pierna Fuerza",
-          targetMuscles: ['Pierna'],
-          patternSlots: ['LEG_KNEE', 'LEG_HIP', 'LEG_KNEE', 'CORE', 'CARRY'],
-        ),
-        RoutineDayTemplate(
-          name: "Jueves: Torso Hipertrofia",
-          targetMuscles: ['Pecho', 'Espalda'],
-          patternSlots: [
-            'PUSH_HORIZONTAL',
-            'PULL_HORIZONTAL',
-            'ISOLATION_SHOULDER',
-            'ISOLATION_ARM',
-            'ISOLATION_ARM',
-          ],
-        ),
-        RoutineDayTemplate(
-          name: "Viernes: Pierna Hipertrofia",
-          targetMuscles: ['Pierna'],
-          patternSlots: ['LEG_HIP', 'LEG_KNEE', 'LEG_HIP', 'CORE', 'CORE'],
-        ),
-      ];
-    }
-
-    if (days == 5) {
-      return [
-        RoutineDayTemplate(
-          name: "Empuje (Push)",
-          targetMuscles: ['Pecho', 'Tríceps'],
-          patternSlots: [
-            'PUSH_HORIZONTAL',
-            'PUSH_VERTICAL',
-            'PUSH_HORIZONTAL',
-            'ISOLATION_SHOULDER',
-            'ISOLATION_ARM',
-          ],
-        ),
-        RoutineDayTemplate(
-          name: "Tracción (Pull)",
-          targetMuscles: ['Espalda', 'Bíceps'],
-          patternSlots: [
-            'PULL_VERTICAL',
-            'PULL_HORIZONTAL',
-            'PULL_VERTICAL',
-            'ISOLATION_ARM',
-            'CORE',
-          ],
-        ),
-        RoutineDayTemplate(
-          name: "Pierna (Legs)",
-          targetMuscles: ['Pierna'],
-          patternSlots: ['LEG_KNEE', 'LEG_HIP', 'LEG_KNEE', 'LEG_HIP', 'CORE'],
-        ),
-        RoutineDayTemplate(
-          name: "Torso Pump",
-          targetMuscles: ['Pecho', 'Espalda'],
-          patternSlots: [
-            'PUSH_HORIZONTAL',
-            'PULL_VERTICAL',
-            'ISOLATION_SHOULDER',
-            'ISOLATION_ARM',
-            'ISOLATION_ARM',
-          ],
-        ),
-        RoutineDayTemplate(
-          name: "Pierna + Brazos",
-          targetMuscles: ['Pierna', 'Brazos'],
-          patternSlots: [
-            'LEG_HIP',
-            'LEG_KNEE',
-            'ISOLATION_ARM',
-            'ISOLATION_ARM',
-            'CORE',
-          ],
-        ),
-      ];
-    }
-
-    if (days >= 6) {
-      return [
-        RoutineDayTemplate(
-          name: "Lunes: Empuje (Push)",
-          targetMuscles: ['Pecho', 'Tríceps', 'Hombros'],
-          patternSlots: [
-            'PUSH_HORIZONTAL',
-            'PUSH_VERTICAL',
-            'ISOLATION_SHOULDER',
-            'ISOLATION_ARM',
-            'CORE',
-          ],
-        ),
-        RoutineDayTemplate(
-          name: "Martes: Tracción (Pull)",
-          targetMuscles: ['Espalda', 'Bíceps'],
-          patternSlots: [
-            'PULL_VERTICAL',
-            'PULL_HORIZONTAL',
-            'ISOLATION_ARM',
-            'CARRY',
-            'CORE',
-          ],
-        ),
-        RoutineDayTemplate(
-          name: "Miércoles: Pierna (Legs)",
-          targetMuscles: ['Pierna'],
-          patternSlots: ['LEG_KNEE', 'LEG_HIP', 'LEG_KNEE', 'LEG_HIP', 'CORE'],
-        ),
-        RoutineDayTemplate(
-          name: "Jueves: Empuje (Fuerza/Var)",
-          targetMuscles: ['Pecho', 'Tríceps', 'Hombros'],
-          patternSlots: [
-            'PUSH_VERTICAL',
-            'PUSH_HORIZONTAL',
-            'ISOLATION_SHOULDER',
-            'ISOLATION_ARM',
-            'CORE',
-          ],
-        ),
-        RoutineDayTemplate(
-          name: "Viernes: Tracción (Fuerza/Var)",
-          targetMuscles: ['Espalda', 'Bíceps'],
-          patternSlots: [
-            'PULL_HORIZONTAL',
-            'PULL_VERTICAL',
-            'ISOLATION_ARM',
-            'ISOLATION_ARM',
-            'CARRY',
-          ],
-        ),
-        RoutineDayTemplate(
-          name: "Sábado: Pierna (Hipertrofia)",
-          targetMuscles: ['Pierna'],
-          patternSlots: [
-            'LEG_HIP',
-            'LEG_KNEE',
-            'LEG_HIP',
-            'ISOLATION_SHOULDER',
-            'CORE',
-          ],
-        ),
-      ];
-    }
-
-    // Default
+  // --- A. RUTINAS DE PÉRDIDA DE GRASA ---
+  static List<RoutineDayTemplate> _getFatLossSplit(int days) {
+    // CORREGIDO: 6 Slots
+    var fullBodyMetabolic = ['SQUAT_PATTERN', 'PUSH_HORIZONTAL', 'HINGE_PATTERN', 'PULL_VERTICAL', 'CORE', 'CARRY', 'CARDIO'];
+    var fullBodyStrength = ['SQUAT_PATTERN', 'PUSH_VERTICAL', 'LUNGE_PATTERN', 'PULL_HORIZONTAL', 'CORE', 'ISOLATION_ARM', 'CARDIO'];
+    
+    if (days <= 2) return [
+      RoutineDayTemplate(name: "Full Body Metabólico A", targetMuscles: ['Todo'], patternSlots: fullBodyMetabolic),
+      RoutineDayTemplate(name: "Full Body Metabólico B", targetMuscles: ['Todo'], patternSlots: fullBodyStrength)
+    ];
+    
     return [
-      RoutineDayTemplate(
-        name: "Full Body A",
-        targetMuscles: ['Todo'],
-        patternSlots: [
-          'LEG_KNEE',
-          'PUSH_HORIZONTAL',
-          'PULL_VERTICAL',
-          'LEG_HIP',
-          'CORE',
-        ],
-      ),
-      if (days >= 2)
-        RoutineDayTemplate(
-          name: "Full Body B",
-          targetMuscles: ['Todo'],
-          patternSlots: [
-            'LEG_HIP',
-            'PUSH_VERTICAL',
-            'PULL_HORIZONTAL',
-            'LEG_KNEE',
-            'ISOLATION_ARM',
-          ],
-        ),
+      RoutineDayTemplate(name: "Circuito A", targetMuscles: ['Todo'], patternSlots: fullBodyMetabolic),
+      RoutineDayTemplate(name: "Cardio + Core", targetMuscles: ['Core', 'Cardio'], patternSlots: ['CORE', 'CORE', 'CORE', 'ISOLATION_GLUTE', 'CARDIO', 'CARRY']),
+      RoutineDayTemplate(name: "Circuito B", targetMuscles: ['Todo'], patternSlots: fullBodyStrength),
+      if (days >= 4) RoutineDayTemplate(name: "HIIT Final", targetMuscles: ['Todo'], patternSlots: ['SQUAT_PATTERN', 'PUSH_HORIZONTAL', 'LUNGE_PATTERN', 'PULL_HORIZONTAL', 'CORE', 'CARDIO']),
     ];
   }
 
-  // --- Utils ---
+  // --- B. RUTINAS DE GLÚTEOS (CORREGIDO: AHORA SOPORTA 5 DÍAS) ---
+  static List<RoutineDayTemplate> _getGluteFocusedSplit(int days) {
+    // CORREGIDO: Slots expandidos a 6
+    if (days <= 2) {
+      return [
+        RoutineDayTemplate(name: "Glúteo Pesado + Torso", targetMuscles: ['Glúteos', 'General'], patternSlots: ['HINGE_PATTERN', 'SQUAT_PATTERN', 'PUSH_HORIZONTAL', 'PULL_VERTICAL', 'ISOLATION_GLUTE', 'CORE']),
+        RoutineDayTemplate(name: "Glúteo Bombeo + Torso", targetMuscles: ['Glúteos', 'General'], patternSlots: ['LUNGE_PATTERN', 'ISOLATION_GLUTE', 'PUSH_VERTICAL', 'PULL_HORIZONTAL', 'ISOLATION_GLUTE', 'CORE']),
+      ];
+    }
+    if (days == 3) {
+      return [
+        RoutineDayTemplate(name: "Día 1: Glúteo & Isquios", targetMuscles: ['Glúteos'], patternSlots: ['HINGE_PATTERN', 'LUNGE_PATTERN', 'ISOLATION_GLUTE', 'ISOLATION_HAMSTRING', 'ISOLATION_GLUTE', 'CORE']),
+        RoutineDayTemplate(name: "Día 2: Torso Completo", targetMuscles: ['Superior'], patternSlots: ['PUSH_HORIZONTAL', 'PULL_VERTICAL', 'PUSH_VERTICAL', 'PULL_HORIZONTAL', 'ISOLATION_ARM', 'ISOLATION_SHOULDER']),
+        RoutineDayTemplate(name: "Día 3: Glúteo & Cuádriceps", targetMuscles: ['Glúteos'], patternSlots: ['SQUAT_PATTERN', 'HINGE_PATTERN', 'ISOLATION_GLUTE', 'ISOLATION_QUAD', 'ISOLATION_GLUTE', 'CORE']),
+      ];
+    }
+    // CORREGIDO: Soporte para 4 Y 5 días
+    return [
+      RoutineDayTemplate(name: "Lunes: Glúteo Máxima Carga", targetMuscles: ['Glúteos'], patternSlots: ['HINGE_PATTERN', 'SQUAT_PATTERN', 'ISOLATION_GLUTE', 'ISOLATION_GLUTE', 'ISOLATION_HAMSTRING', 'CORE']),
+      RoutineDayTemplate(name: "Martes: Torso", targetMuscles: ['Superior'], patternSlots: ['PUSH_HORIZONTAL', 'PULL_VERTICAL', 'PUSH_VERTICAL', 'PULL_HORIZONTAL', 'ISOLATION_SHOULDER', 'ISOLATION_ARM']),
+      RoutineDayTemplate(name: "Jueves: Glúteo Aislamiento", targetMuscles: ['Glúteos'], patternSlots: ['LUNGE_PATTERN', 'ISOLATION_GLUTE', 'ISOLATION_GLUTE', 'ISOLATION_HAMSTRING', 'ISOLATION_QUAD', 'CORE']),
+      RoutineDayTemplate(name: "Viernes: Full Body (Repaso)", targetMuscles: ['Todo'], patternSlots: ['SQUAT_PATTERN', 'PUSH_HORIZONTAL', 'PULL_HORIZONTAL', 'ISOLATION_GLUTE', 'ISOLATION_ARM', 'CORE']),
+      if (days >= 5) RoutineDayTemplate(name: "Sábado: Puntos Débiles", targetMuscles: ['Detalles'], patternSlots: ['ISOLATION_GLUTE', 'ISOLATION_SHOULDER', 'ISOLATION_ARM', 'ISOLATION_GLUTE', 'CORE', 'CARDIO']),
+    ];
+  }
+
+  // --- C. RUTINAS DE PIERNA GENERAL (QUAD FOCUS) ---
+  static List<RoutineDayTemplate> _getLegFocusedSplit(int days) {
+    if (days <= 3) {
+      return [
+        RoutineDayTemplate(name: "Pierna A", targetMuscles: ['Piernas'], patternSlots: ['SQUAT_PATTERN', 'LUNGE_PATTERN', 'ISOLATION_QUAD', 'ISOLATION_HAMSTRING', 'ISOLATION_GLUTE', 'CORE']),
+        RoutineDayTemplate(name: "Torso", targetMuscles: ['Superior'], patternSlots: ['PUSH_HORIZONTAL', 'PULL_VERTICAL', 'PUSH_VERTICAL', 'PULL_HORIZONTAL', 'ISOLATION_ARM', 'ISOLATION_SHOULDER']),
+        RoutineDayTemplate(name: "Pierna B", targetMuscles: ['Piernas'], patternSlots: ['HINGE_PATTERN', 'SQUAT_PATTERN', 'ISOLATION_GLUTE', 'ISOLATION_QUAD', 'ISOLATION_HAMSTRING', 'CORE']),
+      ];
+    }
+    return [
+      RoutineDayTemplate(name: "Cuádriceps", targetMuscles: ['Cuádriceps'], patternSlots: ['SQUAT_PATTERN', 'LUNGE_PATTERN', 'ISOLATION_QUAD', 'ISOLATION_QUAD', 'ISOLATION_GLUTE', 'CORE']),
+      RoutineDayTemplate(name: "Torso Empuje", targetMuscles: ['Pecho', 'Hombros'], patternSlots: ['PUSH_HORIZONTAL', 'PUSH_VERTICAL', 'ISOLATION_TRICEP', 'ISOLATION_TRICEP', 'ISOLATION_SHOULDER', 'ISOLATION_SHOULDER']),
+      RoutineDayTemplate(name: "Femoral/Glúteo", targetMuscles: ['Isquios', 'Glúteos'], patternSlots: ['HINGE_PATTERN', 'LUNGE_PATTERN', 'ISOLATION_HAMSTRING', 'ISOLATION_GLUTE', 'ISOLATION_HAMSTRING', 'CORE']),
+      RoutineDayTemplate(name: "Torso Tracción", targetMuscles: ['Espalda', 'Bíceps'], patternSlots: ['PULL_VERTICAL', 'PULL_HORIZONTAL', 'ISOLATION_BACK', 'ISOLATION_BICEP', 'ISOLATION_BICEP', 'CORE']),
+      if (days >= 5) RoutineDayTemplate(name: "Pierna Híbrida", targetMuscles: ['Piernas'], patternSlots: ['SQUAT_PATTERN', 'HINGE_PATTERN', 'ISOLATION_QUAD', 'ISOLATION_HAMSTRING', 'ISOLATION_GLUTE', 'CORE']),
+    ];
+  }
+
+  // --- D. RUTINAS DE PECHO ---
+  static List<RoutineDayTemplate> _getChestFocusedSplit(int days) {
+    if (days <= 3) {
+      return [
+        RoutineDayTemplate(name: "Pecho & Tríceps", targetMuscles: ['Pecho'], patternSlots: ['PUSH_HORIZONTAL', 'PUSH_HORIZONTAL', 'ISOLATION_CHEST', 'ISOLATION_TRICEP', 'ISOLATION_TRICEP', 'ISOLATION_SHOULDER']),
+        RoutineDayTemplate(name: "Espalda & Pierna", targetMuscles: ['General'], patternSlots: ['SQUAT_PATTERN', 'PULL_VERTICAL', 'HINGE_PATTERN', 'PULL_HORIZONTAL', 'ISOLATION_BICEP', 'CORE']),
+        RoutineDayTemplate(name: "Pecho & Hombro", targetMuscles: ['Pecho'], patternSlots: ['PUSH_HORIZONTAL', 'PUSH_VERTICAL', 'ISOLATION_CHEST', 'ISOLATION_SHOULDER', 'ISOLATION_TRICEP', 'ISOLATION_CHEST']),
+      ];
+    }
+    return [
+      RoutineDayTemplate(name: "Pecho Pesado", targetMuscles: ['Pecho'], patternSlots: ['PUSH_HORIZONTAL', 'PUSH_HORIZONTAL', 'ISOLATION_CHEST', 'ISOLATION_TRICEP', 'ISOLATION_TRICEP', 'ISOLATION_SHOULDER']),
+      RoutineDayTemplate(name: "Espalda & Bíceps", targetMuscles: ['Espalda'], patternSlots: ['PULL_VERTICAL', 'PULL_HORIZONTAL', 'PULL_VERTICAL', 'ISOLATION_BICEP', 'ISOLATION_BACK', 'ISOLATION_BICEP']),
+      RoutineDayTemplate(name: "Piernas", targetMuscles: ['Piernas'], patternSlots: ['SQUAT_PATTERN', 'HINGE_PATTERN', 'LUNGE_PATTERN', 'ISOLATION_QUAD', 'ISOLATION_HAMSTRING', 'CORE']),
+      RoutineDayTemplate(name: "Pecho Hipertrofia", targetMuscles: ['Pecho'], patternSlots: ['PUSH_HORIZONTAL', 'ISOLATION_CHEST', 'ISOLATION_CHEST', 'PUSH_VERTICAL', 'ISOLATION_TRICEP', 'ISOLATION_SHOULDER']),
+      if (days >= 5) RoutineDayTemplate(name: "Upper Body Pump", targetMuscles: ['Superior'], patternSlots: ['PUSH_HORIZONTAL', 'PULL_VERTICAL', 'PUSH_VERTICAL', 'PULL_HORIZONTAL', 'ISOLATION_ARM', 'ISOLATION_ARM']),
+    ];
+  }
+
+  // --- E. RUTINAS DE ESPALDA ---
+  static List<RoutineDayTemplate> _getBackFocusedSplit(int days) {
+    return [
+      RoutineDayTemplate(name: "Espalda Densidad", targetMuscles: ['Espalda'], patternSlots: ['PULL_HORIZONTAL', 'PULL_HORIZONTAL', 'HINGE_PATTERN', 'ISOLATION_BICEP', 'ISOLATION_BACK', 'ISOLATION_BICEP']),
+      RoutineDayTemplate(name: "Pecho & Tríceps", targetMuscles: ['Pecho'], patternSlots: ['PUSH_HORIZONTAL', 'PUSH_VERTICAL', 'ISOLATION_TRICEP', 'ISOLATION_SHOULDER', 'ISOLATION_TRICEP', 'ISOLATION_CHEST']),
+      RoutineDayTemplate(name: "Piernas", targetMuscles: ['Piernas'], patternSlots: ['SQUAT_PATTERN', 'LUNGE_PATTERN', 'ISOLATION_QUAD', 'ISOLATION_HAMSTRING', 'CORE', 'CORE']),
+      if (days >= 4) RoutineDayTemplate(name: "Espalda Amplitud", targetMuscles: ['Espalda'], patternSlots: ['PULL_VERTICAL', 'PULL_VERTICAL', 'ISOLATION_BACK', 'ISOLATION_BICEP', 'PULL_HORIZONTAL', 'ISOLATION_BICEP']),
+      if (days >= 5) RoutineDayTemplate(name: "Full Body", targetMuscles: ['Todo'], patternSlots: ['SQUAT_PATTERN', 'PUSH_HORIZONTAL', 'PULL_HORIZONTAL', 'HINGE_PATTERN', 'ISOLATION_ARM', 'CORE']),
+    ];
+  }
+
+  // --- F. RUTINAS DE HOMBROS ---
+  static List<RoutineDayTemplate> _getShoulderFocusedSplit(int days) {
+    return [
+      RoutineDayTemplate(name: "Hombros Fuerza", targetMuscles: ['Hombros'], patternSlots: ['PUSH_VERTICAL', 'ISOLATION_SHOULDER', 'ISOLATION_SHOULDER', 'ISOLATION_TRICEP', 'PUSH_HORIZONTAL', 'ISOLATION_TRICEP']),
+      RoutineDayTemplate(name: "Piernas & Espalda", targetMuscles: ['General'], patternSlots: ['SQUAT_PATTERN', 'PULL_VERTICAL', 'HINGE_PATTERN', 'PULL_HORIZONTAL', 'ISOLATION_BICEP', 'CORE']),
+      RoutineDayTemplate(name: "Pecho & Hombro Post", targetMuscles: ['Pecho', 'Hombros'], patternSlots: ['PUSH_HORIZONTAL', 'ISOLATION_CHEST', 'ISOLATION_SHOULDER', 'ISOLATION_SHOULDER', 'ISOLATION_TRICEP', 'CORE']),
+      if (days >= 4) RoutineDayTemplate(name: "Hombros & Brazos", targetMuscles: ['Hombros'], patternSlots: ['PUSH_VERTICAL', 'ISOLATION_SHOULDER', 'ISOLATION_ARM', 'ISOLATION_ARM', 'ISOLATION_SHOULDER', 'ISOLATION_ARM']),
+      if (days >= 5) RoutineDayTemplate(name: "Piernas Repaso", targetMuscles: ['Piernas'], patternSlots: ['LUNGE_PATTERN', 'SQUAT_PATTERN', 'ISOLATION_QUAD', 'ISOLATION_HAMSTRING', 'CORE', 'CORE']),
+    ];
+  }
+
+  // --- G. RUTINAS DE BRAZOS ---
+  static List<RoutineDayTemplate> _getArmFocusedSplit(int days) {
+    return [
+      RoutineDayTemplate(name: "Bíceps & Tríceps A", targetMuscles: ['Brazos'], patternSlots: ['ISOLATION_BICEP', 'ISOLATION_TRICEP', 'ISOLATION_BICEP', 'ISOLATION_TRICEP', 'ISOLATION_BICEP', 'ISOLATION_TRICEP']),
+      RoutineDayTemplate(name: "Piernas", targetMuscles: ['Piernas'], patternSlots: ['SQUAT_PATTERN', 'HINGE_PATTERN', 'LUNGE_PATTERN', 'ISOLATION_QUAD', 'ISOLATION_HAMSTRING', 'CORE']),
+      RoutineDayTemplate(name: "Torso (Mant.)", targetMuscles: ['Superior'], patternSlots: ['PUSH_HORIZONTAL', 'PULL_VERTICAL', 'PUSH_VERTICAL', 'PULL_HORIZONTAL', 'ISOLATION_SHOULDER', 'CORE']),
+      if (days >= 4) RoutineDayTemplate(name: "Brazos B", targetMuscles: ['Brazos'], patternSlots: ['ISOLATION_TRICEP', 'ISOLATION_BICEP', 'ISOLATION_ARM', 'ISOLATION_ARM', 'ISOLATION_BICEP', 'ISOLATION_TRICEP']),
+      if (days >= 5) RoutineDayTemplate(name: "Full Body", targetMuscles: ['Todo'], patternSlots: ['SQUAT_PATTERN', 'PUSH_HORIZONTAL', 'PULL_VERTICAL', 'ISOLATION_ARM', 'ISOLATION_ARM', 'CORE']),
+    ];
+  }
+
+  // --- H. RUTINAS DE CORE ---
+  static List<RoutineDayTemplate> _getCoreFocusedSplit(int days) {
+    return _getFullBodyOrBalancedSplit(days).map((day) {
+      List<String> newSlots = List.from(day.patternSlots);
+      if (!newSlots.contains('CORE')) newSlots.add('CORE');
+      if (newSlots.where((s) => s == 'CORE').length < 2) newSlots.add('CORE');
+      // Aseguramos que llegue a 6 slots si quedó corto
+      while (newSlots.length < 6) {
+        newSlots.add('CORE');
+      }
+      return RoutineDayTemplate(name: day.name, targetMuscles: day.targetMuscles, patternSlots: newSlots);
+    }).toList();
+  }
+
+  // --- I. RUTINA DEFAULT (FULL BODY / BALANCED) ---
+  static List<RoutineDayTemplate> _getFullBodyOrBalancedSplit(int days) {
+    if (days <= 2) {
+      return [
+        RoutineDayTemplate(name: "Full Body A", targetMuscles: ['Todo'], patternSlots: ['SQUAT_PATTERN', 'PUSH_HORIZONTAL', 'PULL_VERTICAL', 'HINGE_PATTERN', 'ISOLATION_SHOULDER', 'CORE']),
+        RoutineDayTemplate(name: "Full Body B", targetMuscles: ['Todo'], patternSlots: ['HINGE_PATTERN', 'PUSH_VERTICAL', 'PULL_HORIZONTAL', 'LUNGE_PATTERN', 'ISOLATION_ARM', 'CORE']),
+      ];
+    }
+    if (days == 3) {
+      return [
+        RoutineDayTemplate(name: "Full Body A", targetMuscles: ['Todo'], patternSlots: ['SQUAT_PATTERN', 'PUSH_HORIZONTAL', 'PULL_HORIZONTAL', 'ISOLATION_SHOULDER', 'ISOLATION_TRICEP', 'CORE']),
+        RoutineDayTemplate(name: "Full Body B", targetMuscles: ['Todo'], patternSlots: ['HINGE_PATTERN', 'PUSH_VERTICAL', 'PULL_VERTICAL', 'ISOLATION_ARM', 'ISOLATION_BICEP', 'CORE']),
+        RoutineDayTemplate(name: "Full Body C", targetMuscles: ['Todo'], patternSlots: ['LUNGE_PATTERN', 'PUSH_HORIZONTAL', 'PULL_HORIZONTAL', 'ISOLATION_GLUTE', 'ISOLATION_SHOULDER', 'CORE']),
+      ];
+    }
+    if (days == 4) {
+      return [
+        RoutineDayTemplate(name: "Torso A", targetMuscles: ['Superior'], patternSlots: ['PUSH_HORIZONTAL', 'PULL_VERTICAL', 'PUSH_VERTICAL', 'ISOLATION_TRICEP', 'ISOLATION_BICEP', 'ISOLATION_SHOULDER']),
+        RoutineDayTemplate(name: "Pierna A", targetMuscles: ['Inferior'], patternSlots: ['SQUAT_PATTERN', 'HINGE_PATTERN', 'ISOLATION_QUAD', 'ISOLATION_HAMSTRING', 'ISOLATION_GLUTE', 'CORE']),
+        RoutineDayTemplate(name: "Torso B", targetMuscles: ['Superior'], patternSlots: ['PUSH_VERTICAL', 'PULL_HORIZONTAL', 'ISOLATION_SHOULDER', 'ISOLATION_BICEP', 'ISOLATION_TRICEP', 'CORE']),
+        RoutineDayTemplate(name: "Pierna B", targetMuscles: ['Inferior'], patternSlots: ['HINGE_PATTERN', 'LUNGE_PATTERN', 'ISOLATION_GLUTE', 'ISOLATION_HAMSTRING', 'ISOLATION_QUAD', 'CORE']),
+      ];
+    }
+    // 5 días: PPL + Upper + Lower
+    return [
+      RoutineDayTemplate(name: "Empuje", targetMuscles: ['Empuje'], patternSlots: ['PUSH_HORIZONTAL', 'PUSH_VERTICAL', 'ISOLATION_TRICEP', 'ISOLATION_SHOULDER', 'ISOLATION_TRICEP', 'ISOLATION_CHEST']),
+      RoutineDayTemplate(name: "Tracción", targetMuscles: ['Tracción'], patternSlots: ['PULL_VERTICAL', 'PULL_HORIZONTAL', 'ISOLATION_BICEP', 'ISOLATION_BACK', 'ISOLATION_BICEP', 'CORE']),
+      RoutineDayTemplate(name: "Pierna", targetMuscles: ['Pierna'], patternSlots: ['SQUAT_PATTERN', 'HINGE_PATTERN', 'ISOLATION_QUAD', 'ISOLATION_HAMSTRING', 'ISOLATION_GLUTE', 'CORE']),
+      RoutineDayTemplate(name: "Torso", targetMuscles: ['Superior'], patternSlots: ['PUSH_HORIZONTAL', 'PULL_VERTICAL', 'PUSH_VERTICAL', 'ISOLATION_ARM', 'ISOLATION_SHOULDER', 'CORE']),
+      RoutineDayTemplate(name: "Pierna & Core", targetMuscles: ['Inferior'], patternSlots: ['LUNGE_PATTERN', 'HINGE_PATTERN', 'ISOLATION_GLUTE', 'ISOLATION_HAMSTRING', 'CORE', 'CORE']),
+      if (days >= 6) RoutineDayTemplate(name: "Puntos Débiles", targetMuscles: ['Detalles'], patternSlots: ['ISOLATION_ARM', 'ISOLATION_SHOULDER', 'ISOLATION_GLUTE', 'CORE', 'CARDIO', 'CARRY']),
+    ];
+  }
+
+  // ===========================================================================
+  // UTILIDADES
+  // ===========================================================================
+
   static bool _shouldInjectFocus(String focus, List<String> dayMuscles) {
-    if (focus == 'Cuerpo Completo') return false;
-    if (dayMuscles.contains('Todo')) return true;
-    return dayMuscles.any((m) => m == focus);
+    return false;
   }
 
   static bool _isUnilateralCandidate(String pattern) {
     return [
-      'PUSH_HORIZONTAL',
-      'PUSH_VERTICAL',
-      'PULL_HORIZONTAL',
-      'LEG_KNEE',
-      'LEG_HIP',
+      'PUSH_HORIZONTAL', 'PUSH_VERTICAL', 'PULL_HORIZONTAL', 
+      'SQUAT_PATTERN', 'LUNGE_PATTERN', 'HINGE_PATTERN',
+      'ISOLATION_GLUTE', 'ISOLATION_ARM', 'ISOLATION_SHOULDER'
     ].contains(pattern);
   }
 
@@ -652,10 +518,10 @@ class RoutineGeneratorService {
   }
 
   static String _generateSmartDescription(UserProfile user, String focus) {
-    return "Rutina generada algorítmicamente para ${user.name}.\n"
-        "Objetivo: ${user.goalName}.\n"
+    return "Plan especializado en $focus para ${user.name}.\n"
+        "Objetivo: ${user.goal.name.toUpperCase()}.\n"
         "Tiempo/Sesión: ~${user.timeAvailable} min.\n"
-        "${user.hasAsymmetry ? '⚠️ ASIMETRÍA DETECTADA: Protocolo correctivo activado.' : ''}";
+        "${user.hasAsymmetry ? '⚠️ Protocolo de Asimetría Activado.' : ''}";
   }
 }
 

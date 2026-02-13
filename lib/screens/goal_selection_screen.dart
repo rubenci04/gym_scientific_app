@@ -16,7 +16,14 @@ class _GoalSelectionScreenState extends State<GoalSelectionScreen> {
   TrainingLocation _selectedLocation = TrainingLocation.gym;
   double _daysPerWeek = 3;
   bool _isLoading = false;
-  String _focusArea = 'Full Body'; // NEW: Focus area selection
+  String _focusArea = 'Full Body'; 
+  
+  // Fijamos el tiempo interno en 90 minutos para que el algoritmo
+  // siempre tenga presupuesto para generar la rutina completa (6 ejercicios).
+  // Esta variable es interna y NO tiene control visual en la pantalla.
+  final int _timeAvailable = 90; 
+  
+  bool _hasAsymmetry = false;
 
   void _generateRoutine() async {
     setState(() => _isLoading = true);
@@ -28,6 +35,9 @@ class _GoalSelectionScreenState extends State<GoalSelectionScreen> {
       currentUser.goal = _selectedGoal;
       currentUser.location = _selectedLocation;
       currentUser.daysPerWeek = _daysPerWeek.round();
+      currentUser.timeAvailable = _timeAvailable;
+      currentUser.hasAsymmetry = _hasAsymmetry;
+      
       await currentUser.save();
 
       await RoutineGeneratorService.generateAndSaveRoutine(
@@ -50,17 +60,17 @@ class _GoalSelectionScreenState extends State<GoalSelectionScreen> {
       appBar: AppBar(title: const Text('Diseña tu Plan')),
       body: _isLoading
           ? const Center(child: CircularProgressIndicator())
-          : Padding(
+          : SingleChildScrollView(
               padding: const EdgeInsets.all(20.0),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
+                  // 1. SELECCIÓN DE LUGAR
                   const Text(
                     '¿Dónde vas a entrenar?',
                     style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
                   ),
                   const SizedBox(height: 10),
-                  // Usamos Chips simples para máxima compatibilidad
                   Wrap(
                     spacing: 10,
                     children: [
@@ -83,6 +93,7 @@ class _GoalSelectionScreenState extends State<GoalSelectionScreen> {
 
                   const SizedBox(height: 30),
 
+                  // 2. SELECCIÓN DE OBJETIVO
                   const Text(
                     '¿Cuál es tu objetivo?',
                     style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
@@ -112,6 +123,7 @@ class _GoalSelectionScreenState extends State<GoalSelectionScreen> {
 
                   const SizedBox(height: 30),
 
+                  // 3. SELECCIÓN DE DÍAS (Slider de 1 a 7)
                   Text(
                     'Días por semana: ${_daysPerWeek.round()}',
                     style: const TextStyle(
@@ -127,6 +139,8 @@ class _GoalSelectionScreenState extends State<GoalSelectionScreen> {
                     label: _daysPerWeek.round().toString(),
                     onChanged: (val) => setState(() => _daysPerWeek = val),
                   ),
+                  
+                  // Caja de recomendación de días
                   const SizedBox(height: 10),
                   Container(
                     padding: const EdgeInsets.all(10),
@@ -165,6 +179,25 @@ class _GoalSelectionScreenState extends State<GoalSelectionScreen> {
 
                   const SizedBox(height: 30),
 
+                  // 4. ASIMETRÍAS (Switch)
+                  // Confirmamos que NO hay código de slider de tiempo aquí.
+                  SwitchListTile(
+                    title: const Text(
+                      '¿Tienes asimetrías musculares?',
+                      style: TextStyle(fontWeight: FontWeight.bold),
+                    ),
+                    subtitle: const Text(
+                      'Priorizaremos ejercicios unilaterales.',
+                    ),
+                    value: _hasAsymmetry,
+                    activeColor: Colors.blueAccent,
+                    contentPadding: EdgeInsets.zero,
+                    onChanged: (val) => setState(() => _hasAsymmetry = val),
+                  ),
+
+                  const SizedBox(height: 30),
+
+                  // 5. SELECCIÓN DE FOCO MUSCULAR
                   const Text(
                     '¿Qué deseas entrenar?',
                     style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
@@ -196,8 +229,9 @@ class _GoalSelectionScreenState extends State<GoalSelectionScreen> {
                         }).toList(),
                   ),
 
-                  const Spacer(),
+                  const SizedBox(height: 40),
 
+                  // BOTÓN DE ACCIÓN
                   SizedBox(
                     width: double.infinity,
                     child: ElevatedButton(
@@ -212,6 +246,7 @@ class _GoalSelectionScreenState extends State<GoalSelectionScreen> {
                       ),
                     ),
                   ),
+                  const SizedBox(height: 20),
                 ],
               ),
             ),
@@ -220,12 +255,12 @@ class _GoalSelectionScreenState extends State<GoalSelectionScreen> {
 
   String _getRecommendationText(int days) {
     if (days <= 2)
-      return "Ideal para mantenimiento o iniciación. Resultados lentos pero constantes.";
+      return "Ideal para mantenimiento. Resultados lentos pero constantes.";
     if (days <= 4)
-      return "Balance óptimo entre resultados y recuperación. Recomendado para la mayoría.";
+      return "Balance óptimo entre resultados y recuperación.";
     if (days <= 6)
-      return "Para usuarios intermedios/avanzados. Requiere buena gestión de la fatiga.";
-    return "Solo para atletas avanzados. Alto riesgo de sobreentrenamiento si no se gestiona bien.";
+      return "Para usuarios intermedios/avanzados.";
+    return "Solo para atletas avanzados.";
   }
 
   Color _getRecommendationColor(int days) {
